@@ -10,7 +10,7 @@ from src.services.logger.injection import get_logger
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow
 from src.interfaces.workflow.element_builder import BuildContext
-from src.core.workflow.graph.builder.element_builder_factory import get_builder_factory
+from src.infrastructure.graph.builders.element_builder_factory import get_builder_factory
 from src.interfaces.workflow.core import IWorkflow
 
 if TYPE_CHECKING:
@@ -86,10 +86,10 @@ class WorkflowBuilder(IWorkflowBuilder):
             node_builder = self.builder_factory.create_node_builder("node", self.build_context)
             edge_builder = self.builder_factory.create_edge_builder("edge", self.build_context)
             
-            # 创建StateGraph
-            from langgraph.graph import StateGraph
+            # 创建StateGraphEngine
+            from src.infrastructure.graph.engine.state_graph import StateGraphEngine
             from typing import cast, Any
-            builder = StateGraph(cast(Any, config.get_state_class()))
+            builder = StateGraphEngine(cast(Any, config.get_state_class()))
             
             # 添加节点
             for node_name, node_config in config.nodes.items():
@@ -114,11 +114,11 @@ class WorkflowBuilder(IWorkflowBuilder):
             
             # 设置入口点
             if config.entry_point:
-                from langgraph.graph import START
+                from src.infrastructure.graph.types import START
                 builder.add_edge(START, config.entry_point)
             
             # 编译图
-            compiled_graph = builder.compile()
+            compiled_graph = builder.compile({})
             
             logger.info(f"成功构建工作流图: {config.name}")
             return compiled_graph

@@ -14,7 +14,6 @@ class IWorkflowState(IState):
     """工作流状态接口
     
     继承自基础状态接口，添加工作流特定的功能。
-    这个接口专门用于与 LangGraph 等工作流引擎交互。
     """
     
     # 工作流特定属性
@@ -23,7 +22,7 @@ class IWorkflowState(IState):
     def messages(self) -> List[Any]:
         """消息列表
         
-        工作流执行过程中的消息序列，用于与 LangGraph 等引擎交互。
+        工作流执行过程中的消息序列
         """
         pass
     

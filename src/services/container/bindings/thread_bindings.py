@@ -30,11 +30,7 @@ from src.interfaces.history import IHistoryManager
 from src.core.threads.checkpoints.service import ThreadCheckpointService
 from src.adapters.threads.checkpoint_adapter import ThreadCheckpointAdapter
 from src.infrastructure.threads.checkpoint_repository import ThreadCheckpointRepository
-# LangGraph adapter 导入已注释，因为模块不存在
-# from src.infrastructure.threads.langgraph_adapter import (
-#     LangGraphCheckpointAdapter,
-#     ThreadCheckpointLangGraphManager
-# )
+
 from src.interfaces.logger import ILogger
 from src.interfaces.container.core import ServiceLifetime
 from src.services.container.core.base_service_bindings import BaseServiceBindings
@@ -292,26 +288,6 @@ def _register_checkpoint_services(container: Any, config: Dict[str, Any], enviro
         ThreadCheckpointAdapter,
         create_checkpoint_adapter
     )
-    
-    # 注册LangGraph集成
-    # (注释：LangGraph适配器模块不存在)
-    # def create_langgraph_adapter():
-    #     repository = container.get(ThreadCheckpointRepository)
-    #     return LangGraphCheckpointAdapter(repository)
-    # 
-    # container.register_singleton(
-    #     LangGraphCheckpointAdapter,
-    #     create_langgraph_adapter
-    # )
-    # 
-    # def create_langgraph_manager():
-    #     repository = container.get(ThreadCheckpointRepository)
-    #     return ThreadCheckpointLangGraphManager(repository)
-    # 
-    # container.register_singleton(
-    #     ThreadCheckpointLangGraphManager,
-    #     create_langgraph_manager
-    # )
     
     print(f"[INFO] Thread checkpoint services registered (storage: {storage_type})", file=sys.stdout)
 

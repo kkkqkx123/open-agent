@@ -80,8 +80,7 @@ class INodeConfig(ISerializable, ABC):
 
 class IEdgeConfig(ISerializable, ABC):
     """边配置接口
-    
-    定义工作流边配置的基本契约，符合LangGraph边模式。
+    定义工作流边配置的基本契约
     """
     
     @property
@@ -221,8 +220,7 @@ class IGraphStateConfig(ISerializable, ABC):
 
 class IGraphConfig(ISerializable, ABC):
     """图配置接口
-    
-    定义工作流图配置的基本契约，符合LangGraph StateGraph模式。
+    定义工作流图配置的基本契约
     """
     
     @property

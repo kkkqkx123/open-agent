@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
-from langgraph.graph import StateGraph
+from src.infrastructure.graph.engine.state_graph import StateGraphEngine
 
 
 class CacheEvictionPolicy(Enum):

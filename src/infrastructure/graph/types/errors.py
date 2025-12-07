@@ -1,6 +1,6 @@
 """基础设施层图错误定义
 
-提供LangGraph兼容的错误类型定义。
+提供错误类型定义。
 """
 
 from __future__ import annotations

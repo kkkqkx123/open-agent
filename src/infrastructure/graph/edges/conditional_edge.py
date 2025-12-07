@@ -64,20 +64,7 @@ class ConditionalEdge:
             description=config.description
         )
     
-    def to_config(self) -> IEdgeConfig:
-        """转换为配置
-        
-        Returns:
-            IEdgeConfig: 边配置
-        """
-        from src.core.workflow.config import EdgeConfig, EdgeType
-        return EdgeConfig(
-            from_node=self.from_node,
-            to_node=self.to_node,
-            type=EdgeType(EdgeType.CONDITIONAL.value),
-            condition=self.condition,
-            description=self.description
-        )
+
     
     def evaluate(self, state: "IWorkflowState") -> bool:
         """评估条件是否满足

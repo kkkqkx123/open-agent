@@ -1,7 +1,6 @@
 """工作流构建服务实现，遵循新架构。
 
 此模块提供工作流构建服务，处理从配置创建工作流和验证功能。
-重构后使用Adapters层的LangGraphAdapter，实现清晰的层级分离。
 """
 
 from typing import Dict, Any, List, TYPE_CHECKING, Optional
@@ -23,12 +22,6 @@ class WorkflowBuilderService(IWorkflowBuilderService):
 
     此类提供从配置构建工作流的方法，
     验证配置，并管理工作流构建过程。
-    
-    重构后：
-    - 使用Adapters层的LangGraphAdapter
-    - 集成专业的图缓存管理
-    - 简化配置验证逻辑
-    - 增强错误处理和日志记录
     """
 
     def __init__(self,
@@ -41,7 +34,6 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         Args:
             node_registry: 节点注册表（可选）
             function_registry: 函数注册表（可选）
-            langgraph_adapter: LangGraph适配器实例（可选）
             graph_cache: 图缓存实例（可选）
         """
         # 延迟导入避免循环依赖

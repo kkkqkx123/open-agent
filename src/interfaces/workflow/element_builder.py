@@ -157,7 +157,7 @@ class IElementBuilder(ABC):
         
         Args:
             element: 构建的元素实例
-            builder: LangGraph构建器
+            builder: 图构建器
             config: 元素配置 (INodeConfig | IEdgeConfig)
             context: 构建上下文
         """

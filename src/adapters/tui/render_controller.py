@@ -10,7 +10,6 @@ from .logger import get_tui_silent_logger
 from .layout import LayoutManager, LayoutRegion
 from .components import (
     SidebarComponent,
-    LangGraphPanelComponent,
     MainContentComponent,
     InputPanel,
     SessionManagerDialog,
@@ -58,7 +57,6 @@ class RenderController:
         
         # 组件
         self.sidebar_component = components.get("sidebar")
-        self.langgraph_component = components.get("langgraph")
         self.main_content_component = components.get("main_content")
         self.input_component = components.get("input")
         self.workflow_control_panel = components.get("workflow_control")
@@ -75,7 +73,6 @@ class RenderController:
         self.system_view = subviews.get("system")
         self.errors_view = subviews.get("errors")
         self.status_overview_view = subviews.get("status_overview")
-        self.langgraph_view = subviews.get("langgraph")
         
         # 注册布局变化回调
         self.layout_manager.register_layout_changed_callback(self._on_layout_changed)
@@ -161,8 +158,6 @@ class RenderController:
             content = self.errors_view.render()
         elif state_manager.current_subview == "status_overview" and self.status_overview_view:
             content = self.status_overview_view.render()
-        elif state_manager.current_subview == "langgraph" and self.langgraph_view:
-            content = self.langgraph_view.render()
         
         if content:
             # 检查内容是否真正变化了
@@ -303,12 +298,6 @@ class RenderController:
         if self.sidebar_component:
             self.sidebar_component.update_from_state(state_manager.current_state)
         
-        if self.langgraph_component:
-            self.langgraph_component.update_from_state(
-                state_manager.current_state,
-                current_node=getattr(state_manager.current_state, 'current_step', '未运行') if state_manager.current_state else '未运行',
-                node_status="running" if state_manager.current_state and state_manager.current_state.iteration_count < state_manager.current_state.max_iterations else "idle"
-            )
         
         if self.main_content_component:
             self.main_content_component.update_from_state(state_manager.current_state)
@@ -415,46 +404,6 @@ class RenderController:
             }
             self.status_overview_view.update_performance_monitoring(performance_monitoring)
         
-        # 更新LangGraph子界面数据
-        if self.langgraph_view and state_manager.current_state:
-            # 更新当前节点信息
-            current_node = {
-                "id": getattr(state_manager.current_state, 'current_node_id', ''),
-                "name": getattr(state_manager.current_state, 'current_node_name', ''),
-                "type": getattr(state_manager.current_state, 'current_node_type', ''),
-                "status": getattr(state_manager.current_state, 'current_node_status', 'idle'),
-                "input": getattr(state_manager.current_state, 'current_node_input', {}),
-                "output": getattr(state_manager.current_state, 'current_node_output', None),
-                "execution_time": getattr(state_manager.current_state, 'current_node_execution_time', 0.0)
-            }
-            self.langgraph_view.update_current_node(current_node)
-            
-            # 更新执行路径
-            execution_path = getattr(state_manager.current_state, 'execution_path', [])
-            # 清空并重新添加执行步骤
-            self.langgraph_view.execution_path.clear()
-            for step in execution_path:
-                self.langgraph_view.add_execution_step(step)
-            
-            # 更新状态快照
-            state_snapshot = {
-                "messages": getattr(state_manager.current_state, 'messages', []),
-                "current_step": getattr(state_manager.current_state, 'current_step', ''),
-                "iteration": getattr(state_manager.current_state, 'iteration_count', 0),
-                "max_iterations": getattr(state_manager.current_state, 'max_iterations', 10),
-                "variables": getattr(state_manager.current_state, 'variables', {})
-            }
-            self.langgraph_view.update_state_snapshot(state_snapshot)
-            
-            # 更新节点监控数据
-            node_monitoring = {
-                "total_nodes": getattr(state_manager.current_state, 'total_nodes', 0),
-                "completed_nodes": getattr(state_manager.current_state, 'completed_nodes', 0),
-                "failed_nodes": getattr(state_manager.current_state, 'failed_nodes', 0),
-                "running_nodes": getattr(state_manager.current_state, 'running_nodes', 0),
-                "pending_nodes": getattr(state_manager.current_state, 'pending_nodes', 0)
-            }
-            self.langgraph_view.update_node_monitoring(node_monitoring)
     
     def _update_header(self, state_manager: Any) -> None:
         """更新标题栏
@@ -547,16 +496,6 @@ class RenderController:
             
             if self._last_render_state.get('langgraph_content_hash') != content_hash:
                 self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, workflow_panel)
-                self._last_render_state['langgraph_content_hash'] = content_hash
-                self._needs_refresh = True
-        elif self.langgraph_component:
-            langgraph_panel = self.langgraph_component.render()
-            # 检查内容是否发生变化
-            import hashlib
-            content_hash = hashlib.md5(str(langgraph_panel).encode() if langgraph_panel else b'').hexdigest()
-            
-            if self._last_render_state.get('langgraph_content_hash') != content_hash:
-                self.layout_manager.update_region_content(LayoutRegion.LANGGRAPH, langgraph_panel)
                 self._last_render_state['langgraph_content_hash'] = content_hash
                 self._needs_refresh = True
     

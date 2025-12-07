@@ -11,8 +11,6 @@ from .layout import LayoutManager
 from .config import get_tui_config, TUIConfig
 from .components import (
     SidebarComponent,
-    LangGraphPanelComponent,
-    MainContentComponent,
     UnifiedMainContentComponent,
     InputPanel,
     SessionManagerDialog,
@@ -27,8 +25,7 @@ from .subviews import (
     VisualizationSubview,
     SystemSubview,
     ErrorFeedbackSubview,
-    StatusOverviewSubview,
-    LangGraphSubview
+    StatusOverviewSubview
 )
 from .event_engine import EventEngine
 from .key import Key, KEY_ESCAPE, KEY_ALT_1, KEY_ALT_2, KEY_ALT_3, KEY_ALT_4, KEY_ALT_5, KEY_ALT_6
@@ -228,7 +225,6 @@ class TUIApp:
     def _initialize_components(self) -> None:
         """初始化组件"""
         self.sidebar_component = SidebarComponent(self.config)
-        self.langgraph_component = LangGraphPanelComponent(self.config)
         self.main_content_component = UnifiedMainContentComponent(self.config)
         self.input_component = InputPanel(self.config)
         
@@ -258,7 +254,6 @@ class TUIApp:
         # 组件字典
         self.components = {
             "sidebar": self.sidebar_component,
-            "langgraph": self.langgraph_component,
             "main_content": self.main_content_component,
             "input": self.input_component,
             "workflow_control": self.workflow_control_panel,
@@ -276,7 +271,6 @@ class TUIApp:
         self.system_view = SystemSubview(self.config)
         self.errors_view = ErrorFeedbackSubview(self.config)
         self.status_overview_view = StatusOverviewSubview(self.config)
-        self.langgraph_view = LangGraphSubview(self.config)
         
         # 子界面字典
         self.subviews = {
@@ -346,7 +340,6 @@ class TUIApp:
         self.event_engine.register_key_handler(KEY_ALT_3, lambda _: (self._switch_to_subview("system"), True)[1])
         self.event_engine.register_key_handler(KEY_ALT_4, lambda _: (self._switch_to_subview("errors"), True)[1])
         self.event_engine.register_key_handler(KEY_ALT_5, lambda _: (self._switch_to_subview("status_overview"), True)[1])
-        self.event_engine.register_key_handler(KEY_ALT_6, lambda _: (self._switch_to_subview("langgraph"), True)[1])
 
         # 统一时间线快捷键
         from .key import KEY_PAGE_UP, KEY_PAGE_DOWN, KEY_HOME, KEY_END, KeyType

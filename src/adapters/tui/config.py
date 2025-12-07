@@ -90,7 +90,6 @@ class ShortcutConfig:
     system: str = "alt+3"
     errors: str = "alt+4"
     status_overview: str = "alt+5"
-    langgraph: str = "alt+6"
     back: str = "escape"
     help: str = "f1"
 

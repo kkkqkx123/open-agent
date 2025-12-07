@@ -8,7 +8,6 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 
 from src.interfaces.workflow.config import (
-    INodeConfig, IEdgeConfig, IStateFieldConfig, IGraphStateConfig, IGraphConfig,
     EdgeType as InterfaceEdgeType
 )
 
@@ -41,20 +40,16 @@ class WorkflowConfig:
         return asdict(self)
 
 
-class EdgeType(InterfaceEdgeType):
-    """边类型枚举 - 继承自接口层定义"""
-    pass
+# 直接使用接口层的 EdgeType，不继承（Enum final 类）
+EdgeType = InterfaceEdgeType
 
 
 @dataclass
-class EdgeConfig(IEdgeConfig):
-    """边配置 - 符合LangGraph边模式
-    
-    实现IEdgeConfig接口。
-    """
+class EdgeConfig:
+    """边配置 - 符合LangGraph边模式"""
     from_node: str
     to_node: str
-    type: EdgeType
+    type: InterfaceEdgeType
     condition: Optional[str] = None  # 条件函数名（兼容旧格式）
     description: Optional[str] = None
     path_map: Optional[Dict[str, Any]] = None  # 条件边的路径映射
@@ -136,34 +131,75 @@ class EdgeConfig(IEdgeConfig):
 
 
 @dataclass
-class StateFieldConfig(IStateFieldConfig):
-    """状态字段配置
-    
-    实现IStateFieldConfig接口。
-    """
+class StateFieldConfig:
+    """状态字段配置"""
     name: str
     type: str
     default: Any = None
     reducer: Optional[str] = None
     description: Optional[str] = None
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "StateFieldConfig":
+        """从字典创建状态字段配置"""
+        return cls(
+            name=data.get("name", ""),
+            type=data.get("type", "str"),
+            default=data.get("default"),
+            reducer=data.get("reducer"),
+            description=data.get("description")
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        result: Dict[str, Any] = {
+            "name": self.name,
+            "type": self.type,
+        }
+        if self.default is not None:
+            result["default"] = self.default
+        if self.reducer:
+            result["reducer"] = self.reducer
+        if self.description:
+            result["description"] = self.description
+        return result
+
 
 @dataclass
-class GraphStateConfig(IGraphStateConfig):
-    """图状态配置
-    
-    实现IGraphStateConfig接口。
-    """
+class GraphStateConfig:
+    """图状态配置 - 兼容 IGraphStateConfig 接口"""
     name: str
     fields: Dict[str, StateFieldConfig] = field(default_factory=dict)
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GraphStateConfig":
+        """从字典创建图状态配置"""
+        fields = {}
+        for field_name, field_config in data.get("fields", {}).items():
+            if isinstance(field_config, StateFieldConfig):
+                fields[field_name] = field_config
+            else:
+                fields[field_name] = StateFieldConfig.from_dict(field_config)
+        
+        return cls(
+            name=data.get("name", "GraphState"),
+            fields=fields
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        return {
+            "name": self.name,
+            "fields": {
+                name: config.to_dict()
+                for name, config in self.fields.items()
+            }
+        }
+
 
 @dataclass
-class NodeConfig(INodeConfig):
-    """节点配置
-    
-    实现INodeConfig接口。
-    """
+class NodeConfig:
+    """节点配置 - 兼容 INodeConfig 接口"""
     name: str
     function_name: str
     description: Optional[str] = None
@@ -203,11 +239,8 @@ class NodeConfig(INodeConfig):
 
 
 @dataclass
-class GraphConfig(IGraphConfig):
-    """图配置 - 符合LangGraph StateGraph模式
-    
-    实现IGraphConfig接口。
-    """
+class GraphConfig:
+    """图配置 - 符合LangGraph StateGraph模式，兼容 IGraphConfig 接口"""
     name: str
     id: str = ""  # 添加 id 属性
     description: str = ""

@@ -1,7 +1,6 @@
 """TUI组件模块"""
 
 from .sidebar import SidebarComponent
-from .langgraph_panel import LangGraphPanelComponent
 from .main_content import MainContentComponent
 from .unified_main_content import UnifiedMainContentComponent
 from .unified_timeline import (
@@ -47,7 +46,6 @@ from .input_panel_component import (
 
 __all__ = [
     "SidebarComponent",
-    "LangGraphPanelComponent",
     "MainContentComponent",
     "UnifiedMainContentComponent",
     "InputPanel",

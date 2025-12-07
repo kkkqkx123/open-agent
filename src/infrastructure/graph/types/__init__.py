@@ -26,7 +26,10 @@ from warnings import warn
 from typing_extensions import Unpack, deprecated
 
 if TYPE_CHECKING:
-    from langgraph.pregel import Pregel as PregelProtocol  # type: ignore[import-not-found]
+    from typing import Any
+    # 简化的PregelProtocol类型定义
+    class PregelProtocol:
+        pass
 
 # 导入错误类型
 from .errors import (
@@ -183,7 +186,10 @@ All = Literal["*"]
 """特殊值，表示图应该在所有节点上中断。"""
 
 if TYPE_CHECKING:
-    from langgraph.checkpoint.base import BaseCheckpointSaver
+    from typing import Any
+    # 简化的BaseCheckpointSaver类型定义
+    class BaseCheckpointSaver:
+        pass
 
 Checkpointer = Union[None, bool, "BaseCheckpointSaver"]
 """检查点类型。

@@ -6,7 +6,6 @@ from .visualization import VisualizationSubview
 from .system import SystemSubview
 from .errors import ErrorFeedbackSubview
 from .status_overview import StatusOverviewSubview
-from .langgraph import LangGraphSubview
 
 __all__ = [
     "BaseSubview",
@@ -14,6 +13,5 @@ __all__ = [
     "VisualizationSubview",
     "SystemSubview",
     "ErrorFeedbackSubview",
-    "StatusOverviewSubview",
-    "LangGraphSubview"
+    "StatusOverviewSubview"
 ]

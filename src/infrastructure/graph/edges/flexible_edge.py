@@ -146,21 +146,7 @@ class FlexibleConditionalEdge:
         
         return edge
     
-    def to_config(self) -> "IEdgeConfig":
-        """转换为配置
-        
-        Returns:
-            IEdgeConfig: 边配置
-        """
-        from src.core.workflow.config import EdgeConfig, EdgeType
-        return EdgeConfig(
-            from_node=self.from_node,
-            to_node="",  # 灵活条件边不指定目标节点
-            type=EdgeType(EdgeType.CONDITIONAL.value),
-            condition="",  # 使用路由函数替代条件表达式
-            description=self.description,
-            path_map=None  # 路径映射在工作流中定义
-        )
+
     
     @classmethod
     def _parse_condition(cls, condition_str: str) -> tuple[str, Dict[str, Any]]:
