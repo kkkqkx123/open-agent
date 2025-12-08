@@ -1,313 +1,495 @@
-"""通用错误处理器
+"""
+错误处理器
 
-提供统一的错误处理和错误消息格式化功能。
+提供统一的错误处理机制。
 """
 
-from typing import Dict, Any, List, Optional, Union
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional, Callable, Type
+from dataclasses import dataclass
+from enum import Enum
+
 from src.services.logger.injection import get_logger
+from src.interfaces.llm.converters import IConversionContext
 
 
-class ErrorHandler:
-    """通用错误处理器"""
+class ErrorSeverity(Enum):
+    """错误严重程度"""
     
-    def __init__(self) -> None:
-        """初始化错误处理器"""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+@dataclass
+class ErrorInfo:
+    """错误信息"""
+    
+    error: Exception
+    severity: ErrorSeverity
+    context: Optional[IConversionContext] = None
+    metadata: Optional[Dict[str, Any]] = None
+    timestamp: Optional[float] = None
+    retry_count: int = 0
+    
+    def __post_init__(self) -> None:
+        if self.metadata is None:
+            self.metadata = {}
+        if self.timestamp is None:
+            import time
+            self.timestamp = time.time()
+
+
+class IErrorHandler(ABC):
+    """错误处理器接口"""
+    
+    @abstractmethod
+    def can_handle(self, error: Exception) -> bool:
+        """检查是否可以处理该错误
+        
+        Args:
+            error: 错误对象
+            
+        Returns:
+            bool: 是否可以处理
+        """
+        pass
+    
+    @abstractmethod
+    def handle(self, error: Exception, context: Optional[IConversionContext] = None) -> Any:
+        """处理错误
+        
+        Args:
+            error: 错误对象
+            context: 转换上下文
+            
+        Returns:
+            Any: 处理结果
+        """
+        pass
+    
+    @abstractmethod
+    def get_severity(self, error: Exception) -> ErrorSeverity:
+        """获取错误严重程度
+        
+        Args:
+            error: 错误对象
+            
+        Returns:
+            ErrorSeverity: 错误严重程度
+        """
+        pass
+
+
+class BaseErrorHandler(IErrorHandler):
+    """基础错误处理器
+    
+    提供错误处理的通用基础实现。
+    """
+    
+    def __init__(self, name: str, handled_types: List[Type[Exception]]):
+        """初始化基础错误处理器
+        
+        Args:
+            name: 处理器名称
+            handled_types: 可处理的错误类型列表
+        """
+        self.name = name
+        self.handled_types = handled_types
         self.logger = get_logger(__name__)
     
-    @staticmethod
-    def handle_validation_error(errors: List[str]) -> str:
-        """处理验证错误
+    def can_handle(self, error: Exception) -> bool:
+        """检查是否可以处理该错误
         
         Args:
-            errors: 验证错误列表
+            error: 错误对象
             
         Returns:
-            str: 格式化的错误消息
+            bool: 是否可以处理
         """
-        if not errors:
-            return "验证失败，但没有具体错误信息"
+        return any(isinstance(error, error_type) for error_type in self.handled_types)
+    
+    def handle(self, error: Exception, context: Optional[IConversionContext] = None) -> Any:
+        """处理错误
         
-        if len(errors) == 1:
-            return f"验证错误: {errors[0]}"
+        Args:
+            error: 错误对象
+            context: 转换上下文
+            
+        Returns:
+            Any: 处理结果
+        """
+        severity = self.get_severity(error)
+        error_info = ErrorInfo(
+            error=error,
+            severity=severity,
+            context=context,
+            metadata={"handler": self.name}
+        )
+        
+        # 记录错误
+        self._log_error(error_info)
+        
+        # 执行具体的错误处理逻辑
+        return self._do_handle(error_info)
+    
+    @abstractmethod
+    def _do_handle(self, error_info: ErrorInfo) -> Any:
+        """执行具体的错误处理逻辑
+        
+        Args:
+            error_info: 错误信息
+            
+        Returns:
+            Any: 处理结果
+        """
+        pass
+    
+    def get_severity(self, error: Exception) -> ErrorSeverity:
+        """获取错误严重程度
+        
+        Args:
+            error: 错误对象
+            
+        Returns:
+            ErrorSeverity: 错误严重程度
+        """
+        # 默认实现：根据错误类型判断严重程度
+        if isinstance(error, (ConnectionError, TimeoutError)):
+            return ErrorSeverity.HIGH
+        elif isinstance(error, (ValueError, KeyError)):
+            return ErrorSeverity.MEDIUM
+        elif isinstance(error, (AttributeError, TypeError)):
+            return ErrorSeverity.LOW
         else:
-            error_list = "\n".join(f"- {error}" for error in errors)
-            return f"验证错误:\n{error_list}"
+            return ErrorSeverity.MEDIUM
     
-    @staticmethod
-    def handle_format_error(error: Exception) -> str:
-        """处理格式错误
+    def _log_error(self, error_info: ErrorInfo) -> None:
+        """记录错误
         
         Args:
-            error: 格式错误异常
-            
-        Returns:
-            str: 格式化的错误消息
+            error_info: 错误信息
         """
-        return f"格式错误: {str(error)}"
-    
-    def handle_api_error(self, error_response: Dict[str, Any], provider: str) -> str:
-        """处理API错误响应
+        error_msg = f"错误处理器 {self.name} 处理错误: {error_info.error}"
         
-        Args:
-            error_response: 错误响应
-            provider: 提供商名称
-            
-        Returns:
-            str: 用户友好的错误消息
-        """
-        try:
-            # 获取错误信息
-            error_info = error_response.get("error", {})
-            error_type = error_info.get("type", "unknown")
-            error_message = error_info.get("message", "未知错误")
-            error_code = error_info.get("code", "")
-            
-            # 根据提供商和错误类型生成友好消息
-            friendly_message = self._get_friendly_error_message(error_type, provider)
-            
-            # 构建完整错误消息
-            if error_code:
-                return f"{friendly_message} ({error_code}): {error_message}"
-            else:
-                return f"{friendly_message}: {error_message}"
-        except Exception as e:
-            self.logger.error(f"处理API错误失败: {e}")
-            return f"{provider} API错误: 无法解析错误响应"
-    
-    def _get_friendly_error_message(self, error_type: str, provider: str) -> str:
-        """获取友好的错误消息
-        
-        Args:
-            error_type: 错误类型
-            provider: 提供商名称
-            
-        Returns:
-            str: 友好的错误消息
-        """
-        # 通用错误映射
-        common_mappings = {
-            "invalid_request_error": "请求参数无效",
-            "authentication_error": "认证失败，请检查API密钥",
-            "permission_error": "权限不足",
-            "not_found_error": "请求的资源不存在",
-            "rate_limit_error": "请求频率过高，请稍后重试",
-            "api_error": "API内部错误",
-            "overloaded_error": "服务过载，请稍后重试",
-            "timeout_error": "请求超时",
-            "connection_error": "网络连接错误",
-            "ssl_error": "SSL证书错误"
-        }
-        
-        # 提供商特定错误映射
-        provider_mappings = self._get_provider_specific_mappings(provider)
-        
-        # 优先使用提供商特定映射
-        if provider in provider_mappings and error_type in provider_mappings[provider]:
-            return provider_mappings[provider][error_type]
-        
-        # 回退到通用映射
-        return common_mappings.get(error_type, f"未知错误类型: {error_type}")
-    
-    def _get_provider_specific_mappings(self, provider: str) -> Dict[str, Dict[str, str]]:
-        """获取提供商特定的错误映射
-        
-        Args:
-            provider: 提供商名称
-            
-        Returns:
-            Dict[str, Dict[str, str]]: 提供商错误映射
-        """
-        mappings = {
-            "openai": {
-                "invalid_api_key": "OpenAI API密钥无效",
-                "insufficient_quota": "OpenAI API配额不足",
-                "model_not_found": "OpenAI模型不存在",
-                "context_length_exceeded": "OpenAI上下文长度超限",
-                "content_filter": "OpenAI内容过滤器阻止了请求"
-            },
-            "anthropic": {
-                "invalid_api_key": "Anthropic API密钥无效",
-                "rate_limit_error": "Anthropic API频率限制",
-                "permission_denied": "Anthropic API权限被拒绝",
-                "overloaded_error": "Anthropic服务过载",
-                "content_filter": "Anthropic内容策略阻止了请求"
-            },
-            "gemini": {
-                "permission_denied": "Gemini API权限被拒绝",
-                "resource_exhausted": "Gemini API资源耗尽",
-                "invalid_argument": "Gemini API参数无效",
-                "not_found": "Gemini API资源不存在",
-                "quota_exceeded": "Gemini API配额超限"
-            }
-        }
-        
-        return mappings
-    
-    def handle_network_error(self, error: Exception, provider: str) -> str:
-        """处理网络错误
-        
-        Args:
-            error: 网络错误异常
-            provider: 提供商名称
-            
-        Returns:
-            str: 用户友好的错误消息
-        """
-        error_message = str(error).lower()
-        
-        if "timeout" in error_message:
-            return f"{provider} API请求超时，请检查网络连接并重试"
-        elif "connection" in error_message:
-            return f"{provider} API连接失败，请检查网络连接"
-        elif "ssl" in error_message or "certificate" in error_message:
-            return f"{provider} API SSL证书验证失败"
-        elif "dns" in error_message:
-            return f"{provider} API DNS解析失败"
+        if error_info.severity == ErrorSeverity.CRITICAL:
+            self.logger.critical(error_msg)
+        elif error_info.severity == ErrorSeverity.HIGH:
+            self.logger.error(error_msg)
+        elif error_info.severity == ErrorSeverity.MEDIUM:
+            self.logger.warning(error_msg)
         else:
-            return f"{provider} API网络错误: {str(error)}"
+            self.logger.info(error_msg)
+
+
+class ConversionErrorHandler(BaseErrorHandler):
+    """转换错误处理器
     
-    def handle_parsing_error(self, error: Exception, content_type: str) -> str:
-        """处理解析错误
+    处理转换过程中的错误。
+    """
+    
+    def __init__(self):
+        """初始化转换错误处理器"""
+        super().__init__(
+            name="ConversionErrorHandler",
+            handled_types=[ValueError, TypeError, AttributeError, KeyError]
+        )
+    
+    def _do_handle(self, error_info: ErrorInfo) -> Any:
+        """执行转换错误处理
         
         Args:
-            error: 解析错误异常
-            content_type: 内容类型（如JSON、XML等）
+            error_info: 错误信息
             
         Returns:
-            str: 用户友好的错误消息
+            Any: 处理结果
         """
-        return f"{content_type}解析失败: {str(error)}"
+        error = error_info.error
+        
+        # 添加错误到上下文
+        if error_info.context:
+            error_info.context.add_error(f"转换错误: {error}")
+        
+        # 根据错误类型进行不同的处理
+        if isinstance(error, ValueError):
+            return self._handle_value_error(error_info)
+        elif isinstance(error, TypeError):
+            return self._handle_type_error(error_info)
+        elif isinstance(error, AttributeError):
+            return self._handle_attribute_error(error_info)
+        elif isinstance(error, KeyError):
+            return self._handle_key_error(error_info)
+        else:
+            return None
     
-    def handle_validation_exception(self, exception: Exception) -> str:
-        """处理验证异常
+    def _handle_value_error(self, error_info: ErrorInfo) -> Any:
+        """处理值错误
         
         Args:
-            exception: 验证异常
+            error_info: 错误信息
             
         Returns:
-            str: 用户友好的错误消息
+            Any: 处理结果
         """
-        return f"验证异常: {str(exception)}"
+        error = error_info.error
+        self.logger.debug(f"处理值错误: {error}")
+        
+        # 尝试提供默认值
+        if error_info.context:
+            default_value = error_info.context.get_parameter("default_value")
+            if default_value is not None:
+                return default_value
+        
+        # 返回None作为默认处理
+        return None
     
-    def create_error_response(
-        self, 
-        error_type: str, 
-        message: str, 
-        provider: Optional[str] = None,
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """创建标准错误响应
+    def _handle_type_error(self, error_info: ErrorInfo) -> Any:
+        """处理类型错误
         
         Args:
-            error_type: 错误类型
-            message: 错误消息
-            provider: 提供商名称
-            error_code: 错误代码
-            details: 错误详情
+            error_info: 错误信息
             
         Returns:
-            Dict[str, Any]: 标准错误响应
+            Any: 处理结果
         """
-        error_response = {
-            "error": {
-                "type": error_type,
-                "message": message
-            }
-        }
+        error = error_info.error
+        self.logger.debug(f"处理类型错误: {error}")
         
-        if provider:
-            error_response["error"]["provider"] = provider
+        # 尝试类型转换
+        if error_info.context:
+            target_type = error_info.context.get_parameter("target_type")
+            if target_type:
+                try:
+                    # 这里可以添加更复杂的类型转换逻辑
+                    return target_type(str(error))
+                except Exception:
+                    pass
         
-        if error_code:
-            error_response["error"]["code"] = error_code
-        
-        if details:
-            error_response["error"]["details"] = details
-        
-        return error_response
+        return None
     
-    def log_error(self, error: Exception, context: Dict[str, Any]) -> None:
-        """记录错误日志
+    def _handle_attribute_error(self, error_info: ErrorInfo) -> Any:
+        """处理属性错误
         
         Args:
-            error: 错误异常
-            context: 错误上下文信息
-        """
-        try:
-            provider = context.get("provider", "unknown")
-            operation = context.get("operation", "unknown")
-            
-            self.logger.error(
-                f"提供商 {provider} 在操作 {operation} 中发生错误: {str(error)}",
-                extra={
-                    "error_type": type(error).__name__,
-                    "error_message": str(error),
-                    "context": context
-                }
-            )
-        except Exception as e:
-            # 避免日志记录本身出错
-            print(f"记录错误日志失败: {e}")
-    
-    def should_retry(self, error_response: Dict[str, Any]) -> bool:
-        """判断是否应该重试
-        
-        Args:
-            error_response: 错误响应
+            error_info: 错误信息
             
         Returns:
-            bool: 是否应该重试
+            Any: 处理结果
         """
-        error_info = error_response.get("error", {})
-        error_type = error_info.get("type", "")
-        error_code = error_info.get("code", "")
+        error = error_info.error
+        self.logger.debug(f"处理属性错误: {error}")
         
-        # 可重试的错误类型
-        retryable_types = {
-            "rate_limit_error",
-            "overloaded_error", 
-            "timeout_error",
-            "connection_error",
-            "api_error"
-        }
-        
-        # 可重试的错误代码
-        retryable_codes = {
-            "rate_limit_exceeded",
-            "service_unavailable",
-            "internal_server_error",
-            "bad_gateway",
-            "gateway_timeout"
-        }
-        
-        return error_type in retryable_types or error_code in retryable_codes
+        # 返回空字典作为默认处理
+        return {}
     
-    def get_retry_delay(self, error_response: Dict[str, Any], attempt: int) -> float:
-        """获取重试延迟时间
+    def _handle_key_error(self, error_info: ErrorInfo) -> Any:
+        """处理键错误
         
         Args:
-            error_response: 错误响应
-            attempt: 当前尝试次数
+            error_info: 错误信息
             
         Returns:
-            float: 延迟时间（秒）
+            Any: 处理结果
         """
-        error_info = error_response.get("error", {})
-        error_type = error_info.get("type", "")
+        error = error_info.error
+        self.logger.debug(f"处理键错误: {error}")
         
-        # 基础延迟
-        base_delay = 1.0
+        # 返回None作为默认处理
+        return None
+
+
+class ValidationErrorHandler(BaseErrorHandler):
+    """验证错误处理器
+    
+    处理验证过程中的错误。
+    """
+    
+    def __init__(self):
+        """初始化验证错误处理器"""
+        super().__init__(
+            name="ValidationErrorHandler",
+            handled_types=[ValueError, AssertionError]
+        )
+    
+    def _do_handle(self, error_info: ErrorInfo) -> Any:
+        """执行验证错误处理
         
-        # 根据错误类型调整延迟
-        if error_type == "rate_limit_error":
-            base_delay = 5.0  # 频率限制需要更长延迟
-        elif error_type == "overloaded_error":
-            base_delay = 2.0  # 服务过载需要中等延迟
+        Args:
+            error_info: 错误信息
+            
+        Returns:
+            Any: 处理结果
+        """
+        error = error_info.error
         
-        # 指数退避
-        delay = base_delay * (2 ** (attempt - 1))
+        # 添加验证错误到上下文
+        if error_info.context:
+            error_info.context.add_error(f"验证错误: {error}")
         
-        # 最大延迟限制
-        max_delay = 60.0
-        return min(delay, max_delay)
+        # 收集所有验证错误
+        validation_errors = []
+        if isinstance(error, ValueError):
+            validation_errors.append(str(error))
+        elif isinstance(error, AssertionError):
+            validation_errors.append(str(error))
+        
+        # 返回错误列表
+        return validation_errors
+    
+    def get_severity(self, error: Exception) -> ErrorSeverity:
+        """获取错误严重程度
+        
+        Args:
+            error: 错误对象
+            
+        Returns:
+            ErrorSeverity: 错误严重程度
+        """
+        # 验证错误通常是中等严重程度
+        return ErrorSeverity.MEDIUM
+
+
+class ErrorHandlerRegistry:
+    """错误处理器注册中心
+    
+    管理所有错误处理器的注册和查找。
+    """
+    
+    def __init__(self):
+        """初始化错误处理器注册中心"""
+        self.logger = get_logger(__name__)
+        self._handlers: List[IErrorHandler] = []
+        self._handler_map: Dict[Type[Exception], List[IErrorHandler]] = {}
+    
+    def register_handler(self, handler: IErrorHandler) -> None:
+        """注册错误处理器
+        
+        Args:
+            handler: 错误处理器
+        """
+        self._handlers.append(handler)
+        
+        # 更新类型映射
+        if isinstance(handler, BaseErrorHandler):
+            for error_type in handler.handled_types:
+                if error_type not in self._handler_map:
+                    self._handler_map[error_type] = []
+                self._handler_map[error_type].append(handler)
+        
+        self.logger.debug(f"注册错误处理器: {handler.__class__.__name__}")
+    
+    def unregister_handler(self, handler: IErrorHandler) -> bool:
+        """注销错误处理器
+        
+        Args:
+            handler: 错误处理器
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if handler in self._handlers:
+            self._handlers.remove(handler)
+            
+            # 更新类型映射
+            if isinstance(handler, BaseErrorHandler):
+                for error_type in handler.handled_types:
+                    if error_type in self._handler_map:
+                        if handler in self._handler_map[error_type]:
+                            self._handler_map[error_type].remove(handler)
+                        if not self._handler_map[error_type]:
+                            del self._handler_map[error_type]
+            
+            self.logger.debug(f"注销错误处理器: {handler.__class__.__name__}")
+            return True
+        
+        return False
+    
+    def find_handler(self, error: Exception) -> Optional[IErrorHandler]:
+        """查找可以处理指定错误的处理器
+        
+        Args:
+            error: 错误对象
+            
+        Returns:
+            Optional[IErrorHandler]: 错误处理器，如果找不到则返回None
+        """
+        # 首先查找精确匹配的类型
+        error_type = type(error)
+        if error_type in self._handler_map:
+            for handler in self._handler_map[error_type]:
+                if handler.can_handle(error):
+                    return handler
+        
+        # 查找父类型匹配
+        for handler in self._handlers:
+            if handler.can_handle(error):
+                return handler
+        
+        return None
+    
+    def handle_error(self, error: Exception, context: Optional[IConversionContext] = None) -> Any:
+        """处理错误
+        
+        Args:
+            error: 错误对象
+            context: 转换上下文
+            
+        Returns:
+            Any: 处理结果
+        """
+        handler = self.find_handler(error)
+        
+        if handler:
+            return handler.handle(error, context)
+        else:
+            # 没有找到合适的处理器，记录错误并重新抛出
+            self.logger.error(f"未找到合适的错误处理器处理错误: {error}")
+            raise error
+    
+    def get_handlers(self) -> List[IErrorHandler]:
+        """获取所有注册的处理器
+        
+        Returns:
+            List[IErrorHandler]: 处理器列表
+        """
+        return self._handlers.copy()
+    
+    def clear_handlers(self) -> None:
+        """清空所有处理器"""
+        self._handlers.clear()
+        self._handler_map.clear()
+        self.logger.debug("清空所有错误处理器")
+
+
+# 全局错误处理器注册中心实例
+_global_registry: Optional[ErrorHandlerRegistry] = None
+
+
+def get_error_handler_registry() -> ErrorHandlerRegistry:
+    """获取全局错误处理器注册中心实例
+    
+    Returns:
+        ErrorHandlerRegistry: 注册中心实例
+    """
+    global _global_registry
+    if _global_registry is None:
+        _global_registry = ErrorHandlerRegistry()
+        # 注册默认处理器
+        _global_registry.register_handler(ConversionErrorHandler())
+        _global_registry.register_handler(ValidationErrorHandler())
+    return _global_registry
+
+
+def handle_error(error: Exception, context: Optional[IConversionContext] = None) -> Any:
+    """处理错误的便捷函数
+    
+    Args:
+        error: 错误对象
+        context: 转换上下文
+        
+    Returns:
+        Any: 处理结果
+    """
+    registry = get_error_handler_registry()
+    return registry.handle_error(error, context)

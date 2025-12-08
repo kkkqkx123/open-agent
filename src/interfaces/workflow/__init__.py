@@ -72,6 +72,17 @@ from .hooks import (
     HookExecutionResult
 )
 
+from .functions import (
+    FunctionType,
+    FunctionMetadata,
+    IFunction,
+    INodeFunction,
+    IConditionFunction,
+    IRouteFunction,
+    ITriggerFunction,
+    IFunctionRegistry
+)
+
 from .graph_engine import (
     IGraphEngine,
     IGraphBuilder
@@ -143,6 +154,16 @@ __all__ = [
     "HookPoint",
     "HookContext",
     "HookExecutionResult",
+    
+    # Function interfaces
+    "FunctionType",
+    "FunctionMetadata",
+    "IFunction",
+    "INodeFunction",
+    "IConditionFunction",
+    "IRouteFunction",
+    "ITriggerFunction",
+    "IFunctionRegistry",
     
     # Graph engine interfaces
     "IGraphEngine",

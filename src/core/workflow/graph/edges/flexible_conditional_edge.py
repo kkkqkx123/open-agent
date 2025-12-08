@@ -11,7 +11,7 @@ from src.interfaces.state.interfaces import IState
 from src.infrastructure.graph.edges.base import BaseEdge
 
 if TYPE_CHECKING:
-    from src.core.workflow.registry import FunctionRegistry, IFunction
+    from src.core.workflow.registry import FunctionRegistry
 
 logger = get_logger(__name__)
 
@@ -49,7 +49,7 @@ class FlexibleConditionalEdge(BaseEdge, IEdge):
         self.description = description
         self._metadata = metadata or {}
         self._function_registry: Optional["FunctionRegistry"] = None
-        self._cached_route_function: Optional[Union[Callable, "IFunction"]] = None
+        self._cached_route_function: Optional[Callable] = None
         
         logger.debug(f"创建灵活条件边: {from_node} -> [路由函数: {route_function}]")
     
@@ -165,11 +165,11 @@ class FlexibleConditionalEdge(BaseEdge, IEdge):
                 return None
             return merged_config.get("fallback_target")
     
-    def _get_route_function(self) -> Optional[Union[Callable, "IFunction"]]:
+    def _get_route_function(self) -> Optional[Callable]:
         """获取路由函数
         
         Returns:
-            Optional[Union[Callable, IFunction]]: 路由函数，如果不存在则返回None
+            Optional[Callable]: 路由函数，如果不存在则返回None
         """
         # 使用缓存的函数
         if self._cached_route_function:

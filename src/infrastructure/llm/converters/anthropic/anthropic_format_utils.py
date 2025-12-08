@@ -28,7 +28,7 @@ from src.infrastructure.llm.converters.anthropic.anthropic_validation_utils impo
 class AnthropicFormatUtils(BaseProviderUtils):
     """Anthropic格式转换工具类"""
     
-    def __init__(self) -> None:
+    def __init__(self, name: str = "anthropic") -> None:
         """初始化Anthropic格式工具"""
         super().__init__()
         self.multimodal_utils: "AnthropicMultimodalUtils" = AnthropicMultimodalUtils()

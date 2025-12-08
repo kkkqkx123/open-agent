@@ -33,13 +33,13 @@ class GeminiFormatUtils(BaseProviderUtils):
     validation_utils: GeminiValidationUtils
     stream_utils: GeminiStreamUtils
     
-    def __init__(self) -> None:
-        """初始化Gemini格式工具"""
-        super().__init__()
-        self.multimodal_utils = GeminiMultimodalUtils()
-        self.tools_utils = GeminiToolsUtils()
-        self.validation_utils = GeminiValidationUtils()
-        self.stream_utils = GeminiStreamUtils()
+    def __init__(self, name: str = "gemini") -> None:
+         """初始化Gemini格式工具"""
+         super().__init__()
+         self.multimodal_utils = GeminiMultimodalUtils()
+         self.tools_utils = GeminiToolsUtils()
+         self.validation_utils = GeminiValidationUtils()
+         self.stream_utils = GeminiStreamUtils()
     
     def get_provider_name(self) -> str:
         """获取提供商名称"""

@@ -1,6 +1,7 @@
-"""通用验证器
+"""
+统一验证工具类
 
-提供跨提供商的通用验证功能。
+整合所有验证逻辑，避免代码重复。
 """
 
 import re
@@ -8,11 +9,14 @@ from typing import Dict, Any, List, Optional, Union, Set
 from src.services.logger.injection import get_logger
 
 
-class CommonValidators:
-    """通用验证器类"""
+class ValidationUtils:
+    """统一验证工具类
+    
+    整合所有验证逻辑，提供统一的验证接口。
+    """
     
     def __init__(self) -> None:
-        """初始化通用验证器"""
+        """初始化验证工具"""
         self.logger = get_logger(__name__)
     
     @staticmethod
@@ -179,44 +183,6 @@ class CommonValidators:
         return errors
     
     @staticmethod
-    def validate_email(email: str, field_name: str = "邮箱") -> List[str]:
-        """验证邮箱格式
-        
-        Args:
-            email: 邮箱地址
-            field_name: 字段名称
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return CommonValidators.validate_regex(
-            email, 
-            field_name, 
-            email_pattern, 
-            "必须是有效的邮箱地址"
-        )
-    
-    @staticmethod
-    def validate_url(url: str, field_name: str = "URL") -> List[str]:
-        """验证URL格式
-        
-        Args:
-            url: URL地址
-            field_name: 字段名称
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
-        url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
-        return CommonValidators.validate_regex(
-            url, 
-            field_name, 
-            url_pattern, 
-            "必须是有效的URL地址"
-        )
-    
-    @staticmethod
     def validate_dict_structure(
         value: Dict[str, Any], 
         field_name: str,
@@ -255,70 +221,6 @@ class CommonValidators:
             for key in value.keys():
                 if key not in all_allowed_keys:
                     errors.append(f"{field_name}包含不支持的键: {key}")
-        
-        return errors
-    
-    @staticmethod
-    def validate_json_schema(value: Dict[str, Any], schema: Dict[str, Any], field_name: str = "数据") -> List[str]:
-        """验证JSON Schema（简化版本）
-        
-        Args:
-            value: 要验证的值
-            schema: JSON Schema
-            field_name: 字段名称
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
-        errors = []
-        
-        # 检查类型
-        expected_type = schema.get("type")
-        if expected_type:
-            if expected_type == "string" and not isinstance(value, str):
-                errors.append(f"{field_name}必须是字符串")
-            elif expected_type == "number" and not isinstance(value, (int, float)):
-                errors.append(f"{field_name}必须是数字")
-            elif expected_type == "integer" and not isinstance(value, int):
-                errors.append(f"{field_name}必须是整数")
-            elif expected_type == "boolean" and not isinstance(value, bool):
-                errors.append(f"{field_name}必须是布尔值")
-            elif expected_type == "array" and not isinstance(value, list):
-                errors.append(f"{field_name}必须是数组")
-            elif expected_type == "object" and not isinstance(value, dict):
-                errors.append(f"{field_name}必须是对象")
-        
-        # 检查枚举值
-        if "enum" in schema:
-            enum_errors = CommonValidators.validate_enum(value, field_name, set(schema["enum"]))
-            errors.extend(enum_errors)
-        
-        # 检查数值范围
-        if isinstance(value, (int, float)):
-            if "minimum" in schema:
-                range_errors = CommonValidators.validate_numeric_range(value, field_name, schema["minimum"], None)
-                errors.extend(range_errors)
-            if "maximum" in schema:
-                range_errors = CommonValidators.validate_numeric_range(value, field_name, None, schema["maximum"])
-                errors.extend(range_errors)
-        
-        # 检查字符串长度
-        if isinstance(value, str):
-            if "minLength" in schema:
-                length_errors = CommonValidators.validate_string_length(value, field_name, schema["minLength"], None)
-                errors.extend(length_errors)
-            if "maxLength" in schema:
-                length_errors = CommonValidators.validate_string_length(value, field_name, None, schema["maxLength"])
-                errors.extend(length_errors)
-        
-        # 检查数组长度
-        if isinstance(value, list):
-            if "minItems" in schema:
-                length_errors = CommonValidators.validate_list_length(value, field_name, schema["minItems"], None)
-                errors.extend(length_errors)
-            if "maxItems" in schema:
-                length_errors = CommonValidators.validate_list_length(value, field_name, None, schema["maxItems"])
-                errors.extend(length_errors)
         
         return errors
     
@@ -424,3 +326,101 @@ class CommonValidators:
             errors.append(f"{provider}max_tokens过大，可能导致总token数超过限制{limit}")
         
         return errors
+    
+    def validate_request_parameters(self, parameters: Dict[str, Any]) -> List[str]:
+        """验证请求参数
+        
+        Args:
+            parameters: 请求参数
+            
+        Returns:
+            List[str]: 验证错误列表
+        """
+        errors = []
+        
+        if not isinstance(parameters, dict):
+            errors.append("请求参数必须是字典")
+            return errors
+        
+        # 验证常见参数
+        if "temperature" in parameters:
+            temp_errors = self.validate_numeric_range(
+                parameters["temperature"], "temperature", 0.0, 2.0
+            )
+            errors.extend(temp_errors)
+        
+        if "max_tokens" in parameters:
+            max_tokens_errors = self.validate_numeric_range(
+                parameters["max_tokens"], "max_tokens", 1, None
+            )
+            errors.extend(max_tokens_errors)
+        
+        if "top_p" in parameters:
+            top_p_errors = self.validate_numeric_range(
+                parameters["top_p"], "top_p", 0.0, 1.0
+            )
+            errors.extend(top_p_errors)
+        
+        return errors
+    
+    def validate_response(self, response: Dict[str, Any]) -> List[str]:
+        """验证响应格式
+        
+        Args:
+            response: API响应
+            
+        Returns:
+            List[str]: 验证错误列表
+        """
+        errors = []
+        
+        if not isinstance(response, dict):
+            errors.append("响应必须是字典")
+            return errors
+        
+        # 检查基本结构
+        if "choices" in response:
+            if not isinstance(response["choices"], list):
+                errors.append("响应的choices字段必须是列表")
+        
+        if "usage" in response:
+            usage = response["usage"]
+            if not isinstance(usage, dict):
+                errors.append("响应的usage字段必须是字典")
+            else:
+                # 验证usage字段
+                for field in ["prompt_tokens", "completion_tokens", "total_tokens"]:
+                    if field in usage and not isinstance(usage[field], int):
+                        errors.append(f"usage.{field}必须是整数")
+        
+        return errors
+    
+    def handle_api_error(self, error_response: Dict[str, Any]) -> str:
+        """处理API错误响应
+        
+        Args:
+            error_response: 错误响应
+            
+        Returns:
+            str: 用户友好的错误消息
+        """
+        error_type = error_response.get("error", {}).get("type", "unknown")
+        error_message = error_response.get("error", {}).get("message", "未知错误")
+        
+        error_mapping = {
+            "invalid_request_error": "请求参数无效",
+            "authentication_error": "认证失败，请检查API密钥",
+            "permission_error": "权限不足",
+            "not_found_error": "请求的资源不存在",
+            "rate_limit_error": "请求频率过高，请稍后重试",
+            "api_error": "API内部错误",
+            "overloaded_error": "服务过载，请稍后重试"
+        }
+        
+        friendly_message = error_mapping.get(error_type, f"未知错误类型: {error_type}")
+        
+        return f"{friendly_message}: {error_message}"
+
+
+# 创建全局实例
+validation_utils = ValidationUtils()
