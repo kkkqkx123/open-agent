@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.graph import IEdge
 from src.interfaces.state.interfaces import IState
-from src.infrastructure.graph.edges.base import BaseEdge
+from .base import BaseEdge
 
 if TYPE_CHECKING:
     pass

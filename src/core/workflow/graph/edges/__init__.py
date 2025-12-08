@@ -13,11 +13,13 @@
 3. 配置边参数和条件
 """
 
+from .base import BaseEdge
 from .simple_edge import SimpleEdge
 from .conditional_edge import ConditionalEdge
 from .flexible_conditional_edge import FlexibleConditionalEdge
 
 __all__ = [
+    "BaseEdge",
     "SimpleEdge",
     "ConditionalEdge",
     "FlexibleConditionalEdge",

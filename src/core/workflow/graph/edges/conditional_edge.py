@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.graph import IEdge
 from src.interfaces.state.interfaces import IState
-from src.infrastructure.graph.edges.base import BaseEdge
+from .base import BaseEdge
 from src.infrastructure.graph.conditions import ConditionType, ConditionEvaluator
 
 if TYPE_CHECKING:
@@ -147,7 +147,7 @@ class ConditionalEdge(BaseEdge, IEdge):
         except Exception as e:
             logger.error(f"条件边 {self._edge_id} 条件评估失败: {e}")
             # 根据配置决定失败时的行为
-            return config.get("fail_on_error", False)
+            return bool(config.get("fail_on_error", False))
     
     def _parse_condition_type(self, condition_type: str) -> ConditionType:
         """解析条件类型
