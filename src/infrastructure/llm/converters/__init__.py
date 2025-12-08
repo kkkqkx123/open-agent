@@ -1,25 +1,52 @@
 """
 消息转换器模块
 
-提供 LLM 消息格式的转换功能
+提供 LLM 消息格式的转换功能。
 """
 
-from .message_converters import MessageConverter, RequestConverter, ResponseConverter
-from .provider_format_utils import (
-    BaseProviderFormatUtils,
-    ProviderFormatUtilsFactory,
-    get_provider_format_utils_factory,
+from .message import (
+    MessageConverter,
+    LLMMessage,
+    BaseMessage,
+    HumanMessage,
+    AIMessage,
+    SystemMessage,
+    ToolMessage
 )
-from .gemini.gemini_format_utils import GeminiFormatUtils
-from .anthropic.anthropic_format_utils import AnthropicFormatUtils
+from .base import (
+    IProvider,
+    IConverter,
+    ConversionContext,
+    MessageRole
+)
+from .providers import (
+    OpenAIProvider,
+    AnthropicProvider,
+    GeminiProvider,
+    OpenAIResponsesProvider
+)
 
 __all__ = [
+    # 主要接口
     "MessageConverter",
-    "RequestConverter",
-    "ResponseConverter",
-    "BaseProviderFormatUtils",
-    "ProviderFormatUtilsFactory",
-    "get_provider_format_utils_factory",
-    "GeminiFormatUtils",
-    "AnthropicFormatUtils",
+    
+    # 消息类
+    "LLMMessage",
+    "BaseMessage",
+    "HumanMessage",
+    "AIMessage",
+    "SystemMessage",
+    "ToolMessage",
+    
+    # 基础接口和类
+    "IProvider",
+    "IConverter",
+    "ConversionContext",
+    "MessageRole",
+    
+    # 提供商实现
+    "OpenAIProvider",
+    "AnthropicProvider",
+    "GeminiProvider",
+    "OpenAIResponsesProvider"
 ]
