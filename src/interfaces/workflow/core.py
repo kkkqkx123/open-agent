@@ -264,3 +264,20 @@ class IWorkflowRegistry(ABC):
     def clear(self) -> None:
         """清空注册表"""
         pass
+    
+    @abstractmethod
+    def get_registry_stats(self) -> Dict[str, Any]:
+        """获取注册表统计信息
+        
+        Returns:
+            Dict[str, Any]: 注册表统计信息
+        """
+        pass
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """获取统计信息（兼容接口）
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        return self.get_registry_stats()

@@ -19,25 +19,22 @@ from .workflow.execution import (
 )
 from .workflow.plugins import (
     IPlugin,
-    IHookPlugin,
     IStartPlugin,
     IEndPlugin,
     PluginType,
     PluginStatus,
-    HookPoint,
     PluginMetadata,
     PluginContext,
-    HookContext,
-    HookExecutionResult
+    PluginExecutionResult
 )
 from .workflow.services import (
     IWorkflowManager,
     IWorkflowFactory,
     IWorkflowExecutor,
-    IWorkflowRegistry,
     IWorkflowRegistryCoordinator,
     IWorkflowBuilderService
 )
+from .workflow.core import IWorkflowRegistry
 
 # 状态相关接口（仅导出接口，不导出具体实现）
 from .state import (
@@ -296,16 +293,13 @@ __all__ = [
     
     # 工作流插件接口
     "IPlugin",
-    "IHookPlugin",
     "IStartPlugin",
     "IEndPlugin",
     "PluginType",
     "PluginStatus",
-    "HookPoint",
     "PluginMetadata",
     "PluginContext",
-    "HookContext",
-    "HookExecutionResult",
+    "PluginExecutionResult",
     
     # 工作流服务接口
     "IWorkflowManager",

@@ -162,41 +162,9 @@ class IEdgeRegistry(ABC):
         pass
 
 
-class IWorkflowRegistry(ABC):
-    """工作流注册表接口 - 组合所有注册表"""
-    
-    @property
-    @abstractmethod
-    def component_registry(self) -> IComponentRegistry:
-        """组件注册表"""
-        pass
-    
-    @property
-    @abstractmethod
-    def function_registry(self) -> IFunctionRegistry:
-        """函数注册表"""
-        pass
-    
-    @abstractmethod
-    def validate_dependencies(self) -> List[str]:
-        """验证依赖完整性"""
-        pass
-    
-    @abstractmethod
-    def get_registry_stats(self) -> Dict[str, Any]:
-        """获取注册表统计信息"""
-        pass
-    
-    @abstractmethod
-    def clear_all(self) -> None:
-        """清除所有注册表"""
-        pass
-
-
 # 导出所有接口
 __all__ = [
     "IComponentRegistry",
     "IFunctionRegistry",
     "IEdgeRegistry",
-    "IWorkflowRegistry",
 ]

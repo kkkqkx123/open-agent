@@ -6,8 +6,8 @@ import asyncio
 from fastapi import Depends
 
 from ...interfaces.sessions.base import ISessionManager
-from ...application.workflow.manager import IWorkflowManager
-from ...domain.workflow.interfaces import IWorkflowRegistry, IWorkflowConfigManager, IWorkflowVisualizer
+from ...interfaces.workflow.core import IWorkflowManager
+from ...interfaces.workflow.registry import IWorkflowRegistry
 from ...interfaces.workflow.services import IWorkflowRegistryCoordinator
 from .data_access.session_dao import SessionDAO
 from .data_access.history_dao import HistoryDAO
@@ -95,37 +95,33 @@ def get_workflow_dao() -> WorkflowDAO:
 
 
 async def get_session_manager() -> ISessionManager:
-    """获取会话管理器"""
-    # 这里应该从依赖注入容器中获取
-    # 使用新的协调器系统
-    from ...core.workflow.registry.registry import WorkflowRegistry
-    from ...core.workflow.orchestration.workflow_registry_coordinator import WorkflowRegistryCoordinator
+    """获取会话管理器
     
-    registry = WorkflowRegistry()
-    workflow_coordinator = WorkflowRegistryCoordinator(registry)
-    return workflow_coordinator
+    Raises:
+        RuntimeError: 如果会话管理器未注册到依赖注入容器
+    """
+    from ...services.container import get_global_container
     
-    # 创建必要的依赖
-    workflow_manager = WorkflowManager()
+    container = get_global_container()
+    if not container.has_service(ISessionManager):
+        raise RuntimeError("会话管理器未注册到依赖注入容器，请确保已调用 WorkflowServiceBindings.register_services()")
     
-    return SessionManager(
-        workflow_manager=workflow_manager
-    )
+    return container.get(ISessionManager)
 
 
 async def get_workflow_manager() -> IWorkflowManager:
-    """获取工作流管理器"""
-    # 这里应该从依赖注入容器中获取
-    # 暂时返回一个模拟实例
-    from ...application.workflow.manager import WorkflowManager
-    from ...domain.workflow.config_manager import WorkflowConfigManager
-    from ...domain.workflow.registry import WorkflowRegistry
-    from ...domain.workflow.visualizer import WorkflowVisualizer
-    return WorkflowManager(
-        config_manager=WorkflowConfigManager(),
-        visualizer=WorkflowVisualizer(),
-        registry=WorkflowRegistry()
-    )
+    """获取工作流管理器
+    
+    Raises:
+        RuntimeError: 如果工作流管理器未注册到依赖注入容器
+    """
+    from ...services.container import get_global_container
+    
+    container = get_global_container()
+    if not container.has_service(IWorkflowManager):
+        raise RuntimeError("工作流管理器未注册到依赖注入容器，请确保已调用 WorkflowServiceBindings.register_services()")
+    
+    return container.get(IWorkflowManager)
 
 
 async def get_session_service(
@@ -154,17 +150,29 @@ async def get_workflow_service(
     cache: Annotated[MemoryCache, Depends(get_cache)],
     cache_manager: Annotated[CacheManager, Depends(get_cache_manager)]
 ) -> WorkflowService:
-    """获取工作流服务"""
+    """获取工作流服务
+    
+    Raises:
+        RuntimeError: 如果工作流注册表未注册到依赖注入容器
+    """
     global _workflow_service
     if _workflow_service is None:
-        # 创建工作流组件
+        # 从依赖注入容器获取工作流注册表
+        from ...services.container import get_global_container
+        
+        container = get_global_container()
+        if not container.has_service(IWorkflowRegistry):
+            raise RuntimeError("工作流注册表未注册到依赖注入容器，请确保已调用 WorkflowServiceBindings.register_services()")
+        
+        workflow_registry = container.get(IWorkflowRegistry)
+        
+        # 创建其他组件
         from ...domain.workflow.config_manager import WorkflowConfigManager
-        from ...domain.workflow.registry import WorkflowRegistry
         from ...domain.workflow.visualizer import WorkflowVisualizer
         
         _workflow_service = WorkflowService(
             workflow_manager=workflow_manager,
-            workflow_registry=WorkflowRegistry(),
+            workflow_registry=workflow_registry,
             config_manager=WorkflowConfigManager(),
             visualizer=WorkflowVisualizer(),
             workflow_dao=workflow_dao,

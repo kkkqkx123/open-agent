@@ -3,7 +3,8 @@ from typing import Optional, Dict, Any, List, AsyncGenerator
 from datetime import datetime
 import asyncio
 from src.services.logger.injection import get_logger
-from src.interfaces.workflow.services import IWorkflowManager, IWorkflowRegistry
+from src.interfaces.workflow.services import IWorkflowManager
+from src.interfaces.workflow.core import IWorkflowRegistry
 from src.core.state import WorkflowState
 from ..data_access.workflow_dao import WorkflowDAO
 

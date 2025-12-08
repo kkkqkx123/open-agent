@@ -11,7 +11,7 @@ from src.infrastructure.graph.nodes.async_node import AsyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.workflow.core import IWorkflow
-from src.interfaces.workflow.services import IWorkflowRegistry
+from src.interfaces.workflow.core import IWorkflowRegistry
 from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import StateMachineConfig
 from src.core.workflow.templates.state_machine import StateMachineSubWorkflowTemplate
 from src.core.workflow.templates.state_machine.state_mapper import StateMachineStateMapper

@@ -117,7 +117,13 @@ class PluginRegistry(TypedRegistry):
             List[IPlugin]: 插件列表
         """
         plugin_names = self._items_by_type.get(plugin_type.value, [])
-        return [self.get(name) for name in plugin_names if self.has_item(name)]
+        plugins: List[IPlugin] = []
+        for name in plugin_names:
+            if self.has_item(name):
+                plugin = self.get(name)
+                if plugin is not None:
+                    plugins.append(cast(IPlugin, plugin))
+        return plugins
     
     def list_plugins(self, plugin_type: Optional[PluginType] = None, 
                     status: Optional[PluginStatus] = None) -> List[str]:
@@ -223,8 +229,7 @@ class PluginRegistry(TypedRegistry):
             "type": metadata.plugin_type.value,
             "dependencies": metadata.dependencies,
             "status": self.get_plugin_status(plugin_name).value,
-            "config_schema": metadata.config_schema,
-            "supported_hook_points": [point.value for point in metadata.supported_hook_points] if metadata.supported_hook_points else []
+            "config_schema": metadata.config_schema
         }
     
     def validate_dependencies(self, plugin_name: str) -> List[str]:
@@ -298,20 +303,18 @@ class PluginRegistry(TypedRegistry):
     def get_plugins_by_hook_point(self, hook_point: str) -> List[IPlugin]:
         """根据Hook点获取支持该点的插件
         
+        Note:
+            此方法已不再使用，因为Hook系统已与插件系统分离。
+            请使用Hook注册表来管理Hook点相关的功能。
+        
         Args:
             hook_point: Hook点
             
         Returns:
-            List[IPlugin]: 支持该Hook点的插件列表
+            List[IPlugin]: 支持该Hook点的插件列表（通常返回空列表）
         """
-        supporting_plugins = []
-        for plugin in self.get_enabled_plugins():
-            if plugin.metadata.supported_hook_points:
-                for point in plugin.metadata.supported_hook_points:
-                    if point.value == hook_point:
-                        supporting_plugins.append(plugin)
-                        break
-        return supporting_plugins
+        # Hook系统已与插件系统分离，此方法保留以保持向后兼容性
+        return []
     
     def validate_all_dependencies(self) -> Dict[str, List[str]]:
         """验证所有插件的依赖关系

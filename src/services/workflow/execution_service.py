@@ -13,7 +13,7 @@ from src.interfaces.workflow.execution import IWorkflowExecutor as CoreIWorkflow
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.state.implementations.workflow_state import WorkflowState
 from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
-from src.interfaces.workflow.registry import IWorkflowRegistry
+from src.interfaces.workflow.core import IWorkflowRegistry
 
 logger = get_logger(__name__)
 

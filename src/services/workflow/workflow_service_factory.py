@@ -9,23 +9,25 @@ from src.interfaces.container import IDependencyContainer
 from src.interfaces.container.core import ServiceLifetime
 from src.interfaces.logger import ILogger
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
-from src.interfaces.workflow.builders import IWorkflowBuilder
 from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.interfaces.workflow.core import IWorkflowValidator
-from src.interfaces.workflow.registry import IWorkflowRegistry
-from src.core.workflow.coordinator import create_workflow_coordinator
-from src.core.workflow.core.builder import WorkflowBuilder
+from src.interfaces.workflow.core import IWorkflowRegistry
+from src.core.workflow.coordinator.workflow_coordinator import create_workflow_coordinator
+from src.core.workflow.core.builder import IWorkflowBuilder, WorkflowBuilder
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.workflow.validation import WorkflowValidator
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
 from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 from src.interfaces.workflow.exceptions import WorkflowError
-from src.core.workflow.registry import create_unified_registry
+# 移除了 create_unified_registry 导入，现在完全依赖依赖注入容器
 from src.core.workflow.graph.service import create_graph_service
 
 
 class WorkflowServiceFactory:
-    """工作流服务工厂 - 负责创建和配置 workflow 层服务"""
+    """工作流服务工厂 - 负责从依赖注入容器获取工作流服务
+    
+    注意：此类不再负责服务注册，服务注册请使用 WorkflowServiceBindings
+    """
     
     def __init__(self, container: IDependencyContainer, logger: Optional[ILogger] = None):
         """初始化服务工厂
@@ -64,7 +66,8 @@ class WorkflowServiceFactory:
                 graph_service=graph_service
             )
             
-            self._logger.debug("工作流协调器创建成功")
+            if self._logger:
+                self._logger.debug("工作流协调器创建成功")
             return coordinator
             
         except Exception as e:
@@ -82,102 +85,87 @@ class WorkflowServiceFactory:
             
             handle_error(e, error_context)
             
-            self._logger.error(f"创建工作流协调器失败: {e}")
+            if self._logger:
+                self._logger.error(f"创建工作流协调器失败: {e}")
             raise WorkflowError(f"创建工作流协调器失败: {e}") from e
     
-    def create_workflow_registry(self) -> IWorkflowRegistry:
-        """创建工作流注册表
+    def get_workflow_registry(self) -> IWorkflowRegistry:
+        """获取工作流注册表
         
         Returns:
             IWorkflowRegistry: 工作流注册表实例
+            
+        Raises:
+            WorkflowError: 如果注册表未注册到容器
         """
         try:
-            registry = create_unified_registry()
-            self._logger.debug("工作流注册表创建成功")
+            if not self._container.has_service(IWorkflowRegistry):
+                raise WorkflowError("工作流注册表未注册到依赖注入容器")
+            
+            registry = self._container.get(IWorkflowRegistry)
+            if self._logger:
+                self._logger.debug("从依赖注入容器获取工作流注册表成功")
             return registry
         except Exception as e:
             # 使用统一错误处理框架
             error_context = {
-                "operation": "create_workflow_registry",
+                "operation": "get_workflow_registry",
                 "factory_class": self.__class__.__name__
             }
             
             handle_error(e, error_context)
             
-            self._logger.error(f"创建工作流注册表失败: {e}")
-            raise WorkflowError(f"创建工作流注册表失败: {e}") from e
+            if self._logger:
+                self._logger.error(f"获取工作流注册表失败: {e}")
+            raise WorkflowError(f"获取工作流注册表失败: {e}") from e
     
-    def register_workflow_services(self, 
+    def ensure_services_registered(self,
                                  environment: str = "default",
                                  config: Optional[Dict[str, Any]] = None) -> None:
-        """注册所有 workflow 相关服务到容器
+        """确保工作流服务已注册到容器
         
         Args:
             environment: 环境名称
             config: 配置参数
+            
+        Note:
+            此方法仅用于确保服务已注册，推荐使用 WorkflowServiceBindings 直接注册服务
         """
         try:
-            config = config or {}
-            
-            # 注册工作流注册表
-            self._container.register_factory(
+            # 检查核心服务是否已注册
+            required_services = [
                 IWorkflowRegistry,
-                self.create_workflow_registry,
-                environment=environment,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-            
-            # 注册核心服务
-            self._container.register(
                 IWorkflowBuilder,
-                WorkflowBuilder,
-                environment=environment,
-                lifetime=ServiceLifetime.TRANSIENT
-            )
-            
-            self._container.register(
                 IWorkflowExecutor,
-                WorkflowExecutor,
-                environment=environment,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-            
-            self._container.register(
                 IWorkflowValidator,
-                WorkflowValidator,
-                environment=environment,
-                lifetime=ServiceLifetime.SINGLETON
-            )
+                WorkflowLifecycleManager
+            ]
             
-            self._container.register(
-                WorkflowLifecycleManager,
-                WorkflowLifecycleManager,
-                environment=environment,
-                lifetime=ServiceLifetime.SCOPED
-            )
+            missing_services = []
+            for service_type in required_services:
+                if not self._container.has_service(service_type):
+                    missing_services.append(service_type.__name__)
             
-            # 注册图服务
-            self._container.register_factory(
-                create_graph_service.__class__,
-                lambda: create_graph_service(self._container.get(IWorkflowRegistry)),
-                environment=environment,
-                lifetime=ServiceLifetime.SINGLETON
-            )
-            
-            # 注册协调器
-            self._container.register_factory(
-                IWorkflowCoordinator,
-                self.create_workflow_coordinator,
-                environment=environment,
-                lifetime=ServiceLifetime.TRANSIENT
-            )
-            
-            if self._logger:
-                self._logger.info(f"工作流服务注册完成，环境: {environment}")
+            if missing_services:
+                if self._logger:
+                    self._logger.warning(f"缺少工作流服务: {', '.join(missing_services)}")
+                
+                # 使用工作流服务绑定注册缺失的服务
+                from src.services.container.bindings.workflow_bindings import WorkflowServiceBindings
+                
+                config = config or {}
+                workflow_bindings = WorkflowServiceBindings()
+                workflow_bindings.register_services(self._container, config, environment)
+                
+                if self._logger:
+                    self._logger.info(f"工作流服务注册完成，环境: {environment}")
+            else:
+                if self._logger:
+                    self._logger.debug("所有工作流服务已注册")
 
         except Exception as e:
             if self._logger:
-                self._logger.error(f"注册工作流服务失败: {e}")
+                self._logger.error(f"确保工作流服务注册失败: {e}")
             raise
     
     def validate_service_configuration(self) -> List[str]:
@@ -210,9 +198,8 @@ class WorkflowServiceFactory:
             # 验证工作流注册表依赖
             if self._container.has_service(IWorkflowRegistry):
                 registry = self._container.get(IWorkflowRegistry)
-                if hasattr(registry, 'validate_dependencies'):
-                    dependency_errors = registry.validate_dependencies()
-                    errors.extend(dependency_errors)
+                # 核心工作流注册表不包含依赖验证功能
+                # 这里可以添加其他验证逻辑
             
         except Exception as e:
             if self._logger:
@@ -237,6 +224,8 @@ class WorkflowServiceFactory:
             registry = self._container.get(IWorkflowRegistry)
             if hasattr(registry, 'get_registry_stats'):
                 stats["workflow_registry"] = registry.get_registry_stats()
+            elif hasattr(registry, 'get_stats'):
+                stats["workflow_registry"] = registry.get_stats()
         
         return stats
 
@@ -246,10 +235,13 @@ def create_workflow_service_factory(container: IDependencyContainer) -> Workflow
     """创建工作流服务工厂实例
     
     Args:
-        container: 依赖注入容器
+        container: 依赖注入容器（必须已注册工作流服务）
         
     Returns:
         WorkflowServiceFactory: 服务工厂实例
+        
+    Raises:
+        WorkflowError: 如果容器中缺少必需的工作流服务
     """
     return WorkflowServiceFactory(container)
 

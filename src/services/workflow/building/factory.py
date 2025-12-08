@@ -10,7 +10,7 @@ from src.interfaces.workflow.templates import IWorkflowTemplate
 from src.interfaces.workflow.services import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
-from src.core.workflow.core.registry import WorkflowRegistry
+from src.interfaces.workflow.core import IWorkflowRegistry
 from src.core.workflow.config.config import GraphConfig
 
 
@@ -21,7 +21,7 @@ class WorkflowFactory(IWorkflowFactory):
     including configurations, templates, and predefined types.
     """
     
-    def __init__(self, registry: WorkflowRegistry, use_coordinator: bool = True):
+    def __init__(self, registry: IWorkflowRegistry, use_coordinator: bool = True):
         """Initialize the workflow factory.
         
         Args:

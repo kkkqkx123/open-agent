@@ -265,14 +265,10 @@ class HookRegistry(BaseRegistry, IHookRegistry):
         supported_points = item.get_supported_hook_points()
         if supported_points:
             hook_point = supported_points[0]  # 使用第一个支持的Hook点
+            self.register_hook(hook_point, item)
         else:
-            from enum import Enum
-            # 如果没有支持的Hook点，创建一个默认的
-            class DefaultHookPoint(Enum):
-                DEFAULT = "default"
-            hook_point = DefaultHookPoint.DEFAULT
-        
-        self.register_hook(hook_point, item)
+            # 如果没有支持的Hook点，则跳过注册（Hook必须支持至少一个Hook点）
+            self._logger.warning(f"Hook {item.hook_id} 没有支持的Hook点，跳过注册")
     
     def get(self, name: str) -> Optional[Any]:
         """获取项目（基类方法实现）

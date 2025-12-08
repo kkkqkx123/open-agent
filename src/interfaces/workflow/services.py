@@ -124,40 +124,6 @@ class IWorkflowExecutor(ABC):
         pass
 
 
-class IWorkflowRegistry(ABC):
-    """Interface for workflow registry service."""
-    
-    @abstractmethod
-    def register_workflow(self, workflow: "IWorkflow") -> None:
-        """Register a workflow."""
-        pass
-    
-    @abstractmethod
-    def unregister_workflow(self, workflow_id: str) -> bool:
-        """Unregister a workflow."""
-        pass
-    
-    @abstractmethod
-    def get_workflow(self, workflow_id: str) -> Optional["IWorkflow"]:
-        """Get a workflow by ID."""
-        pass
-    
-    @abstractmethod
-    def list_workflows(self) -> List["IWorkflow"]:
-        """List all registered workflows."""
-        pass
-    
-    @abstractmethod
-    def workflow_exists(self, workflow_id: str) -> bool:
-        """Check if a workflow exists."""
-        pass
-    
-    @abstractmethod
-    def clear(self) -> None:
-        """Clear all registered workflows."""
-        pass
-
-
 class IWorkflowRegistryCoordinator(ABC):
     """Interface for workflow registry coordinator service."""
     

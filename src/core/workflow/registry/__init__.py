@@ -47,12 +47,7 @@ from .registry import (
     create_unified_registry,
     create_registry_manager
 )
-from .registry_factory import (
-    RegistryFactory,
-    RegistryBuilder,
-    create_registry,
-    create_registry_with_auto_discovery
-)
+# registry_factory.py 已删除，这些功能现在通过依赖注入容器提供
 
 __all__ = [
     # 基础接口和类
@@ -102,9 +97,5 @@ __all__ = [
     "create_unified_registry",
     "create_registry_manager",
     
-    # 工厂和构建器
-    "RegistryFactory",
-    "RegistryBuilder",
-    "create_registry",
-    "create_registry_with_auto_discovery",
+    # 注意：工厂和构建器已删除，现在使用依赖注入容器
 ]

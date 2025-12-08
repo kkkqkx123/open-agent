@@ -174,10 +174,10 @@ class UnifiedRegistry:
             },
             "plugins": {
                 "by_type": {
-                    plugin_type.value: self._plugin_registry.list_plugins(plugin_type)
+                    plugin_type: self._plugin_registry.list_plugins()
                     for plugin_type in self._plugin_registry.get_type_categories()
                 },
-                "enabled": self._plugin_registry.list_plugins(status=self._plugin_registry.PluginStatus.ENABLED)
+                "enabled": self._plugin_registry.get_enabled_plugins()
             },
             "triggers": {
                 "by_type": {

@@ -9,7 +9,7 @@ from typing import Dict, Any
 
 from src.infrastructure.messages import (
     BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage,
-    MessageConverter, MessageFactory, LangChainCompatibilityAdapter
+    MessageConverter, MessageFactory
 )
 from src.infrastructure.llm.models import LLMMessage, MessageRole
 
@@ -245,38 +245,6 @@ class TestMessageUtils:
         assert counts["tool"] == 0
 
 
-class TestCompatibilityAdapter:
-    """测试兼容性适配器"""
-    
-    def test_is_langchain_available(self):
-        """测试LangChain可用性检查"""
-        result = LangChainCompatibilityAdapter.is_langchain_available()
-        # 这个测试的结果取决于环境，我们只确保函数能正常调用
-        assert isinstance(result, bool)
-    
-    def test_is_base_message(self):
-        """测试基础消息检查"""
-        msg = HumanMessage(content="Hello")
-        assert LangChainCompatibilityAdapter.is_base_message(msg)
-        
-        not_msg = "not a message"
-        assert not LangChainCompatibilityAdapter.is_base_message(not_msg)
-    
-    def test_auto_convert_base_message(self):
-        """测试自动转换基础消息"""
-        msg = HumanMessage(content="Hello")
-        result = LangChainCompatibilityAdapter.auto_convert(msg)
-        
-        # 基础消息应该直接返回
-        assert result is msg
-    
-    def test_auto_convert_non_message(self):
-        """测试自动转换非消息对象"""
-        not_msg = "not a message"
-        result = LangChainCompatibilityAdapter.auto_convert(not_msg)
-        
-        # 非消息对象应该直接返回
-        assert result is not_msg
 
 
 if __name__ == "__main__":

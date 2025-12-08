@@ -27,7 +27,8 @@ from .workflow import Workflow
 
 # 核心功能模块
 from .core.builder import WorkflowBuilder
-from .core.registry import WorkflowRegistry
+from .core.registry import WorkflowRegistry  # 具体实现，通过依赖注入使用
+from src.interfaces.workflow.core import IWorkflowRegistry  # 接口，推荐使用
 
 # 协调器模块
 from .coordinator import WorkflowCoordinator, create_workflow_coordinator
@@ -65,11 +66,6 @@ from .graph import (
     create_graph_service,
 )
 
-# 注册表模块
-from .registry import (
-    WorkflowRegistry,
-    create_workflow_registry,
-)
 from .graph.extensions import (
     ITrigger,
     IPlugin,
@@ -135,12 +131,22 @@ def create_workflow_builder() -> WorkflowBuilder:
     return WorkflowBuilder()
 
 
+# 已弃用：请使用 WorkflowServiceBindings 注册工作流服务
 def create_workflow_registry() -> WorkflowRegistry:
     """创建工作流注册表
+    
+    .. deprecated::
+        请使用 WorkflowServiceBindings 注册工作流服务到依赖注入容器
     
     Returns:
         WorkflowRegistry: 工作流注册表实例
     """
+    import warnings
+    warnings.warn(
+        "create_workflow_registry() 已弃用，请使用 WorkflowServiceBindings 注册工作流服务",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return WorkflowRegistry()
 
 
@@ -191,7 +197,8 @@ __all__ = [
     
     # 核心功能模块
     "WorkflowBuilder",
-    "WorkflowRegistry",
+    "WorkflowRegistry",  # 具体实现
+    "IWorkflowRegistry",  # 接口，推荐使用
     
     # 协调器模块
     "WorkflowCoordinator",
@@ -233,8 +240,9 @@ __all__ = [
     "create_graph_service",
     
     # 注册表模块
-    "WorkflowRegistry",
-    "create_workflow_registry",
+    "WorkflowRegistry",  # 具体实现
+    "IWorkflowRegistry",  # 接口，推荐使用
+    "create_workflow_registry",  # 已弃用
     "ITrigger",
     "IPlugin",
     "TriggerFactory",

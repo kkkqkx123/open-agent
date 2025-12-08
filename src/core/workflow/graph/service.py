@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from src.interfaces.workflow.graph import IGraph, INode, IEdge, NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
-from src.interfaces.workflow.registry import IWorkflowRegistry
+from src.core.workflow.registry.registry import UnifiedRegistry
 
 if TYPE_CHECKING:
     from .extensions.triggers.base import ITrigger
@@ -34,7 +34,7 @@ class GraphService(IGraphService):
     """图服务实现"""
     
     def __init__(self,
-                 workflow_registry: IWorkflowRegistry,
+                 workflow_registry: UnifiedRegistry,
                  triggers: Optional[List["ITrigger"]] = None,
                  plugins: Optional[List["IPlugin"]] = None) -> None:
         """初始化图服务
@@ -113,13 +113,15 @@ class GraphService(IGraphService):
             
             try:
                 # 从注册表获取节点类
-                node_class = self._workflow_registry.component_registry.get_node_class(node_type)
+                node_class = self._workflow_registry.nodes.get_node_class(node_type)
                 if not node_class:
                     raise ValueError(f"未注册的节点类型: {node_type}")
                 
                 node = node_class()
-                graph.add_node(node)
-                created_nodes[node_id] = node
+                # 确保节点符合INode接口（使用类型检查来满足类型检查器）
+                node_interface: INode = cast(INode, node)
+                graph.add_node(node_interface)
+                created_nodes[node_id] = node_interface
                 
             except ValueError as ve:
                 # 直接重新抛出ValueError
@@ -149,7 +151,7 @@ class GraphService(IGraphService):
             
             try:
                 # 从注册表获取边类
-                edge_class = self._workflow_registry.component_registry.get_edge_class(edge_type)
+                edge_class = self._workflow_registry.nodes.get_node_class(edge_type)
                 if not edge_class:
                     raise ValueError(f"未注册的边类型: {edge_type}")
                 
@@ -312,7 +314,7 @@ class GraphService(IGraphService):
 _global_graph_service: Optional[GraphService] = None
 
 
-def create_graph_service(workflow_registry: IWorkflowRegistry) -> GraphService:
+def create_graph_service(workflow_registry: UnifiedRegistry) -> GraphService:
     """创建图服务实例
     
     Args:

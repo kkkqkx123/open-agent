@@ -3,43 +3,14 @@
 集中所有工作流注册和查找功能，避免注册逻辑分散。
 """
 
-from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 from src.services.logger.injection import get_logger
 
-from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.core import IWorkflow, IWorkflowRegistry
 from src.core.workflow.workflow import Workflow
 
 logger = get_logger(__name__)
-
-
-class IWorkflowRegistry(ABC):
-    """工作流注册表接口"""
-    
-    @abstractmethod
-    def register_workflow(self, workflow_id: str, workflow: IWorkflow) -> None:
-        """注册工作流"""
-        pass
-    
-    @abstractmethod
-    def get_workflow(self, workflow_id: str) -> Optional[IWorkflow]:
-        """获取工作流"""
-        pass
-    
-    @abstractmethod
-    def unregister_workflow(self, workflow_id: str) -> bool:
-        """注销工作流"""
-        pass
-    
-    @abstractmethod
-    def list_workflows(self) -> List[str]:
-        """列出所有已注册的工作流"""
-        pass
-    
-    @abstractmethod
-    def clear(self) -> None:
-        """清空注册表"""
-        pass
 
 
 class WorkflowRegistry(IWorkflowRegistry):
@@ -143,10 +114,10 @@ class WorkflowRegistry(IWorkflowRegistry):
             "description": workflow.description,
             "version": workflow.version,
             "entry_point": workflow.entry_point,
-            "node_count": len(workflow.nodes),
-            "edge_count": len(workflow.edges),
+            "node_count": len(workflow.get_nodes()),
+            "edge_count": len(workflow.get_edges()),
             "registered_at": metadata["registered_at"],
-            "has_graph": workflow.graph is not None
+            "has_graph": workflow.compiled_graph is not None
         }
     
     def list_workflow_infos(self) -> List[Dict[str, Any]]:
@@ -155,7 +126,7 @@ class WorkflowRegistry(IWorkflowRegistry):
         Returns:
             List[Dict[str, Any]]: 工作流信息列表
         """
-        return [self.get_workflow_info(workflow_id) for workflow_id in self.list_workflows()]
+        return [info for info in (self.get_workflow_info(workflow_id) for workflow_id in self.list_workflows()) if info is not None]
     
     def search_workflows(self, **kwargs) -> List[str]:
         """搜索工作流
@@ -197,7 +168,7 @@ class WorkflowRegistry(IWorkflowRegistry):
             Dict[str, Any]: 统计信息
         """
         total_workflows = len(self._workflows)
-        workflows_with_graph = sum(1 for w in self._workflows.values() if w.graph is not None)
+        workflows_with_graph = sum(1 for w in self._workflows.values() if w.compiled_graph is not None)
         
         # 统计版本分布
         version_counts = {}
@@ -210,9 +181,17 @@ class WorkflowRegistry(IWorkflowRegistry):
             "workflows_with_graph": workflows_with_graph,
             "workflows_without_graph": total_workflows - workflows_with_graph,
             "version_distribution": version_counts,
-            "average_nodes_per_workflow": sum(len(w.nodes) for w in self._workflows.values()) / max(total_workflows, 1),
-            "average_edges_per_workflow": sum(len(w.edges) for w in self._workflows.values()) / max(total_workflows, 1)
+            "average_nodes_per_workflow": sum(len(w.get_nodes()) for w in self._workflows.values()) / max(total_workflows, 1),
+            "average_edges_per_workflow": sum(len(w.get_edges()) for w in self._workflows.values()) / max(total_workflows, 1)
         }
+    
+    def get_registry_stats(self) -> Dict[str, Any]:
+        """获取注册表统计信息（实现IWorkflowRegistry接口）
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        return self.get_statistics()
     
     def validate_workflow_id(self, workflow_id: str) -> bool:
         """验证工作流ID格式
@@ -306,16 +285,28 @@ class WorkflowRegistry(IWorkflowRegistry):
         return self._workflows.keys()
 
 
-# 全局注册表实例
+# 注意：全局注册表模式已弃用，请使用依赖注入容器
+# 以下函数仅为向后兼容保留，建议迁移到依赖注入模式
+
 _global_registry: Optional[WorkflowRegistry] = None
 
 
 def get_global_registry() -> WorkflowRegistry:
     """获取全局工作流注册表
     
+    .. deprecated::
+        请使用依赖注入容器获取工作流注册表
+    
     Returns:
         WorkflowRegistry: 全局注册表实例
     """
+    import warnings
+    warnings.warn(
+        "get_global_registry() 已弃用，请使用依赖注入容器获取工作流注册表",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     global _global_registry
     if _global_registry is None:
         _global_registry = WorkflowRegistry()
@@ -325,10 +316,20 @@ def get_global_registry() -> WorkflowRegistry:
 def register_workflow(workflow_id: str, workflow: IWorkflow) -> None:
     """便捷函数：注册工作流到全局注册表
     
+    .. deprecated::
+        请使用依赖注入容器注册工作流
+    
     Args:
         workflow_id: 工作流ID
         workflow: 工作流实例
     """
+    import warnings
+    warnings.warn(
+        "register_workflow() 已弃用，请使用依赖注入容器注册工作流",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     registry = get_global_registry()
     registry.register_workflow(workflow_id, workflow)
 
@@ -336,12 +337,22 @@ def register_workflow(workflow_id: str, workflow: IWorkflow) -> None:
 def get_workflow(workflow_id: str) -> Optional[IWorkflow]:
     """便捷函数：从全局注册表获取工作流
     
+    .. deprecated::
+        请使用依赖注入容器获取工作流
+    
     Args:
         workflow_id: 工作流ID
         
     Returns:
         Optional[IWorkflow]: 工作流实例
     """
+    import warnings
+    warnings.warn(
+        "get_workflow() 已弃用，请使用依赖注入容器获取工作流",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     registry = get_global_registry()
     return registry.get_workflow(workflow_id)
 
@@ -349,8 +360,18 @@ def get_workflow(workflow_id: str) -> Optional[IWorkflow]:
 def list_workflows() -> List[str]:
     """便捷函数：列出全局注册表中的所有工作流
     
+    .. deprecated::
+        请使用依赖注入容器列出工作流
+    
     Returns:
         List[str]: 工作流ID列表
     """
+    import warnings
+    warnings.warn(
+        "list_workflows() 已弃用，请使用依赖注入容器列出工作流",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    
     registry = get_global_registry()
     return registry.list_workflows()
