@@ -4,7 +4,7 @@ import re
 from typing import List, Pattern, Dict, Any, Optional, Union, Tuple
 from enum import Enum
 from dataclasses import dataclass
-from ..boundary_matcher import boundary_matcher, BoundaryType, UnicodeCategory
+from ...text.boundary_matcher import boundary_matcher, BoundaryType, UnicodeCategory
 
 
 class LogLevel(Enum):

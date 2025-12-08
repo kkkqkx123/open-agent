@@ -3,7 +3,6 @@
 提供通用的文件监听功能，可被多个模块使用。
 """
 
-import os
 import time
 import threading
 from typing import Callable, Dict, List, Optional, Any
