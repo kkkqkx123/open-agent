@@ -49,7 +49,7 @@ class FlexibleConditionalEdge(BaseEdge, IEdge):
         self.description = description
         self._metadata = metadata or {}
         self._function_registry: Optional["FunctionRegistry"] = None
-        self._cached_route_function: Optional[Callable] = None
+        self._cached_route_function: Optional[Any] = None
         
         logger.debug(f"创建灵活条件边: {from_node} -> [路由函数: {route_function}]")
     
@@ -149,7 +149,12 @@ class FlexibleConditionalEdge(BaseEdge, IEdge):
             route_state = self._prepare_route_state(state, route_parameters)
             
             # 调用路由函数
-            target_node = route_func(route_state)  # type: ignore
+            if hasattr(route_func, 'route'):
+                # 新的IFunction接口
+                target_node = route_func.route(route_state, route_parameters)
+            else:
+                # 旧的Callable接口
+                target_node = route_func(route_state)
             
             # 验证返回值
             if not isinstance(target_node, str):
@@ -165,11 +170,11 @@ class FlexibleConditionalEdge(BaseEdge, IEdge):
                 return None
             return merged_config.get("fallback_target")
     
-    def _get_route_function(self) -> Optional[Callable]:
+    def _get_route_function(self) -> Optional[Any]:
         """获取路由函数
         
         Returns:
-            Optional[Callable]: 路由函数，如果不存在则返回None
+            Optional[Any]: 路由函数，如果不存在则返回None
         """
         # 使用缓存的函数
         if self._cached_route_function:
