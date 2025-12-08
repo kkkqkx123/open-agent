@@ -9,14 +9,10 @@ from httpx import Response
 
 from src.interfaces.llm.http_client import ILLMHttpClient
 from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
-from src.infrastructure.llm.converters.anthropic.anthropic_format_utils import AnthropicFormatUtils
+from src.infrastructure.llm.converters.providers.anthropic import AnthropicProvider
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.services.logger.injection import get_logger
-
-# 使用 TYPE_CHECKING 避免循环导入
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from src.interfaces.messages import IBaseMessage
+from src.interfaces.messages import IBaseMessage
 
 
 class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
@@ -35,15 +31,14 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
         
-        # Claude 3系列
-        "claude-3-opus-20240229",
-        "claude-3-sonnet-20240229", 
-        "claude-3-haiku-20240307",
+        # Claude 4系列
+        "claude-4.1-opus",
+        "claude-4.0-sonnet", 
         
-        # 未来模型
-        "claude-4-opus",
-        "claude-4-sonnet",
-        "claude-4-haiku"
+        # 4.5系列
+        "claude-4.5-opus",
+        "claude-4.5-sonnet",
+        "claude-4.5-haiku"
     ]
     
     def __init__(
@@ -73,7 +68,7 @@ class AnthropicHttpClient(BaseHttpClient, ILLMHttpClient):
         super().__init__(base_url=base_url, default_headers=default_headers, **kwargs)
         
         # 初始化格式转换器
-        self.format_utils = AnthropicFormatUtils()
+        self.format_utils = AnthropicProvider()
         self.api_key = api_key
         
         self.logger.info("初始化Anthropic HTTP客户端")

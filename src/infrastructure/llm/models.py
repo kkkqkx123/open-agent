@@ -210,7 +210,7 @@ class LLMResponse:
     """LLM响应模型"""
 
     content: str
-    message: "IBaseMessage"
+    message: Any  # 接受任何消息类型（BaseMessage或IBaseMessage）
     token_usage: TokenUsage
     model: str
     finish_reason: Optional[str] = None

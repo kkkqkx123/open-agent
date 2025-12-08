@@ -9,14 +9,10 @@ from httpx import Response
 
 from src.interfaces.llm.http_client import ILLMHttpClient
 from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
-from src.infrastructure.llm.converters.openai.openai_format_utils import OpenAIFormatUtils
+from src.infrastructure.llm.converters.providers.openai import OpenAIProvider
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.services.logger.injection import get_logger
-
-# 使用 TYPE_CHECKING 避免循环导入
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from src.interfaces.messages import IBaseMessage
+from src.interfaces.messages import IBaseMessage
 
 
 class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
@@ -85,7 +81,7 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
         super().__init__(base_url=base_url, default_headers=default_headers, **kwargs)
         
         # 初始化格式转换器
-        self.format_utils = OpenAIFormatUtils()
+        self.format_utils = OpenAIProvider()
         self.api_version = api_version
         self.api_key = api_key
         self.api_format = api_format
@@ -320,17 +316,17 @@ class OpenAIHttpClient(BaseHttpClient, ILLMHttpClient):
             content_str = content_value if isinstance(content_value, str) else str(content_value)
             
             return LLMResponse(
-                content=content_str,
-                message=message,
-                token_usage=token_usage,
-                model=data.get("model", ""),
-                finish_reason=finish_reason,
-                metadata={
-                    "id": data.get("id", ""),
-                    "created": data.get("created"),
-                    "system_fingerprint": data.get("system_fingerprint"),
-                    "service_tier": data.get("service_tier")
-                }
+               content=content_str,
+               message=message,
+               token_usage=token_usage,
+               model=data.get("model", ""),
+               finish_reason=finish_reason,
+               metadata={
+                   "id": data.get("id", ""),
+                   "created": data.get("created"),
+                   "system_fingerprint": data.get("system_fingerprint"),
+                   "service_tier": data.get("service_tier")
+               }
             )
             
         except Exception as e:

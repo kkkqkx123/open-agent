@@ -4,9 +4,10 @@
 提供所有提供商的通用实现。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence, Union
 from .base import BaseProvider, ConversionContext
 from .message import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+from src.interfaces.messages import IBaseMessage
 from .utils import (
     process_content_to_list,
     extract_text_from_content,
@@ -23,7 +24,7 @@ class ProviderBase(BaseProvider):
     def __init__(self, name: str):
         super().__init__(name)
     
-    def convert_request(self, messages: List[BaseMessage], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_request(self, messages: Sequence[Union[BaseMessage, IBaseMessage]], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换请求格式"""
         context = self._create_context("request", parameters)
         
@@ -33,8 +34,8 @@ class ProviderBase(BaseProvider):
             context.add_error(f"请求验证失败: {', '.join(errors)}")
             raise ValueError(f"请求验证失败: {', '.join(errors)}")
         
-        # 处理消息
-        processed_messages = self._process_messages(messages, context)
+        # 处理消息（转换为List并进行类型转换）
+        processed_messages = self._process_messages(list(messages) if not isinstance(messages, list) else messages, context)  # type: ignore
         
         # 构建请求
         request_data = self._build_request(processed_messages, parameters, context)

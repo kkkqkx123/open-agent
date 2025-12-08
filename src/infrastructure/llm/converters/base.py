@@ -5,9 +5,10 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Sequence
 from dataclasses import dataclass
 from enum import Enum
+from src.interfaces.messages import IBaseMessage
 
 
 class MessageRole(Enum):
@@ -55,7 +56,7 @@ class IProvider(ABC):
         pass
     
     @abstractmethod
-    def convert_request(self, messages: List[Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
+    def convert_request(self, messages: Sequence[Union[Any, "IBaseMessage"]], parameters: Dict[str, Any]) -> Dict[str, Any]:
         """转换请求格式"""
         pass
     
@@ -70,7 +71,7 @@ class IProvider(ABC):
         pass
     
     @abstractmethod
-    def validate_request(self, messages: List[Any], parameters: Dict[str, Any]) -> List[str]:
+    def validate_request(self, messages: Sequence[Union[Any, "IBaseMessage"]], parameters: Dict[str, Any]) -> List[str]:
         """验证请求参数"""
         pass
     
@@ -114,7 +115,7 @@ class BaseProvider(IProvider):
         """获取提供商名称"""
         return self.name
     
-    def validate_request(self, messages: List[Any], parameters: Dict[str, Any]) -> List[str]:
+    def validate_request(self, messages: Sequence[Union[Any, "IBaseMessage"]], parameters: Dict[str, Any]) -> List[str]:
         """验证请求参数"""
         errors = []
         

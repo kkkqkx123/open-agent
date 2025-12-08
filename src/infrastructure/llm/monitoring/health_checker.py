@@ -330,15 +330,19 @@ class HealthChecker:
             
             for name, result in zip(check_names, check_results):
                 if isinstance(result, Exception):
-                    results[name] = HealthCheckResult(
+                    error_result = HealthCheckResult(
                         status=HealthStatus.UNHEALTHY,
                         message=f"检查执行异常: {str(result)}",
                         check_name=name,
                         details={"error": str(result)}
                     )
+                    results[name] = error_result
+                    self._last_results[name] = error_result
                 else:
-                    results[name] = result
-                    self._last_results[name] = result
+                    # 明确类型断言，确保result是HealthCheckResult类型
+                    health_result: HealthCheckResult = result  # type: ignore
+                    results[name] = health_result
+                    self._last_results[name] = health_result
         
         return results
     

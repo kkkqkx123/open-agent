@@ -9,14 +9,10 @@ from httpx import Response
 
 from src.interfaces.llm.http_client import ILLMHttpClient
 from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
-from src.infrastructure.llm.converters.gemini.gemini_format_utils import GeminiFormatUtils
+from src.infrastructure.llm.converters.providers.gemini import GeminiProvider
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
 from src.services.logger.injection import get_logger
-
-# 使用 TYPE_CHECKING 避免循环导入
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from src.interfaces.messages import IBaseMessage
+from src.interfaces.messages import IBaseMessage
 
 
 class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
@@ -31,16 +27,13 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
     
     # 支持的模型列表
     SUPPORTED_MODELS = [
-        # Gemini 1.5系列
-        "gemini-1.5-pro", "gemini-1.5-pro-001", "gemini-1.5-pro-latest",
-        "gemini-1.5-flash", "gemini-1.5-flash-001", "gemini-1.5-flash-latest",
-        "gemini-1.5-flash-8b", "gemini-1.5-flash-8b-001",
+        # Gemini 2.5系列
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
         
-        # Gemini 1.0系列
-        "gemini-pro", "gemini-pro-vision",
-        
-        # 未来模型
-        "gemini-2.0-pro", "gemini-2.0-flash"
+        # 3.0系列
+        "gemini-3.0-pro", "gemini-3.0-flash"
     ]
     
     def __init__(
@@ -69,7 +62,7 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
         super().__init__(base_url=base_url, default_headers=default_headers, **kwargs)
         
         # 初始化格式转换器
-        self.format_utils = GeminiFormatUtils()
+        self.format_utils = GeminiProvider()
         self.api_key = api_key
         
         self.logger.info("初始化Gemini HTTP客户端")
@@ -191,15 +184,15 @@ class GeminiHttpClient(BaseHttpClient, ILLMHttpClient):
             content_str = content_value if isinstance(content_value, str) else str(content_value)
             
             return LLMResponse(
-                content=content_str,
-                message=message,
-                token_usage=token_usage,
-                model=model,
-                finish_reason=finish_reason,
-                metadata={
-                    "model_version": data.get("modelVersion"),
-                    "usage_metadata": usage_metadata
-                }
+               content=content_str,
+               message=message,
+               token_usage=token_usage,
+               model=model,
+               finish_reason=finish_reason,
+               metadata={
+                   "model_version": data.get("modelVersion"),
+                   "usage_metadata": usage_metadata
+               }
             )
             
         except Exception as e:
