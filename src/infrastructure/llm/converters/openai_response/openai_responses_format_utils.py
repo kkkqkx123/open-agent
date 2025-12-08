@@ -30,15 +30,15 @@ from src.infrastructure.llm.converters.openai_response.openai_responses_stream_u
 
 
 class OpenAIResponsesFormatUtils(BaseProviderUtils):
-     """OpenAI Responses API格式转换工具类"""
-     
-     def __init__(self, name: str = "openai-responses") -> None:
-         """初始化OpenAI Responses API格式工具"""
-         super().__init__()
-         self.tools_utils: "OpenAIResponsesToolsUtils" = OpenAIResponsesToolsUtils()
-         self.validation_utils: "OpenAIResponsesValidationUtils" = OpenAIResponsesValidationUtils()
-         self.multimodal_utils: "OpenAIResponsesMultimodalUtils" = OpenAIResponsesMultimodalUtils()
-         self.stream_utils: "OpenAIResponsesStreamUtils" = OpenAIResponsesStreamUtils()
+    """OpenAI Responses API格式转换工具类"""
+    
+    def __init__(self, name: str = "openai-responses") -> None:
+        """初始化OpenAI Responses API格式工具"""
+        super().__init__()
+        self.tools_utils: "OpenAIResponsesToolsUtils" = OpenAIResponsesToolsUtils()
+        self.validation_utils: "OpenAIResponsesValidationUtils" = OpenAIResponsesValidationUtils()
+        self.multimodal_utils: "OpenAIResponsesMultimodalUtils" = OpenAIResponsesMultimodalUtils()
+        self.stream_utils: "OpenAIResponsesStreamUtils" = OpenAIResponsesStreamUtils()
     
     def get_provider_name(self) -> str:
         """获取提供商名称"""

@@ -27,26 +27,26 @@ class FunctionRegistry:
         self._load_builtin_functions()
     
     def _load_builtin_functions(self) -> None:
-        """加载内置函数"""
-        from src.infrastructure.graph.functions.nodes.builtin import BuiltinNodeFunctions
-        from src.infrastructure.graph.functions.conditions.builtin import BuiltinConditionFunctions
-        from src.infrastructure.graph.functions.routing.builtin import BuiltinRouteFunctions
-        from src.infrastructure.graph.functions.triggers.builtin import BuiltinTriggerFunctions
+        """加载内置函数（使用Core层直接实现）"""
+        from src.core.workflow.graph.functions.nodes import BuiltinNodeFunctions
+        from src.core.workflow.graph.functions.conditions import BuiltinConditionFunctions
+        from src.core.workflow.graph.functions.routing import BuiltinRouteFunctions
+        from src.core.workflow.graph.functions.triggers import BuiltinTriggerFunctions
         
         # 注册节点函数
-        for function in BuiltinNodeFunctions.get_all_functions().values():
+        for function in BuiltinNodeFunctions.get_all_functions():
             self._infra_registry.register(function)
         
         # 注册条件函数
-        for function in BuiltinConditionFunctions.get_all_functions().values():
+        for function in BuiltinConditionFunctions.get_all_functions():
             self._infra_registry.register(function)
         
         # 注册路由函数
-        for function in BuiltinRouteFunctions.get_all_functions().values():
+        for function in BuiltinRouteFunctions.get_all_functions():
             self._infra_registry.register(function)
         
         # 注册触发器函数
-        for function in BuiltinTriggerFunctions.get_all_functions().values():
+        for function in BuiltinTriggerFunctions.get_all_functions():
             self._infra_registry.register(function)
         
         self.logger.info("内置函数加载完成")

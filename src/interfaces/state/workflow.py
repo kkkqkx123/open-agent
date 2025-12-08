@@ -163,6 +163,28 @@ class IWorkflowState(IState):
             value: 值
         """
         pass
+    
+    @abstractmethod
+    def __getitem__(self, key: str) -> Any:
+        """获取状态值（字典式索引访问）
+        
+        Args:
+            key: 键
+            
+        Returns:
+            状态值
+        """
+        pass
+    
+    @abstractmethod
+    def __setitem__(self, key: str, value: Any) -> None:
+        """设置状态值（字典式索引赋值）
+        
+        Args:
+            key: 键
+            value: 值
+        """
+        pass
 
 
 class IWorkflowStateBuilder(ABC):
