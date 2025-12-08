@@ -8,8 +8,8 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Union, Tuple, Callable, Type
 from datetime import datetime
-from src.services.logger.injection import get_logger
 import re
+import logging
 import yaml
 import json
 from pathlib import Path
@@ -350,6 +350,7 @@ class BaseConfigValidator:
     """配置验证器基类
     
     提供基础验证逻辑和扩展点。
+    实现 IConfigValidator 接口的功能。
     """
     
     def __init__(self, name: str = "BaseValidator"):
@@ -359,7 +360,18 @@ class BaseConfigValidator:
             name: 验证器名称
         """
         self.name = name
-        self.logger = get_logger(f"{__name__}.{name}")
+        self.logger = logging.getLogger(f"{__name__}.{name}")
+    
+    def supports_module_type(self, module_type: str) -> bool:
+        """检查是否支持指定模块类型
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            是否支持
+        """
+        return True
     
     def validate(self, config: Dict[str, Any]) -> ValidationResult:
         """验证配置
@@ -536,4 +548,4 @@ class BaseConfigValidator:
             self.logger.info(f"  信息: {info}")
 
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)

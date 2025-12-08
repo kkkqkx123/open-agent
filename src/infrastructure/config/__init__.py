@@ -1,14 +1,13 @@
 """
 基础设施层配置模块
 
-提供配置加载和继承处理的基础设施实现。
+提供配置加载和模式加载的基础设施实现。
 """
 
 from .config_loader import ConfigLoader
-from .inheritance_handler import ConfigInheritanceHandler, InheritanceConfigLoader
+from .schema_loader import SchemaLoader
 
 __all__ = [
     "ConfigLoader",
-    "ConfigInheritanceHandler", 
-    "InheritanceConfigLoader"
+    "SchemaLoader"
 ]

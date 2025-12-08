@@ -1,7 +1,7 @@
 """基础配置模型"""
 
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, ConfigDict
 
 

@@ -3,39 +3,48 @@
 基于优化分析，采用平衡方案设计
 """
 
-from .config_manager import ConfigManager, ConfigRegistry
+from .config_manager import ConfigManager
 from .models import (
     BaseConfig,
     LLMConfig,
     ToolConfig,
     ToolSetConfig,
     GlobalConfig,
-    ConfigType,
-    ConfigMetadata,
-    ConfigInheritance,
-    ValidationRule,
+)
+from .processor import (
+    ConfigProcessorChain,
+    InheritanceProcessor,
+    EnvironmentProcessor,
+    ReferenceProcessor,
+)
+from .validation import (
+    ValidationResult,
+    ValidationLevel,
+    ValidationSeverity,
+    BaseConfigValidator,
 )
 from src.interfaces.configuration import (
     ConfigError,
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationValidationError as ConfigValidationError,
-    ConfigurationInheritanceError as ConfigInheritanceError
 )
 
 __all__ = [
     "ConfigManager",
-    "ConfigRegistry",
     "BaseConfig",
-    "LLMConfig", 
+    "LLMConfig",
     "ToolConfig",
     "ToolSetConfig",
     "GlobalConfig",
-    "ConfigType",
-    "ConfigMetadata",
-    "ConfigInheritance",
-    "ValidationRule",
+    "ConfigProcessorChain",
+    "InheritanceProcessor",
+    "EnvironmentProcessor",
+    "ReferenceProcessor",
+    "ValidationResult",
+    "ValidationLevel",
+    "ValidationSeverity",
+    "BaseConfigValidator",
     "ConfigError",
-    "ConfigNotFoundError", 
+    "ConfigNotFoundError",
     "ConfigValidationError",
-    "ConfigInheritanceError"
 ]

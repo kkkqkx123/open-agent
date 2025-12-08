@@ -1,24 +1,25 @@
-"""配置继承处理工具
+"""配置继承处理器
 
-专门用于配置系统的继承处理功能。
+处理配置文件之间的继承关系，支持多重继承和环境变量解析。
 """
 
 import os
 import re
-from typing import Dict, Any, Optional, List, Union, Callable
-from pathlib import Path
 import yaml
-from pydantic import ValidationError
-from abc import abstractmethod
+from typing import Dict, Any, Optional, List, Union
+from pathlib import Path
 
 from src.interfaces.configuration import ConfigError as ConfigurationError
-from src.interfaces.config.interfaces import IConfigLoader, IConfigInheritanceHandler
+from src.interfaces.config.interfaces import IConfigInheritanceHandler, IConfigLoader, IConfigProcessor
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class ConfigInheritanceHandler(IConfigInheritanceHandler):
+class InheritanceProcessor(IConfigInheritanceHandler, IConfigProcessor):
     """配置继承处理器实现"""
     
-    def __init__(self, config_loader: Optional['IConfigLoader'] = None):
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
         """初始化配置继承处理器
         
         Args:
@@ -26,6 +27,21 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
         """
         self.config_loader = config_loader
         self._env_var_pattern = re.compile(r"\$\{([^}]+)\}")
+        self._loading_stack: List[str] = []
+        logger.debug("继承处理器初始化完成")
+    
+    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
+        """处理配置继承
+        
+        Args:
+            config: 原始配置数据
+            config_path: 配置文件路径
+            
+        Returns:
+            处理后的配置数据
+        """
+        base_path = Path(config_path).parent
+        return self.resolve_inheritance(config, base_path)
     
     def resolve_inheritance(self, config: Dict[str, Any], base_path: Optional[Path] = None) -> Dict[str, Any]:
         """解析配置继承关系
@@ -287,8 +303,8 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
             try:
                 # 使用getattr来动态调用方法，避免类型检查错误
                 getattr(schema, 'model_validate')(config)
-            except ValidationError as e:
-                errors.extend([str(err) for err in e.errors()])
+            except Exception as e:
+                errors.append(str(e))
         
         # 使用通用验证器进行结构和类型验证
         from src.infrastructure.common.utils.validator import Validator
@@ -356,107 +372,3 @@ class ConfigInheritanceHandler(IConfigInheritanceHandler):
             return True  # 未知类型，跳过检查
         
         return isinstance(value, expected_python_type)
-
-
-class InheritanceConfigLoader(IConfigLoader):
-    """继承配置加载器装饰器
-    
-    为配置加载器添加继承处理功能。
-    """
-    
-    def __init__(self, base_loader: IConfigLoader):
-        """初始化继承配置加载器
-        
-        Args:
-            base_loader: 基础配置加载器
-        """
-        self.base_loader = base_loader
-        self.inheritance_handler = ConfigInheritanceHandler(base_loader)
-    
-    @property
-    def base_path(self) -> Path:
-        """获取配置基础路径"""
-        return self.base_loader.base_path
-    
-    def load(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件"""
-        return self.load_config(config_path)
-    
-    def load_config(self, config_path: str, config_type: Optional[str] = None) -> Dict[str, Any]:
-        """加载配置并处理继承关系
-        
-        Args:
-            config_path: 配置文件路径
-            config_type: 配置类型（可选）
-            
-        Returns:
-            处理后的配置数据
-        """
-        # 使用基础加载器加载配置
-        config = self.base_loader.load_config(config_path, config_type)
-        
-        # 处理继承关系
-        if config:
-            base_path = Path(config_path).parent
-            config = self.inheritance_handler.resolve_inheritance(config, base_path)
-        
-        return config
-    
-    def reload(self) -> None:
-        """重新加载所有配置"""
-        self.base_loader.reload()
-    
-    def watch_for_changes(
-        self, callback: Callable[[str, Dict[str, Any]], None]
-    ) -> None:
-        """监听配置变化"""
-        self.base_loader.watch_for_changes(callback)
-    
-    def resolve_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """解析环境变量"""
-        return self.base_loader.resolve_env_vars(config)
-    
-    def stop_watching(self) -> None:
-        """停止监听配置变化"""
-        self.base_loader.stop_watching()
-    
-    def get_config(self, config_path: str) -> Optional[Dict[str, Any]]:
-        """获取缓存中的配置，如果不存在则返回None"""
-        return self.base_loader.get_config(config_path)
-    
-    def _handle_file_change(self, file_path: str) -> None:
-        """处理文件变化事件"""
-        if hasattr(self.base_loader, '_handle_file_change'):
-            self.base_loader._handle_file_change(file_path)  # type: ignore[attr-defined]
-    
-    def save_config(self, config: Dict[str, Any], config_path: str, config_type: Optional[str] = None) -> None:
-        """保存配置
-        
-        Args:
-            config: 配置数据
-            config_path: 配置文件路径
-            config_type: 配置类型（可选）
-        """
-        self.base_loader.save_config(config, config_path, config_type)
-    
-    def list_configs(self, config_type: Optional[str] = None) -> List[str]:
-        """列出配置文件
-        
-        Args:
-            config_type: 配置类型（可选）
-            
-        Returns:
-            配置文件路径列表
-        """
-        return self.base_loader.list_configs(config_type)
-    
-    def validate_config_path(self, config_path: str) -> bool:
-        """验证配置路径
-        
-        Args:
-            config_path: 配置文件路径
-            
-        Returns:
-            路径是否有效
-        """
-        return self.base_loader.validate_config_path(config_path)
