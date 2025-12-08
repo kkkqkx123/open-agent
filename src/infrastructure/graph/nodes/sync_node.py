@@ -4,14 +4,11 @@
 """
 
 from typing import Dict, Any
-from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
-from src.infrastructure.graph.nodes import BaseNode
-
-logger = get_logger(__name__)
+from src.infrastructure.graph.nodes.base import BaseNode
 
 
 class SyncNode(BaseNode):

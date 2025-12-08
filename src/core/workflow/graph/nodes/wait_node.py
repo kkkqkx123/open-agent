@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from src.core.workflow.graph.decorators import node
-from .sync_node import SyncNode
+from src.infrastructure.graph.nodes import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.interfaces import IState
 from src.interfaces.messages import IBaseMessage

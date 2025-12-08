@@ -3,13 +3,11 @@
 提供工作流开始节点的基础实现。
 """
 
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any
 
 from src.infrastructure.graph.nodes.simple_node import SimpleNode
-
-if TYPE_CHECKING:
-    from src.interfaces.workflow.graph import NodeExecutionResult
-    from src.interfaces.state.interfaces import IState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class StartNode(SimpleNode):
@@ -30,7 +28,7 @@ class StartNode(SimpleNode):
         """
         super().__init__(node_id, name, "start", description, config)
     
-    def execute(self, state: 'IState', config: Dict[str, Any]) -> 'NodeExecutionResult':
+    def execute(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
         """执行开始节点逻辑
         
         Args:
@@ -41,7 +39,6 @@ class StartNode(SimpleNode):
             NodeExecutionResult: 执行结果
         """
         # 基础实现：添加开始时间戳
-        from src.interfaces.workflow.graph import NodeExecutionResult
         import time
         
         # 如果状态是字典，添加元数据
@@ -73,7 +70,7 @@ class StartNode(SimpleNode):
             metadata={'start_time': time.time()}
         )
     
-    async def execute_async(self, state: 'IState', config: Dict[str, Any]) -> 'NodeExecutionResult':
+    async def execute_async(self, state: 'IState', config: Dict[str, Any]) -> NodeExecutionResult:
         """异步执行开始节点逻辑
         
         Args:

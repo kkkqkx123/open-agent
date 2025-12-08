@@ -3,13 +3,11 @@
 提供工作流结束节点的基础实现。
 """
 
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any
 
 from src.infrastructure.graph.nodes.simple_node import SimpleNode
-
-if TYPE_CHECKING:
-    from src.interfaces.workflow.graph import NodeExecutionResult
-    from src.interfaces.state.interfaces import IState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class EndNode(SimpleNode):

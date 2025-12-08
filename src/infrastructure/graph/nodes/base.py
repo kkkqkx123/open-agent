@@ -4,12 +4,10 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional
 
-if TYPE_CHECKING:
-    from src.interfaces.workflow.graph import NodeExecutionResult
-    from src.interfaces.state.interfaces import IState
-    from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class BaseNode(ABC):

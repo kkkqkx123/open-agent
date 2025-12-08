@@ -12,8 +12,6 @@
 注：StartNode、EndNode 和 SimpleNode 来自基础设施层
 """
 
-from .sync_node import SyncNode
-from .async_node import AsyncNode
 from .llm_node import LLMNode
 from .tool_node import ToolNode
 from .condition_node import ConditionNode
@@ -23,14 +21,14 @@ from .wait_node import WaitNode
 from src.infrastructure.graph.nodes import (
     BaseNode,
     SimpleNode,
+    SyncNode,
+    AsyncNode,
     StartNode,
     EndNode,
 )
 
 __all__ = [
     # 核心层业务节点
-    "SyncNode",
-    "AsyncNode",
     "LLMNode",
     "ToolNode",
     "ConditionNode",
@@ -38,6 +36,8 @@ __all__ = [
     # 基础设施层基础节点（重新导出）
     "BaseNode",
     "SimpleNode",
+    "SyncNode",
+    "AsyncNode",
     "StartNode",
     "EndNode",
 ]

@@ -5,14 +5,11 @@
 
 import asyncio
 from abc import abstractmethod
-from typing import Dict, Any, TYPE_CHECKING
+from typing import Dict, Any
 
 from src.infrastructure.graph.nodes.base import BaseNode
-
-if TYPE_CHECKING:
-    from src.interfaces.workflow.graph import NodeExecutionResult
-    from src.interfaces.state.interfaces import IState
-    from src.interfaces.state.workflow import IWorkflowState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.workflow import IWorkflowState
 
 
 class AsyncNode(BaseNode):

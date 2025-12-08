@@ -3,13 +3,11 @@
 提供一个简单的节点实现，用于在工作流模板中创建节点。
 """
 
-from typing import Dict, Any, List, TYPE_CHECKING
+from typing import Dict, Any, List
 
 from src.infrastructure.graph.nodes.base import BaseNode
-
-if TYPE_CHECKING:
-    from src.interfaces.workflow.graph import NodeExecutionResult
-    from src.interfaces.state.interfaces import IState
+from src.interfaces.workflow.graph import NodeExecutionResult
+from src.interfaces.state.interfaces import IState
 
 
 class SimpleNode(BaseNode):
