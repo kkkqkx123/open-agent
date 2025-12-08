@@ -25,6 +25,7 @@ class FunctionType(Enum):
     NODE_FUNCTION = "node_function"
     CONDITION_FUNCTION = "condition_function"
     TRIGGER_FUNCTION = "trigger_function"
+    ROUTE_FUNCTION = "route_function"
 
 
 @dataclass
@@ -106,6 +107,21 @@ class IFunctionRegistry(ABC):
         pass
     
     @abstractmethod
+    def register_route_function(self, name: str, function: Callable) -> None:
+        """注册路由函数"""
+        pass
+    
+    @abstractmethod
+    def get_route_function(self, name: str) -> Optional[Callable]:
+        """获取路由函数"""
+        pass
+    
+    @abstractmethod
+    def list_route_functions(self) -> List[str]:
+        """列出所有路由函数"""
+        pass
+    
+    @abstractmethod
     def discover_functions(self, module_paths: Optional[List[str]] = None) -> Dict[str, List[str]]:
         """自动发现并注册函数"""
         pass
@@ -127,6 +143,7 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         self._node_functions: Dict[str, Callable] = {}
         self._condition_functions: Dict[str, Callable] = {}
         self._trigger_functions: Dict[str, RegisteredFunction] = {}
+        self._route_functions: Dict[str, Callable] = {}
         self._enable_auto_discovery = enable_auto_discovery
         self._discovery_cache: Dict[str, Dict[str, List[str]]] = {}
         
@@ -262,6 +279,43 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         """
         return list(self._trigger_functions.keys())
     
+    def register_route_function(self, name: str, function: Callable) -> None:
+        """注册路由函数
+        
+        Args:
+            name: 函数名称
+            function: 函数对象
+            
+        Raises:
+            FunctionRegistrationError: 函数注册失败
+        """
+        self._validate_function_registration(name, function, FunctionType.ROUTE_FUNCTION)
+        
+        if name in self._route_functions:
+            self._logger.warning(f"路由函数 '{name}' 已存在，将被覆盖")
+        
+        self._route_functions[name] = function
+        self._logger.debug(f"注册路由函数: {name}")
+    
+    def get_route_function(self, name: str) -> Optional[Callable]:
+        """获取路由函数
+        
+        Args:
+            name: 函数名称
+            
+        Returns:
+            Optional[Callable]: 路由函数，如果不存在返回None
+        """
+        return self._route_functions.get(name)
+    
+    def list_route_functions(self) -> List[str]:
+        """列出所有路由函数
+        
+        Returns:
+            List[str]: 路由函数名称列表
+        """
+        return list(self._route_functions.keys())
+    
     def list_functions(self, function_type: Optional[FunctionType] = None) -> Dict[str, List[str]]:
         """列出已注册的函数
         
@@ -281,6 +335,9 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         
         if function_type is None or function_type == FunctionType.TRIGGER_FUNCTION:
             result["triggers"] = self.list_trigger_functions()
+        
+        if function_type is None or function_type == FunctionType.ROUTE_FUNCTION:
+            result["routes"] = self.list_route_functions()
         
         return result
     
@@ -329,6 +386,21 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
             return True
         return False
     
+    def unregister_route_function(self, name: str) -> bool:
+        """注销路由函数
+        
+        Args:
+            name: 函数名称
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if name in self._route_functions:
+            del self._route_functions[name]
+            self._logger.debug(f"注销路由函数: {name}")
+            return True
+        return False
+    
     def clear(self, function_type: Optional[FunctionType] = None) -> None:
         """清除注册的函数
         
@@ -346,6 +418,10 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         if function_type is None or function_type == FunctionType.TRIGGER_FUNCTION:
             self._trigger_functions.clear()
             self._logger.debug("清除所有触发器函数")
+        
+        if function_type is None or function_type == FunctionType.ROUTE_FUNCTION:
+            self._route_functions.clear()
+            self._logger.debug("清除所有路由函数")
         
         super().clear()
     
@@ -365,6 +441,8 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
             return name in self._condition_functions
         elif function_type == FunctionType.TRIGGER_FUNCTION:
             return name in self._trigger_functions
+        elif function_type == FunctionType.ROUTE_FUNCTION:
+            return name in self._route_functions
         return False
     
     def get_function_info(self, name: str, function_type: FunctionType) -> Optional[Dict[str, Any]]:
@@ -384,6 +462,8 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         elif function_type == FunctionType.TRIGGER_FUNCTION:
             registered_func = self._trigger_functions.get(name)
             function = registered_func.function if registered_func else None
+        elif function_type == FunctionType.ROUTE_FUNCTION:
+            function = self._route_functions.get(name)
         else:
             return None
         
@@ -432,7 +512,7 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         """
         if not self._enable_auto_discovery:
             self._logger.warning("自动发现功能未启用")
-            return {"nodes": [], "conditions": [], "triggers": []}
+            return {"nodes": [], "conditions": [], "triggers": [], "routes": []}
         
         if module_paths is None:
             module_paths = [
@@ -441,7 +521,7 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
                 "src.infrastructure.graph.builtin_functions"
             ]
         
-        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": []}
+        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": [], "routes": []}
         
         for module_path in module_paths:
             try:
@@ -449,13 +529,14 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
                 discovered["nodes"].extend(module_functions["nodes"])
                 discovered["conditions"].extend(module_functions["conditions"])
                 discovered["triggers"].extend(module_functions["triggers"])
+                discovered["routes"].extend(module_functions["routes"])
                 
             except Exception as e:
                 self._logger.error(f"从模块 '{module_path}' 发现函数失败: {e}")
                 # 继续处理其他模块
                 continue
         
-        self._logger.info(f"自动发现完成: 节点函数 {len(discovered['nodes'])} 个, 条件函数 {len(discovered['conditions'])} 个, 触发器函数 {len(discovered['triggers'])} 个")
+        self._logger.info(f"自动发现完成: 节点函数 {len(discovered['nodes'])} 个, 条件函数 {len(discovered['conditions'])} 个, 触发器函数 {len(discovered['triggers'])} 个, 路由函数 {len(discovered['routes'])} 个")
         return discovered
     
     def get_stats(self) -> Dict[str, Any]:
@@ -469,10 +550,43 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
             "node_functions": len(self._node_functions),
             "condition_functions": len(self._condition_functions),
             "trigger_functions": len(self._trigger_functions),
-            "total_functions": len(self._node_functions) + len(self._condition_functions) + len(self._trigger_functions),
+            "route_functions": len(self._route_functions),
+            "total_functions": len(self._node_functions) + len(self._condition_functions) + len(self._trigger_functions) + len(self._route_functions),
             "auto_discovery_enabled": self._enable_auto_discovery
         })
         return stats
+    
+    def get_function_schema(self, function_type: str, name: str) -> Dict[str, Any]:
+        """获取函数配置Schema
+        
+        Args:
+            function_type: 函数类型（node_function, condition_function, route_function）
+            name: 函数名称
+            
+        Returns:
+            Dict: 配置Schema
+            
+        Raises:
+            ValueError: 函数不存在
+        """
+        if function_type == "node_function":
+            function = self.get_node_function(name)
+        elif function_type == "condition_function":
+            function = self.get_condition_function(name)
+        elif function_type == "route_function":
+            function = self.get_route_function(name)
+        else:
+            raise ValueError(f"未知的函数类型: {function_type}")
+        
+        if function is None:
+            raise ValueError(f"函数 '{name}' 不存在")
+        
+        # 对于普通函数，返回基本Schema
+        return {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
     
     def _validate_function_registration(self, name: str, function: Callable, function_type: FunctionType) -> None:
         """验证函数注册
@@ -508,8 +622,8 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
             sig = inspect.signature(function)
             params = list(sig.parameters.keys())
             
-            if function_type in [FunctionType.NODE_FUNCTION, FunctionType.CONDITION_FUNCTION]:
-                # 节点函数和条件函数应该至少接受一个参数（state）
+            if function_type in [FunctionType.NODE_FUNCTION, FunctionType.CONDITION_FUNCTION, FunctionType.ROUTE_FUNCTION]:
+                # 节点函数、条件函数和路由函数应该至少接受一个参数（state）
                 if len(params) < 1:
                     raise FunctionRegistrationError("函数必须至少接受一个参数（state）")
             
@@ -532,7 +646,7 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
         if module_path in self._discovery_cache:
             return self._discovery_cache[module_path]
         
-        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": []}
+        discovered: Dict[str, List[str]] = {"nodes": [], "conditions": [], "triggers": [], "routes": []}
         
         try:
             module = importlib.import_module(module_path)
@@ -551,6 +665,9 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
                     elif name.endswith('_condition') or name.endswith('_router'):
                         self.register_condition_function(name, obj)
                         discovered["conditions"].append(name)
+                    elif name.endswith('_route') or name.endswith('_router'):
+                        self.register_route_function(name, obj)
+                        discovered["routes"].append(name)
                     elif name.endswith('_trigger'):
                         # 为触发器函数创建默认配置
                         config = FunctionConfig(
@@ -589,6 +706,11 @@ class FunctionRegistry(BaseRegistry, IFunctionRegistry):
             builtin_conditions = getattr(builtin_functions, 'BUILTIN_CONDITION_FUNCTIONS', {})
             for name, func in builtin_conditions.items():
                 self.register_condition_function(name, func)
+            
+            # 注册内置路由函数
+            builtin_routes = getattr(builtin_functions, 'BUILTIN_ROUTE_FUNCTIONS', {})
+            for name, func in builtin_routes.items():
+                self.register_route_function(name, func)
             
             # 注册内置触发器函数
             builtin_triggers = getattr(builtin_functions, 'BUILTIN_TRIGGER_FUNCTIONS', {})

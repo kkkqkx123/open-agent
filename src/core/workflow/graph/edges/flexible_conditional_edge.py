@@ -11,7 +11,7 @@ from src.interfaces.state.interfaces import IState
 from src.infrastructure.graph.edges.base import BaseEdge
 
 if TYPE_CHECKING:
-    from src.core.workflow.graph.registry.function_registry import FunctionRegistry, IFunction
+    from src.core.workflow.registry import FunctionRegistry, IFunction
 
 logger = get_logger(__name__)
 

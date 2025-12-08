@@ -3,10 +3,7 @@
 提供边的类型注册、实例管理和配置验证功能。
 """
 
-from typing import Dict, Type, List, Optional, Any, Union, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
+from typing import Dict, Type, List, Optional, Any, Union
 from abc import ABC, abstractmethod
 
 from src.interfaces.workflow.graph import IEdge
@@ -16,7 +13,7 @@ from src.services.logger.injection import get_logger
 logger = get_logger(__name__)
 
 
-class EdgeRegistry(IEdgeRegistry):  # type: ignore
+class EdgeRegistry(IEdgeRegistry):
     """边注册器实现
     
     核心层的边注册器，提供边的类型注册、实例管理和配置验证功能。

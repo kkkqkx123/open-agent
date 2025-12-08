@@ -1,14 +1,30 @@
 """工作流注册表模块
 
 提供统一的工作流组件注册表实现，支持依赖注入。
+
+注册器类型：
+├─ BaseRegistry: 基础注册表
+├─ NodeRegistry: 节点注册表
+├─ EdgeRegistry: 边注册表
+├─ FunctionRegistry: 函数注册表（节点函数、条件函数、触发器函数）
+├─ HookRegistry: Hook注册表
+├─ PluginRegistry: 插件注册表
+├─ TriggerRegistry: 触发器注册表
+└─ UnifiedRegistry: 统一注册表
+
+使用方式：
+1. 通过依赖注入获取注册器实例
+2. 注册相应的类型或实例
+3. 通过注册器查询和管理已注册的项目
 """
 
 from .base_registry import IRegistry, BaseRegistry, TypedRegistry
 from .node_registry import NodeRegistry, BaseNode, node
+from .edge_registry import EdgeRegistry, edge
 from .function_registry import (
-    FunctionRegistry, 
-    FunctionType, 
-    FunctionConfig, 
+    FunctionRegistry,
+    FunctionType,
+    FunctionConfig,
     RegisteredFunction,
     FunctionRegistrationError,
     FunctionDiscoveryError,
@@ -19,12 +35,12 @@ from .function_registry import (
 from .hook_registry import HookRegistry, HookRegistration, IHookRegistry
 from .plugin_registry import PluginRegistry, IPluginRegistry
 from .trigger_registry import (
-    TriggerRegistry, 
-    TriggerConfig, 
+    TriggerRegistry,
+    TriggerConfig,
     RegisteredTrigger
 )
 from .registry import (
-    UnifiedRegistry, 
+    UnifiedRegistry,
     RegistryManager,
     get_global_unified_registry,
     reset_global_unified_registry,
@@ -41,13 +57,17 @@ from .registry_factory import (
 __all__ = [
     # 基础接口和类
     "IRegistry",
-    "BaseRegistry", 
+    "BaseRegistry",
     "TypedRegistry",
     
     # 节点注册表
     "NodeRegistry",
     "BaseNode",
     "node",
+    
+    # 边注册表
+    "EdgeRegistry",
+    "edge",
     
     # 函数注册表
     "FunctionRegistry",

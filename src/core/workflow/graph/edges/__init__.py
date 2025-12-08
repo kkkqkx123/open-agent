@@ -8,7 +8,7 @@
 └─ FlexibleConditionalEdge: 灵活条件边（基于路由函数的节点连接）
 
 使用方式：
-1. 通过EdgeRegistry注册边类型
+1. 通过EdgeRegistry注册边类型（位于 src.core.workflow.registry）
 2. 创建边实例并添加到工作流图
 3. 配置边参数和条件
 """
