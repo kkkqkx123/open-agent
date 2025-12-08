@@ -8,8 +8,8 @@ from typing import Dict, Any
 from pathlib import Path
 from datetime import datetime
 
-from ...config import ConfigManager
-from ..exceptions import ConfigurationError
+from ...core.config import ConfigManager
+from ...interfaces.configuration import ConfigError
 
 
 class ConfigOperations:
@@ -66,7 +66,7 @@ class ConfigOperations:
                 json.dump(snapshot, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
-            raise ConfigurationError(f"导出配置快照失败: {e}")
+            raise ConfigError(f"导出配置快照失败: {e}")
     
     def get_config_summary(self) -> Dict[str, Any]:
         """获取配置摘要信息
