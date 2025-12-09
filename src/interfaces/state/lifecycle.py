@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 
-from .interfaces import IState
+from .base import IState
 
 
 class IStateLifecycleManager(ABC):

@@ -6,11 +6,11 @@
 from typing import Any, Dict, Optional, Type, Union
 
 from src.interfaces.state.manager import IStateManager
-from src.interfaces.state.storage.adapter import IStateStorageAdapter as IStorageAdapter
+from src.interfaces.storage import IStateStorageAdapter as IStorageAdapter
 from ..core.state_manager import StateManager
-from src.adapters.storage.adapters.memory import MemoryStateStorageAdapter
-from src.adapters.storage.adapters.sqlite import SQLiteStateStorageAdapter
-from src.adapters.storage.adapters.file import FileStateStorageAdapter
+from src.adapters.storage.backends.memory_backend import MemoryStorageBackend
+from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
+from src.adapters.storage.backends.file_backend import FileStorageBackend
 
 
 class StateManagerFactory:
@@ -21,9 +21,9 @@ class StateManagerFactory:
     
     # 存储适配器注册表
     _adapter_registry: Dict[str, Union[Type[IStorageAdapter], Any]] = {
-        "memory": MemoryStateStorageAdapter,
-        "sqlite": SQLiteStateStorageAdapter,
-        "file": FileStateStorageAdapter
+        "memory": MemoryStorageBackend,
+        "sqlite": SQLiteStorageBackend,
+        "file": FileStorageBackend
     }
     
     @classmethod

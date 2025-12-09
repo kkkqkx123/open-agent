@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional
 
 from src.interfaces.state.base import IState
 from ..factories.state_factory import StateFactory
-from .snapshot_storage import StateSnapshot
+from src.infrastructure.state.snapshots.snapshot_storage import StateSnapshot
 
 
 class StateSnapshotRestorer:
@@ -146,7 +146,7 @@ class StateSnapshotRestorer:
                 state_data=migrated_data,
                 name=snapshot.name,
                 description=snapshot.description,
-                tags=snapshot.tags + ["migrated"],
+                tags=(snapshot.tags or []) + ["migrated"],
                 created_at=snapshot.created_at
             )
             

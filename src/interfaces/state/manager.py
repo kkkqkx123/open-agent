@@ -7,7 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable, Tuple
 
-from .interfaces import IState
+from .base import IState
 from .history import IStateHistoryManager
 from .snapshot import IStateSnapshotManager
 from .serializer import IStateSerializer

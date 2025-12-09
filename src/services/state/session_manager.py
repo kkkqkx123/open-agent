@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from src.interfaces.state.session import ISessionState, ISessionStateManager
 from src.core.state.implementations.session_state import SessionStateImpl
-from src.interfaces.state.serializer import IStateSerializer
+from src.infrastructure.common.serialization import Serializer
 from src.core.sessions.entities import SessionStatus
 
 
@@ -25,7 +25,7 @@ class SessionStateManager(ISessionStateManager):
     """
     
     def __init__(self,
-                 serializer: Optional[IStateSerializer] = None,
+                 serializer: Optional[Serializer] = None,
                  session_timeout_minutes: int = 30,
                  cleanup_interval_minutes: int = 60,
                  cache_size: int = 1000):

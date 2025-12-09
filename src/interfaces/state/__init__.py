@@ -24,11 +24,11 @@ from .history import IStateHistoryManager
 # 快照管理接口
 from .snapshot import IStateSnapshotManager
 
-# 序列化接口
-from .serializer import IStateSerializer
-
 # 增强状态管理接口
 from .manager import IStateManager
+
+# 序列化器接口
+from .serializer import IStateSerializer
 
 # 工厂接口
 from .factory import IStateFactory
@@ -77,11 +77,11 @@ __all__ = [
     # 快照管理接口
     'IStateSnapshotManager',
     
-    # 序列化接口
-    'IStateSerializer',
-    
     # 增强状态管理接口
     'IStateManager',
+    
+    # 序列化器接口
+    'IStateSerializer',
     
     # 工厂接口
     'IStateFactory',

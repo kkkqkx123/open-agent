@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Type, Callable, Tuple
 
 from src.interfaces.state.base import IState
 from src.interfaces.state.manager import IStateManager
-from src.interfaces.state.serializer import IStateSerializer
+from src.infrastructure.common.serialization import Serializer
 from src.interfaces.state.lifecycle import IStateLifecycleManager
 from src.interfaces.storage.state import IStateStorageAdapter
 
@@ -53,7 +53,7 @@ class StateManager(IStateManager):
             "total_errors": 0
         }
     
-    def _create_serializer(self, serializer_config: Dict[str, Any]) -> IStateSerializer:
+    def _create_serializer(self, serializer_config: Dict[str, Any]) -> Serializer:
         """创建序列化器"""
         format_type = serializer_config.get('format', 'json')
         compression = serializer_config.get('compression', True)

@@ -227,8 +227,8 @@ def _get_serializer(container: Any) -> Optional[Any]:
         序列化器实例，如果获取失败则返回None
     """
     try:
-        from src.interfaces.state.serializer import IStateSerializer
-        return container.get(IStateSerializer)
+        from src.infrastructure.common.serialization import Serializer
+        return container.get(Serializer)
     except Exception as e:
         logger.warning(f"获取序列化器失败: {e}")
     

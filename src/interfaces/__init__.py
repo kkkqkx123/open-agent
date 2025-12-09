@@ -56,13 +56,11 @@ from .state import (
     IStateHistoryManager,
     IStateSnapshotManager,
     IStateSerializer,
-    IStateFactory,
-    IStorageBackend,
-    IStorageAdapterFactory,
-    IStorageMigration,
-    IStorageCache,
-    IStorageMetrics
+    IStateFactory
 )
+
+# 序列化器实现
+from ..infrastructure.common.serialization import Serializer
 
 # 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
 
@@ -190,6 +188,8 @@ from .storage import (
     ITransactionRecovery,
     ITransactionManager,
     IConsistencyManager,
+    IStateStorageAdapter,
+    IStorageAdapterFactory,
     # 异常类型
     StorageError,
     StorageConnectionError,
@@ -341,11 +341,9 @@ __all__ = [
     "IStateSnapshotManager",
     "IStateSerializer",
     "IStateFactory",
-    "IStorageBackend",
-    "IStorageAdapterFactory",
-    "IStorageMigration",
-    "IStorageCache",
-    "IStorageMetrics",
+    
+    # 序列化器实现
+    "Serializer",
     
     # LLM接口
     "ILLMClient",
@@ -452,6 +450,8 @@ __all__ = [
     "ITransactionRecovery",
     "ITransactionManager",
     "IConsistencyManager",
+    "IStateStorageAdapter",
+    "IStorageAdapterFactory",
     
     # 存储异常类型
     "StorageError",

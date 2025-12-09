@@ -11,7 +11,7 @@ from datetime import datetime
 
 from src.interfaces.state.base import IState
 from src.interfaces.state.manager import IStateManager
-from src.interfaces.state.serializer import IStateSerializer
+from src.infrastructure.common.serialization import Serializer
 from src.core.state.entities import StateStatistics
 from src.core.state.core.base import BaseStateManager, StateValidationMixin
 
@@ -28,10 +28,10 @@ class StateManager(IStateManager, BaseStateManager, StateValidationMixin):
     直接整合基础状态管理、历史记录和快照功能，避免过度抽象。
     """
     
-    def __init__(self, 
+    def __init__(self,
                  history_repository: IHistoryRepository,
                  snapshot_repository: ISnapshotRepository,
-                 serializer: Optional[IStateSerializer] = None,
+                 serializer: Optional[Serializer] = None,
                  cache_size: int = 1000,
                  cache_ttl: int = 300):
         """初始化状态管理器

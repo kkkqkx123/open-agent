@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Union, Type
 from datetime import datetime
 
 from src.interfaces.state.base import IState
-from src.interfaces.state.serializer import IStateSerializer
+from src.infrastructure.common.serialization import Serializer, SerializationError
 from src.interfaces.state.lifecycle import IStateLifecycleManager
 from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.snapshot import IStateSnapshotManager
@@ -130,24 +130,104 @@ class BaseState(IState):
         return instance
 
 
-class BaseStateSerializer(IStateSerializer):
+class BaseStateSerializer(Serializer):
     """基础状态序列化器实现
     
     提供JSON和Pickle两种序列化格式的支持。
     """
     
-    def __init__(self, format: str = "json", compression: bool = True):
+    def __init__(self, format: str = "json", compression: bool = True, enable_cache: bool = False, cache_size: int = 1000):
         """初始化序列化器
         
         Args:
             format: 序列化格式，支持 "json" 或 "pickle"
             compression: 是否启用压缩
+            enable_cache: 是否启用缓存
+            cache_size: 缓存大小限制
         """
+        # 初始化父类Serializer
+        super().__init__(enable_cache=enable_cache, cache_size=cache_size)
+        
         self.format = format
         self.compression = compression
         
         if format not in ["json", "pickle"]:
             raise ValueError(f"不支持的序列化格式: {format}")
+    
+    def serialize(self, data: Any, format: str = None, enable_cache: bool = True, **kwargs: Any) -> Union[str, bytes]:
+        """序列化数据
+        
+        Args:
+            data: 要序列化的数据
+            format: 序列化格式，如果为None则使用默认格式
+            enable_cache: 是否启用缓存
+            **kwargs: 其他参数
+            
+        Returns:
+            序列化后的数据
+        """
+        # 使用默认格式
+        actual_format = format or self.format
+        
+        # 如果是IState对象，先转换为字典
+        if hasattr(data, 'to_dict'):
+            data = data.to_dict()
+        
+        try:
+            if actual_format == "json":
+                result = json.dumps(data, ensure_ascii=False, default=self._json_serializer)
+            else:  # pickle
+                result = pickle.dumps(data)
+            
+            if self.compression:
+                if isinstance(result, str):
+                    result = result.encode('utf-8')
+                result = zlib.compress(result)
+            
+            # 如果是JSON且未压缩，返回字符串
+            if actual_format == "json" and not self.compression:
+                return result
+            
+            return result
+        except Exception as e:
+            logger.error(f"序列化失败: {e}")
+            raise SerializationError(f"序列化失败: {e}") from e
+    
+    def deserialize(self, data: Union[str, bytes], format: str = None, enable_cache: bool = True, **kwargs: Any) -> Any:
+        """反序列化数据
+        
+        Args:
+            data: 要反序列化的数据
+            format: 数据格式，如果为None则使用默认格式
+            enable_cache: 是否启用缓存
+            **kwargs: 其他参数
+            
+        Returns:
+            反序列化后的数据
+        """
+        # 使用默认格式
+        actual_format = format or self.format
+        
+        try:
+            if self.compression:
+                data = zlib.decompress(data)
+            
+            if actual_format == "json":
+                if isinstance(data, bytes):
+                    result = json.loads(data.decode('utf-8'))
+                else:
+                    result = json.loads(data)
+            else:  # pickle
+                result = pickle.loads(data)
+            
+            # 如果数据包含状态信息，尝试转换为BaseState
+            if isinstance(result, dict) and 'data' in result and 'metadata' in result:
+                return BaseState.from_dict(result)
+            
+            return result
+        except Exception as e:
+            logger.error(f"反序列化失败: {e}")
+            raise SerializationError(f"反序列化失败: {e}") from e
     
     def serialize_state(self, state: dict) -> bytes:
         """序列化状态字典到字节
@@ -158,19 +238,10 @@ class BaseStateSerializer(IStateSerializer):
         Returns:
             序列化后的字节数据
         """
-        try:
-            if self.format == "json":
-                data = json.dumps(state, ensure_ascii=False, default=self._json_serializer).encode('utf-8')
-            else:  # pickle
-                data = pickle.dumps(state)
-            
-            if self.compression:
-                data = zlib.compress(data)
-            
-            return data
-        except Exception as e:
-            logger.error(f"序列化状态失败: {e}")
-            raise
+        result = self.serialize(state, format=self.format, enable_cache=False)
+        if isinstance(result, str):
+            result = result.encode('utf-8')
+        return result
     
     def deserialize_state(self, data: bytes) -> dict:
         """从字节反序列化状态字典
@@ -181,19 +252,8 @@ class BaseStateSerializer(IStateSerializer):
         Returns:
             反序列化后的状态字典
         """
-        try:
-            if self.compression:
-                data = zlib.decompress(data)
-            
-            if self.format == "json":
-                state_dict = json.loads(data.decode('utf-8'))
-            else:  # pickle
-                state_dict = pickle.loads(data)
-            
-            return state_dict  # type: ignore
-        except Exception as e:
-            logger.error(f"反序列化状态失败: {e}")
-            raise
+        result = self.deserialize(data, format=self.format, enable_cache=False)
+        return result if isinstance(result, dict) else {'data': result}
     
     def compress_data(self, data: bytes) -> bytes:
         """压缩数据
@@ -216,50 +276,6 @@ class BaseStateSerializer(IStateSerializer):
             解压缩后的数据
         """
         return zlib.decompress(compressed_data)
-    
-    def serialize(self, state: IState) -> Union[str, bytes]:
-        """序列化状态到字符串或字节"""
-        try:
-            state_dict = state.to_dict()
-            
-            if self.format == "json":
-                data = json.dumps(state_dict, ensure_ascii=False, default=self._json_serializer).encode('utf-8')
-            else:  # pickle
-                data = pickle.dumps(state_dict)
-            
-            if self.compression:
-                data = zlib.compress(data)
-            
-            if self.format == "json" and not self.compression:
-                return data.decode('utf-8')
-            
-            return data
-        except Exception as e:
-            logger.error(f"序列化状态失败: {e}")
-            raise
-    
-    def deserialize(self, data: Union[str, bytes]) -> IState:
-        """从字符串或字节反序列化状态"""
-        try:
-            if isinstance(data, str):
-                data = data.encode('utf-8')
-            
-            if self.compression:
-                data = zlib.decompress(data)
-            
-            if self.format == "json":
-                if isinstance(data, bytes):
-                    state_dict = json.loads(data.decode('utf-8'))
-                else:
-                    state_dict = json.loads(data)
-            else:  # pickle
-                state_dict = pickle.loads(data)
-            
-            # 创建一个简单的状态实现
-            return BaseState.from_dict(state_dict)
-        except Exception as e:
-            logger.error(f"反序列化状态失败: {e}")
-            raise
     
     def _json_serializer(self, obj: Any) -> Any:
         """JSON序列化器，处理特殊类型"""
@@ -490,7 +506,7 @@ class BaseStateManager:
     提供状态管理的通用功能，作为具体实现的基类。
     """
     
-    def __init__(self, serializer: Optional[IStateSerializer] = None):
+    def __init__(self, serializer: Optional[Serializer] = None):
         """初始化状态管理器
         
         Args:

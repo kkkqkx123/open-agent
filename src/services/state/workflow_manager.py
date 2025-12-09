@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from src.interfaces.state.base import IState
-from src.interfaces.state.serializer import IStateSerializer
+from src.infrastructure.common.serialization import Serializer
 from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 
 from .manager import StateManager
@@ -20,10 +20,10 @@ logger = get_logger(__name__)
 class WorkflowStateManager(StateManager):
     """工作流状态管理器，专门处理WorkflowState类型的状态"""
     
-    def __init__(self, 
+    def __init__(self,
                  history_repository: IHistoryRepository,
                  snapshot_repository: ISnapshotRepository,
-                 serializer: Optional[IStateSerializer] = None,
+                 serializer: Optional[Serializer] = None,
                  cache_size: int = 1000,
                  cache_ttl: int = 300):
         super().__init__(

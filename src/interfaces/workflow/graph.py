@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
-    from ..state.interfaces import IState
+    from ..state.base import IState
     from ..state.workflow import IWorkflowState
 
 
