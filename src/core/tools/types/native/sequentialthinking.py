@@ -65,15 +65,7 @@ class SequentialThinkingServer:
     
     def format_thought(self, thought_data: ThoughtData) -> str:
         """Format thought output"""
-        header = f"💭 Thought {thought_data.thought_number}/{thought_data.total_thoughts}"
-        border = "─" * (max(len(header), len(thought_data.thought)) + 4)
-        
-        return f"""
-┌{border}┐
-│ {header} │
-├{border}┤
-│ {thought_data.thought.ljust(len(border) - 2)} │
-└{border}┘"""
+        return f"💭 Thought {thought_data.thought_number}/{thought_data.total_thoughts}: {thought_data.thought}"
     
     def process_thought(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process thought data"""
