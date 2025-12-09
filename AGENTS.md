@@ -4,7 +4,7 @@ This document provides essential information for AI agents working with the Modu
 
 ## Project Overview
 
-The Modular Agent Framework is a Python-based multi-agent system built on LangGraph, featuring:
+The Modular Agent Framework is a Python-based multi-agent system built on Graph Workflow, featuring:
 - **Multi-model LLM integration** (OpenAI, Gemini, Anthropic, Mock)
 - **Flexible tool system** supporting native, MCP, and built-in tools
 - **Configuration-driven architecture** with YAML-based configs and environment variable injection
@@ -208,12 +208,12 @@ Must follow mypy type specifications. Functions must be annotated with type hint
 
 ### Interface Usage Principles
 1. **Single Source of Truth**: All interface definitions are centralized in `src/interfaces/` directory
-2. **Type Safety**: Use `TYPE_CHECKING` to avoid runtime circular dependencies. For core external dependencies like langchain, type safety is not required.
+2. **Type Safety**: Use `TYPE_CHECKING` to avoid runtime circular dependencies. For interfaces, type safety is not required.
 3. **Unified Export**: Export all interfaces through `src/interfaces/__init__.py`
 4. **Backward Compatibility**: Each layer can re-export interfaces from the interface layer for compatibility
 5. **Infrastructure Isolation**: Infrastructure components must only depend on interfaces, never on concrete implementations from other layers
 
-**Note: Sessions service module (Sessions is the top-level module in the service layer, workflow is the module for LangGraph interaction)**
+**Note: Sessions service module (Sessions is the top-level module in the service layer, workflow is the module for Graph interaction)**
 
 ## Language
 

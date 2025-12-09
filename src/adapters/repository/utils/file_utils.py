@@ -8,8 +8,6 @@ from src.services.logger.injection import get_logger
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from .json_utils import JsonUtils
-
 logger = get_logger(__name__)
 
 

@@ -1,7 +1,7 @@
 """统一时间管理器"""
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
+from typing import Optional
 import re
 
 
@@ -32,17 +32,8 @@ class TemporalManager:
         if format == "iso":
             return dt.isoformat()
         elif format == "timestamp":
-            # 对于naive datetime，需要先转换为时区感知的datetime
-            if dt.tzinfo is None:
-                # naive datetime，假设为本地时间，转换为UTC时间戳
-                # 将naive datetime作为本地时间处理
-                import time
-                # 使用time.mktime将本地时间转换为时间戳
-                timestamp = time.mktime(dt.timetuple()) + dt.microsecond / 1e6
-                return str(int(timestamp))
-            else:
-                # 时区感知datetime
-                return str(int(dt.timestamp()))
+            # 统一使用datetime.timestamp()方法，简化代码逻辑
+            return str(int(dt.timestamp()))
         elif format == "readable":
             return dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
