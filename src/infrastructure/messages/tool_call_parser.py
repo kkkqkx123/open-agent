@@ -42,32 +42,6 @@ class ToolCallParser:
                         call_id=tool_call_data.get("id")
                     )
             
-            # 处理旧式function_call格式
-            elif "name" in tool_call_data and "arguments" in tool_call_data:
-                # 解析参数
-                if isinstance(tool_call_data["arguments"], str):
-                    arguments = json.loads(tool_call_data["arguments"])
-                else:
-                    arguments = tool_call_data["arguments"]
-                
-                return ToolCall(
-                    name=tool_call_data["name"],
-                    arguments=arguments,
-                    call_id=tool_call_data.get("id")
-                )
-            
-            # 处理简化格式
-            elif "name" in tool_call_data:
-                arguments = tool_call_data.get("arguments", {})
-                if isinstance(arguments, str):
-                    arguments = json.loads(arguments)
-                
-                return ToolCall(
-                    name=tool_call_data["name"],
-                    arguments=arguments,
-                    call_id=tool_call_data.get("id")
-                )
-            
             return None
             
         except (json.JSONDecodeError, KeyError, TypeError) as e:
@@ -153,13 +127,8 @@ class ToolCallParser:
                 if "arguments" not in function:
                     errors.append("缺少function.arguments字段")
         
-        # 检查旧式格式
-        elif "name" in tool_call_data:
-            if "arguments" not in tool_call_data:
-                errors.append("缺少arguments字段")
-        
         else:
-            errors.append("无法识别的工具调用格式")
+            errors.append("无法识别的工具调用格式，必须包含function字段")
         
         return errors
     
@@ -176,16 +145,6 @@ class ToolCallParser:
         # 如果已经是标准格式，直接返回
         if "function" in tool_call_data:
             return tool_call_data
-        
-        # 转换旧式格式为标准格式
-        if "name" in tool_call_data and "arguments" in tool_call_data:
-            return {
-                "id": tool_call_data.get("id"),
-                "function": {
-                    "name": tool_call_data["name"],
-                    "arguments": tool_call_data["arguments"]
-                }
-            }
         
         # 无法识别的格式，返回原数据
         return tool_call_data
