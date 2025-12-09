@@ -8,7 +8,7 @@
 """
 
 # 核心状态接口
-from .interfaces import IState
+from .interfaces import IState, IStateCache
 
 # 工作流状态接口
 from .workflow import IWorkflowState, IWorkflowStateBuilder
@@ -58,6 +58,7 @@ from .storage import (
 __all__ = [
     # 核心状态接口
     'IState',
+    'IStateCache',
     'IStateManager',
     
     # 工作流状态接口

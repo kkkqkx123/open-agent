@@ -9,6 +9,9 @@ from src.services.logger.injection import get_logger
 
 from src.interfaces.storage import IStorage, ISessionStorage, IThreadStorage, IStorageProvider
 from ..core.base_backend import BaseStorageBackend
+
+# 定义后端类型别名
+BackendType = Union[Type[BaseStorageBackend], Type[ISessionStorage], Type[IThreadStorage]]
 from ..providers.sqlite_provider import SQLiteProvider
 from ..providers.file_provider import FileProvider
 from ..providers.memory_provider import MemoryProvider
@@ -75,7 +78,7 @@ class BackendRegistry:
     def register_backend(
         self,
         name: str,
-        backend_class: Type[BaseStorageBackend],
+        backend_class: BackendType,
         description: str = "",
         default_config: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -322,7 +325,7 @@ class StorageBackendFactory:
     def register_backend(
         self,
         backend_type: str,
-        backend_class: Type[BaseStorageBackend],
+        backend_class: BackendType,
         description: str = "",
         default_config: Optional[Dict[str, Any]] = None
     ) -> None:

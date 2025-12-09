@@ -96,4 +96,108 @@ class IState(ISerializable, ITimestamped, ABC):
         """将状态标记为完成"""
         pass
     
+     
+class IStateCache(ABC):
+    """状态缓存接口
     
+    定义状态缓存的基本契约，提供同步缓存操作接口。
+    """
+    
+    @abstractmethod
+    def get(self, key: str) -> Optional['IState']:
+        """获取缓存状态
+        
+        Args:
+            key: 状态ID
+            
+        Returns:
+            状态实例，如果未找到或已过期则返回None
+        """
+        pass
+    
+    @abstractmethod
+    def put(self, key: str, state: 'IState', ttl: Optional[int] = None) -> None:
+        """设置缓存状态
+        
+        Args:
+            key: 状态ID
+            state: 状态实例
+            ttl: TTL（秒），如果为None则使用默认值
+        """
+        pass
+    
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """删除缓存状态
+        
+        Args:
+            key: 状态ID
+            
+        Returns:
+            是否删除成功
+        """
+        pass
+    
+    @abstractmethod
+    def clear(self) -> None:
+        """清空缓存"""
+        pass
+    
+    @abstractmethod
+    def size(self) -> int:
+        """获取缓存大小
+        
+        Returns:
+            缓存中的状态数量
+        """
+        pass
+    
+    @abstractmethod
+    def get_all_keys(self) -> List[str]:
+        """获取所有键
+        
+        Returns:
+            所有状态ID列表
+        """
+        pass
+    
+    @abstractmethod
+    def get_statistics(self) -> Dict[str, Any]:
+        """获取统计信息
+        
+        Returns:
+            统计信息字典
+        """
+        pass
+    
+    @abstractmethod
+    def get_many(self, keys: List[str]) -> Dict[str, 'IState']:
+        """批量获取缓存状态
+        
+        Args:
+            keys: 状态ID列表
+            
+        Returns:
+            状态字典
+        """
+        pass
+    
+    @abstractmethod
+    def set_many(self, states: Dict[str, 'IState'], ttl: Optional[int] = None) -> None:
+        """批量设置缓存状态
+        
+        Args:
+            states: 状态字典
+            ttl: TTL（秒）
+        """
+        pass
+    
+    @abstractmethod
+    def cleanup_expired(self) -> int:
+        """清理过期缓存项
+        
+        Returns:
+            清理的项数
+        """
+        pass
+

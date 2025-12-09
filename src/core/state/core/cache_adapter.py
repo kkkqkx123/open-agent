@@ -7,39 +7,8 @@ from src.services.logger.injection import get_logger
 import asyncio
 from typing import Any, Dict, List, Optional
 
-from ...common.cache import CacheManager, get_global_cache_manager
-from src.interfaces.state.interfaces import IState
-
-# 由于中央接口层没有缓存接口，我们需要创建这个接口
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # 类型检查时使用这个接口，但实际运行时使用基础接口
-    class IStateCache:
-        """状态缓存接口（临时定义）"""
-        def get(self, key: str) -> Optional[IState]:
-            return None
-        def put(self, key: str, state: IState) -> None:
-            pass
-        def delete(self, key: str) -> bool:
-            return False
-        def clear(self) -> None:
-            pass
-        def size(self) -> int:
-            return 0
-        def get_all_keys(self) -> List[str]:
-            return []
-        def get_statistics(self) -> Dict[str, Any]:
-            return {}
-        def get_many(self, keys: List[str]) -> Dict[str, IState]:
-            return {}
-        def set_many(self, states: Dict[str, IState]) -> None:
-            pass
-        def cleanup_expired(self) -> int:
-            return 0
-else:
-    # 运行时使用基础类作为替代
-    IStateCache = object  # 临时使用object作为占位符
+from src.infrastructure.common.cache import CacheManager, get_global_cache_manager
+from src.interfaces.state.interfaces import IState, IStateCache
 
 logger = get_logger(__name__)
 
@@ -114,15 +83,16 @@ class StateCacheAdapter(IStateCache):
             logger.warning(f"获取缓存状态失败: {key}, 错误: {e}")
             return None
     
-    def put(self, key: str, state: IState) -> None:
+    def put(self, key: str, state: IState, ttl: Optional[int] = None) -> None:
         """设置缓存状态
         
         Args:
             key: 状态ID
             state: 状态实例
+            ttl: TTL（秒），如果为None则使用默认值
         """
         try:
-            self._run_async(self._cache_manager.set(key, state, ttl=self.ttl))
+            self._run_async(self._cache_manager.set(key, state, ttl=ttl or self.ttl))
         except Exception as e:
             logger.warning(f"设置缓存状态失败: {key}, 错误: {e}")
     
@@ -265,14 +235,15 @@ class StateCacheAdapter(IStateCache):
             logger.warning(f"批量获取缓存状态失败: {e}")
             return {}
     
-    def set_many(self, states: Dict[str, IState]) -> None:
+    def set_many(self, states: Dict[str, IState], ttl: Optional[int] = None) -> None:
         """批量设置缓存状态
         
         Args:
             states: 状态字典
+            ttl: TTL（秒）
         """
         try:
-            self._run_async(self._cache_manager.set_many(states, ttl=self.ttl))
+            self._run_async(self._cache_manager.set_many(states, ttl=ttl or self.ttl))
         except Exception as e:
             logger.warning(f"批量设置缓存状态失败: {e}")
 
@@ -287,7 +258,7 @@ class NoOpCacheAdapter(IStateCache):
         """获取缓存状态（总是返回None）"""
         return None
     
-    def put(self, key: str, state: IState) -> None:
+    def put(self, key: str, state: IState, ttl: Optional[int] = None) -> None:
         """设置缓存状态（无操作）"""
         pass
     
@@ -326,7 +297,7 @@ class NoOpCacheAdapter(IStateCache):
         """批量获取（总是返回空字典）"""
         return {}
     
-    def set_many(self, states: Dict[str, IState]) -> None:
+    def set_many(self, states: Dict[str, IState], ttl: Optional[int] = None) -> None:
         """批量设置（无操作）"""
         pass
     
@@ -366,11 +337,11 @@ class TieredStateCacheAdapter(IStateCache):
         
         return state
     
-    def put(self, key: str, state: IState) -> None:
+    def put(self, key: str, state: IState, ttl: Optional[int] = None) -> None:
         """设置缓存状态"""
         # 同时写入两级缓存
-        self.primary_cache.put(key, state)
-        self.secondary_cache.put(key, state)
+        self.primary_cache.put(key, state, ttl)
+        self.secondary_cache.put(key, state, ttl)
     
     def delete(self, key: str) -> bool:
         """删除缓存状态"""
@@ -420,10 +391,10 @@ class TieredStateCacheAdapter(IStateCache):
         
         return result
     
-    def set_many(self, states: Dict[str, IState]) -> None:
+    def set_many(self, states: Dict[str, IState], ttl: Optional[int] = None) -> None:
         """批量设置缓存状态"""
-        self.primary_cache.set_many(states)
-        self.secondary_cache.set_many(states)
+        self.primary_cache.set_many(states, ttl)
+        self.secondary_cache.set_many(states, ttl)
     
     def cleanup_expired(self) -> int:
         """清理过期缓存项"""

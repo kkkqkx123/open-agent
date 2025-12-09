@@ -7,39 +7,8 @@ import asyncio
 from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional
 
-from ...core.common.cache import CacheManager
-from src.interfaces.state.interfaces import IState
-
-# 由于中央接口层没有缓存接口，我们需要创建这个接口
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # 类型检查时使用这个接口，但实际运行时使用基础接口
-    class IStateCache:
-        """状态缓存接口（临时定义）"""
-        def get(self, key: str) -> Optional[IState]:
-            pass
-        def put(self, key: str, state: IState) -> None:
-            pass
-        def delete(self, key: str) -> bool:
-            pass
-        def clear(self) -> None:
-            pass
-        def size(self) -> int:
-            pass
-        def get_all_keys(self) -> List[str]:
-            pass
-        def get_statistics(self) -> Dict[str, Any]:
-            pass
-        def cleanup_expired(self) -> int:
-            pass
-        def get_many(self, keys: List[str]) -> Dict[str, IState]:
-            pass
-        def set_many(self, states: Dict[str, IState]) -> None:
-            pass
-else:
-    # 运行时使用基础类作为替代
-    IStateCache = object  # 临时使用object作为占位符
+from src.infrastructure.common.cache import CacheManager
+from src.interfaces.state.interfaces import IState, IStateCache
 
 
 logger = get_logger(__name__)
@@ -93,19 +62,20 @@ class StateCacheAdapter(IStateCache):
             logger.error(f"获取缓存状态失败: {e}")
             return None
     
-    def put(self, key: str, state: IState) -> None:
+    def put(self, key: str, state: IState, ttl: Optional[int] = None) -> None:
         """设置缓存状态
         
         Args:
             key: 状态ID
             state: 状态实例
+            ttl: TTL（秒），如果为None则使用默认值
         """
         try:
             # 使用同步方式调用异步方法
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(self._cache_manager.set(key, state))
+                loop.run_until_complete(self._cache_manager.set(key, state, ttl=ttl or self.default_ttl))
             finally:
                 loop.close()
         except Exception as e:
@@ -158,7 +128,7 @@ class StateCacheAdapter(IStateCache):
             asyncio.set_event_loop(loop)
             try:
                 stats = loop.run_until_complete(self._cache_manager.get_stats())
-                return stats.get('cache_size', 0)
+                return int(stats.get('cache_size', 0))
             finally:
                 loop.close()
         except Exception as e:
@@ -274,18 +244,19 @@ class StateCacheAdapter(IStateCache):
             logger.error(f"批量获取缓存状态失败: {e}")
             return {}
     
-    def set_many(self, items: Dict[str, IState]) -> None:
+    def set_many(self, states: Dict[str, IState], ttl: Optional[int] = None) -> None:
         """批量设置缓存状态
         
         Args:
-            items: 状态字典
+            states: 状态字典
+            ttl: TTL（秒）
         """
         try:
             # 使用同步方式调用异步方法
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(self._cache_manager.set_many(items))
+                loop.run_until_complete(self._cache_manager.set_many(states, ttl=ttl or self.default_ttl))
             finally:
                 loop.close()
         except Exception as e:

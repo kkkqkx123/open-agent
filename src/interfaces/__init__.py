@@ -3,6 +3,17 @@
 这个模块提供了所有接口的统一导出，确保接口定义的集中化管理。
 """
 
+# 缓存相关接口
+from .cache import (
+    ICacheManager,
+    ICacheAdapter,
+    ICacheProvider,
+    ICacheKeyGenerator,
+    ICacheEntry,
+    ICacheStatistics,
+    ICacheFactory
+)
+
 # 工作流相关接口
 from .workflow import (
     IWorkflow,
@@ -280,6 +291,15 @@ from .filesystem import (
 
 # 导出所有接口的__all__列表
 __all__ = [
+    # 缓存接口
+    "ICacheManager",
+    "ICacheAdapter",
+    "ICacheProvider",
+    "ICacheKeyGenerator",
+    "ICacheEntry",
+    "ICacheStatistics",
+    "ICacheFactory",
+    
     # 工作流接口
     "IWorkflow",
     "IWorkflowExecutor",
