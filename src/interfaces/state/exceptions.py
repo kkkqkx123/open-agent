@@ -245,9 +245,58 @@ class StateVersionError(StateError):
             self.details["version_conflict"] = version_conflict
 
 
+class StateConflictError(StateError):
+    """状态冲突异常"""
+    
+    def __init__(
+        self,
+        message: str,
+        conflict_type: Optional[str] = None,
+        conflicting_state: Optional[Any] = None,
+        expected_state: Optional[Any] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "STATE_CONFLICT_ERROR", kwargs)
+        self.conflict_type = conflict_type
+        self.conflicting_state = conflicting_state
+        self.expected_state = expected_state
+        
+        if conflict_type:
+            self.details["conflict_type"] = conflict_type
+        if conflicting_state is not None:
+            self.details["conflicting_state"] = conflicting_state
+        if expected_state is not None:
+            self.details["expected_state"] = expected_state
+
+
+class StateCacheError(StateError):
+    """状态缓存异常"""
+    
+    def __init__(
+        self,
+        message: str,
+        cache_operation: Optional[str] = None,
+        cache_key: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "STATE_CACHE_ERROR", kwargs)
+        self.cache_operation = cache_operation
+        self.cache_key = cache_key
+        
+        if cache_operation:
+            self.details["cache_operation"] = cache_operation
+        if cache_key:
+            self.details["cache_key"] = cache_key
+
+
+# 别名，保持向后兼容性
+StateException = StateError
+
+
 # 导出所有异常
 __all__ = [
     "StateError",
+    "StateException",
     "StateValidationError",
     "StateNotFoundError",
     "StateTimeoutError",
@@ -258,4 +307,6 @@ __all__ = [
     "StateDeserializationError",
     "StateLockError",
     "StateVersionError",
+    "StateConflictError",
+    "StateCacheError",
 ]

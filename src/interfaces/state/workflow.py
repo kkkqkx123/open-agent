@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from datetime import datetime
 
-from .interfaces import IState
+from .base import IState
 
 
 class IWorkflowState(IState):

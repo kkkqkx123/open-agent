@@ -115,20 +115,14 @@ from .builders import (
 from .history import (
     StateHistoryManager,
     StateHistoryRecorder,
-    StateHistoryPlayer,
-    IHistoryStorage,
-    MemoryHistoryStorage,
-    SQLiteHistoryStorage
+    StateHistoryPlayer
 )
 
 # 快照管理
 from .snapshots import (
     StateSnapshotManager,
     StateSnapshotCreator,
-    StateSnapshotRestorer,
-    ISnapshotStorage,
-    MemorySnapshotStorage,
-    FileSnapshotStorage
+    StateSnapshotRestorer
 )
 
 # 工具类
@@ -334,17 +328,11 @@ __all__ = [
     "StateHistoryManager",
     "StateHistoryRecorder",
     "StateHistoryPlayer",
-    "IHistoryStorage",
-    "MemoryHistoryStorage",
-    "SQLiteHistoryStorage",
     
     # 快照管理
     "StateSnapshotManager",
     "StateSnapshotCreator",
     "StateSnapshotRestorer",
-    "ISnapshotStorage",
-    "MemorySnapshotStorage",
-    "FileSnapshotStorage",
     
     # 便捷函数
     "create_state_manager",

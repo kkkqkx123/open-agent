@@ -10,8 +10,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Sequence
 
 from src.interfaces.state.base import IState
-from .history_storage import IHistoryStorage, MemoryHistoryStorage
-from .history_recorder import StateHistoryRecorder, HistoryEntry
+from src.infrastructure.state import IHistoryStorage, MemoryHistoryStorage, HistoryEntry
+from .history_recorder import StateHistoryRecorder
 from .history_player import StateHistoryPlayer
 from src.interfaces.state.exceptions import StateError, StateValidationError
 from src.interfaces.history.exceptions import HistoryError

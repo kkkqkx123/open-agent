@@ -6,8 +6,76 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
-from .history_recorder import HistoryEntry
+
+class HistoryEntry:
+    """历史记录条目
+    
+    表示一次状态变化的记录。
+    """
+    
+    def __init__(self,
+                 state_id: str,
+                 operation: str,
+                 data: Dict[str, Any],
+                 context: Optional[Dict[str, Any]] = None,
+                 timestamp: Optional[datetime] = None,
+                 version: Optional[int] = None) -> None:
+        """初始化历史记录条目
+        
+        Args:
+            state_id: 状态ID
+            operation: 操作类型
+            data: 状态数据
+            context: 上下文信息
+            timestamp: 时间戳
+            version: 版本号
+        """
+        self.id = str(uuid4())
+        self.state_id = state_id
+        self.operation = operation
+        self.data = data.copy()
+        self.context = context or {}
+        self.timestamp = timestamp or datetime.now()
+        self.version = version
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典
+        
+        Returns:
+            Dict[str, Any]: 字典表示
+        """
+        return {
+            "id": self.id,
+            "state_id": self.state_id,
+            "operation": self.operation,
+            "data": self.data,
+            "context": self.context,
+            "timestamp": self.timestamp.isoformat(),
+            "version": self.version
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "HistoryEntry":
+        """从字典创建历史记录条目
+        
+        Args:
+            data: 字典数据
+            
+        Returns:
+            HistoryEntry: 历史记录条目
+        """
+        timestamp = datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else None
+        
+        return cls(
+            state_id=data["state_id"],
+            operation=data["operation"],
+            data=data["data"],
+            context=data.get("context", {}),
+            timestamp=timestamp,
+            version=data.get("version")
+        )
 
 
 class IHistoryStorage(ABC):
@@ -389,7 +457,7 @@ class SQLiteHistoryStorage(IHistoryStorage):
                 ORDER BY version
             """
             
-            params = [state_id]
+            params: List[Any] = [state_id]
             
             if limit:
                 query += " LIMIT ?"
