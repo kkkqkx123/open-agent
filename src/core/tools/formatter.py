@@ -80,12 +80,9 @@ class FunctionCallingFormatter(IToolFormatter):
                 call_id=call_id,
             )
 
-        # 检查是否有tool_calls属性（多工具调用，在additional_kwargs中）
-        if (
-            hasattr(response, "additional_kwargs")
-            and "tool_calls" in response.additional_kwargs
-        ):
-            tool_calls = response.additional_kwargs["tool_calls"]
+        # 使用类型安全的接口检查工具调用
+        if response.has_tool_calls():
+            tool_calls = response.get_tool_calls()
             if tool_calls:
                 # 返回第一个工具调用
                 tool_call = tool_calls[0]

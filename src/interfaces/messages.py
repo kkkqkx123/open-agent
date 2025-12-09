@@ -70,6 +70,31 @@ class IBaseMessage(ABC):
     def from_dict(cls, data: Dict[str, Any]) -> "IBaseMessage":
         """从字典创建实例"""
         pass
+    
+    @abstractmethod
+    def has_tool_calls(self) -> bool:
+        """检查是否包含工具调用"""
+        pass
+    
+    @abstractmethod
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取所有工具调用（包括无效的）"""
+        pass
+    
+    @abstractmethod
+    def get_valid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取有效的工具调用"""
+        pass
+    
+    @abstractmethod
+    def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取无效的工具调用"""
+        pass
+    
+    @abstractmethod
+    def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
+        """添加工具调用"""
+        pass
 
 
 class IMessageConverter(ABC):

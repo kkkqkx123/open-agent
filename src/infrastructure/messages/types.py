@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 
 from .base import BaseMessage
-from ...interfaces.messages import IBaseMessage
+from src.interfaces.messages import IBaseMessage
 
 
 class HumanMessage(BaseMessage):
@@ -24,6 +24,31 @@ class HumanMessage(BaseMessage):
     def __init__(self, content: Union[str, List[Union[str, Dict[str, Any]]]], **kwargs: Any) -> None:
         """初始化人类消息"""
         super().__init__(content=content, **kwargs)
+    
+    def has_tool_calls(self) -> bool:
+        """检查是否包含工具调用"""
+        # HumanMessage 不包含工具调用
+        return False
+    
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取所有工具调用（包括无效的）"""
+        # HumanMessage 不包含工具调用
+        return []
+    
+    def get_valid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取有效的工具调用"""
+        # HumanMessage 不包含工具调用
+        return []
+    
+    def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取无效的工具调用"""
+        # HumanMessage 不包含工具调用
+        return []
+    
+    def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
+        """添加工具调用"""
+        # HumanMessage 不能添加工具调用
+        raise NotImplementedError("HumanMessage cannot add tool calls")
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "HumanMessage":
@@ -64,11 +89,7 @@ class AIMessage(BaseMessage):
         
         super().__init__(content=content, **kwargs)
         
-        # 将工具调用信息添加到 additional_kwargs 中以保持兼容性
-        if self.tool_calls:
-            self.additional_kwargs["tool_calls"] = self.tool_calls
-        if self.invalid_tool_calls:
-            self.additional_kwargs["invalid_tool_calls"] = self.invalid_tool_calls
+        # 不再同步到 additional_kwargs，使用统一的接口方法访问
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "AIMessage":
@@ -82,9 +103,10 @@ class AIMessage(BaseMessage):
                 timestamp = data["timestamp"]
         
         # 提取工具调用信息
-        additional_kwargs = data.get("additional_kwargs", {}).copy()
-        tool_calls = additional_kwargs.pop("tool_calls", None)
-        invalid_tool_calls = additional_kwargs.pop("invalid_tool_calls", None)
+        # 直接从字典中提取工具调用信息
+        tool_calls = data.get("tool_calls", None)
+        invalid_tool_calls = data.get("invalid_tool_calls", None)
+        additional_kwargs = data.get("additional_kwargs", {})
         
         return cls(
             content=data["content"],
@@ -117,6 +139,12 @@ class AIMessage(BaseMessage):
     def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
         """获取无效的工具调用"""
         return self.invalid_tool_calls or []
+    
+    def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
+        """添加工具调用"""
+        if not self.tool_calls:
+            self.tool_calls = []
+        self.tool_calls.append(tool_call)
 
 
 class SystemMessage(BaseMessage):
@@ -133,6 +161,31 @@ class SystemMessage(BaseMessage):
     def __init__(self, content: Union[str, List[Union[str, Dict[str, Any]]]], **kwargs: Any) -> None:
         """初始化系统消息"""
         super().__init__(content=content, **kwargs)
+    
+    def has_tool_calls(self) -> bool:
+        """检查是否包含工具调用"""
+        # SystemMessage 不包含工具调用
+        return False
+    
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取所有工具调用（包括无效的）"""
+        # SystemMessage 不包含工具调用
+        return []
+    
+    def get_valid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取有效的工具调用"""
+        # SystemMessage 不包含工具调用
+        return []
+    
+    def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取无效的工具调用"""
+        # SystemMessage 不包含工具调用
+        return []
+    
+    def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
+        """添加工具调用"""
+        # SystemMessage 不能添加工具调用
+        raise NotImplementedError("SystemMessage cannot add tool calls")
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SystemMessage":
@@ -170,9 +223,31 @@ class ToolMessage(BaseMessage):
         """初始化工具消息"""
         self.tool_call_id = tool_call_id
         super().__init__(content=content, **kwargs)
-        
-        # 将 tool_call_id 添加到 additional_kwargs 中以保持兼容性
-        self.additional_kwargs["tool_call_id"] = tool_call_id
+    
+    def has_tool_calls(self) -> bool:
+        """检查是否包含工具调用"""
+        # ToolMessage 是工具执行结果，不包含工具调用
+        return False
+    
+    def get_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取所有工具调用（包括无效的）"""
+        # ToolMessage 是工具执行结果，不包含工具调用
+        return []
+    
+    def get_valid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取有效的工具调用"""
+        # ToolMessage 是工具执行结果，不包含工具调用
+        return []
+    
+    def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取无效的工具调用"""
+        # ToolMessage 是工具执行结果，不包含工具调用
+        return []
+    
+    def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
+        """添加工具调用"""
+        # ToolMessage 是工具执行结果，不能添加工具调用
+        raise NotImplementedError("ToolMessage cannot add tool calls")
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ToolMessage":
@@ -194,9 +269,8 @@ class ToolMessage(BaseMessage):
         if not tool_call_id:
             raise ValueError("ToolMessage requires tool_call_id")
         
-        # 复制 additional_kwargs 并移除 tool_call_id 避免重复
-        additional_kwargs = data.get("additional_kwargs", {}).copy()
-        additional_kwargs.pop("tool_call_id", None)
+        # 获取 additional_kwargs
+        additional_kwargs = data.get("additional_kwargs", {})
         
         return cls(
             content=data["content"],

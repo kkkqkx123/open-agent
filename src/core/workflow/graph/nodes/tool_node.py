@@ -200,7 +200,7 @@ class ToolNode(SyncNode):
 
 
     def _extract_tool_calls(self, state: IState, config: Dict[str, Any]) -> List[ToolCall]:
-        """从状态中提取工具调用
+        """从状态中提取工具调用（使用类型安全的接口）
 
         Args:
             state: 当前工作流状态
@@ -218,88 +218,145 @@ class ToolNode(SyncNode):
         if messages:
             last_message = messages[-1]
             
-            # 检查是否是 LangChain 消息类型
-            if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
+            # 使用类型安全的接口方法
+            from src.interfaces.messages import IBaseMessage
+            if isinstance(last_message, IBaseMessage):
                 try:
-                    tool_calls_data = getattr(last_message, 'tool_calls', [])
+                    tool_calls_data = last_message.get_tool_calls()
                     for tool_call_data in tool_calls_data:
-                        # 处理 LangChain 标准格式
-                        if isinstance(tool_call_data, dict):
-                            name = tool_call_data.get("name", "")
-                            args = tool_call_data.get("args", {})
-                            call_id = tool_call_data.get("id", "")
-                        else:
-                            # 处理对象形式的工具调用
-                            name = getattr(tool_call_data, "name", "")
-                            args = getattr(tool_call_data, "args", {})
-                            call_id = getattr(tool_call_data, "id", "")
-                        
-                        if name:  # 只有当工具名称不为空时才添加
-                            tool_calls.append(ToolCall(
-                                name=name,
-                                arguments=args,
-                                call_id=call_id,
-                                timeout=config.get("timeout")
-                            ))
+                        tool_call = self._convert_to_tool_call(tool_call_data, config)
+                        if tool_call:
+                            tool_calls.append(tool_call)
                 except Exception as e:
-                    logger.error(f"解析 LangChain tool_calls 时出错: {str(e)}")
-            
-            # 检查 additional_kwargs 中的 tool_calls（OpenAI 格式）
-            elif (hasattr(last_message, 'additional_kwargs') and
-                  last_message.additional_kwargs and
-                  "tool_calls" in last_message.additional_kwargs):
+                    logger.error(f"从接口消息提取工具调用时出错: {str(e)}")
+                    # 回退到后备方案
+                    tool_calls = self._fallback_tool_calls_extraction(last_message, config)
+            else:
+                # 对于非接口消息，使用消息转换器或后备方案
                 try:
-                    for tool_call_data in last_message.additional_kwargs["tool_calls"]:
-                        if "function" in tool_call_data:
-                            function = tool_call_data["function"]
-                            name = function.get("name", "")
-                            args_str = function.get("arguments", "{}")
-                            
-                            # 解析 JSON 参数
-                            import json
-                            try:
-                                args = json.loads(args_str)
-                            except json.JSONDecodeError:
-                                logger.warning(f"无法解析工具参数 JSON: {args_str}")
-                                args = {}
-                            
-                            if name:
-                                tool_calls.append(ToolCall(
-                                    name=name,
-                                    arguments=args,
-                                    call_id=tool_call_data.get("id", ""),
-                                    timeout=config.get("timeout")
-                                ))
+                    from src.infrastructure.messages.converters import MessageConverter
+                    converter = MessageConverter()
+                    base_message = converter.to_base_message(last_message)
+                    tool_calls_data = base_message.get_tool_calls()
+                    for tool_call_data in tool_calls_data:
+                        tool_call = self._convert_to_tool_call(tool_call_data, config)
+                        if tool_call:
+                            tool_calls.append(tool_call)
                 except Exception as e:
-                    logger.error(f"解析 additional_kwargs tool_calls 时出错: {str(e)}")
-            
-            # 检查是否是字典格式的消息（包含 tool_calls）
-            elif isinstance(last_message, dict) and "tool_calls" in last_message:
-                try:
-                    for tool_call_data in last_message["tool_calls"]:
-                        tool_calls.append(ToolCall(
-                            name=tool_call_data.get("name", ""),
-                            arguments=tool_call_data.get("arguments", {}),
-                            call_id=tool_call_data.get("id", ""),
-                            timeout=config.get("timeout")
-                        ))
-                except Exception as e:
-                    logger.error(f"解析字典格式 tool_calls 时出错: {str(e)}")
-            
-            # 最后尝试从文本内容中解析（非标准方式，仅作为后备）
-            elif (isinstance(last_message, dict) and "content" in last_message and
-                  isinstance(last_message["content"], str) and
-                  last_message["content"].strip()):
-                try:
-                    content = last_message["content"].strip()
-                    # 检查是否包含可能的工具调用指示
-                    if any(indicator in content.lower() for indicator in ["调用工具", "call tool", "tool:"]):
-                        logger.warning("使用非标准的文本解析方式提取工具调用，建议使用 LangChain 标准格式")
-                        tool_calls = self._parse_tool_calls_from_text(content)
-                except Exception as e:
-                    logger.error(f"从文本解析工具调用时出错: {str(e)}")
+                    logger.error(f"转换消息并提取工具调用时出错: {str(e)}")
+                    # 回退到后备方案
+                    tool_calls = self._fallback_tool_calls_extraction(last_message, config)
         
         logger.debug(f"提取到 {len(tool_calls)} 个工具调用")
+        return tool_calls
+    
+    def _convert_to_tool_call(self, tool_call_data: Dict[str, Any], config: Dict[str, Any]) -> Optional[ToolCall]:
+        """将工具调用数据转换为 ToolCall 对象
+        
+        Args:
+            tool_call_data: 工具调用数据
+            config: 配置信息
+            
+        Returns:
+            Optional[ToolCall]: 转换后的 ToolCall 对象
+        """
+        if not isinstance(tool_call_data, dict):
+            return None
+            
+        # 处理标准格式
+        name = tool_call_data.get("name", "")
+        args = tool_call_data.get("args", {})
+        call_id = tool_call_data.get("id", "")
+        
+        # 处理 OpenAI 格式
+        if not name and "function" in tool_call_data:
+            function = tool_call_data["function"]
+            name = function.get("name", "")
+            args_str = function.get("arguments", "{}")
+            
+            # 解析 JSON 参数
+            import json
+            try:
+                args = json.loads(args_str)
+            except json.JSONDecodeError:
+                from src.services.logger.injection import get_logger
+                logger = get_logger(__name__)
+                logger.warning(f"无法解析工具参数 JSON: {args_str}")
+                args = {}
+        
+        if name:  # 只有当工具名称不为空时才添加
+            return ToolCall(
+                name=name,
+                arguments=args,
+                call_id=call_id,
+                timeout=config.get("timeout")
+            )
+        
+        return None
+    
+    def _fallback_tool_calls_extraction(self, message: Any, config: Dict[str, Any]) -> List[ToolCall]:
+        """后备工具调用提取（用于兼容性）
+        
+        Args:
+            message: 消息对象
+            config: 配置信息
+            
+        Returns:
+            List[ToolCall]: 工具调用列表
+        """
+        tool_calls: List[ToolCall] = []
+        from src.services.logger.injection import get_logger
+        logger = get_logger(__name__)
+        
+        # 检查是否是 LangChain 消息类型
+        if hasattr(message, 'has_tool_calls') and callable(message.has_tool_calls):
+            try:
+                if message.has_tool_calls():
+                    tool_calls_data = message.get_tool_calls()
+                else:
+                    tool_calls_data = []
+                for tool_call_data in tool_calls_data:
+                    tool_call = self._convert_to_tool_call(tool_call_data, config)
+                    if tool_call:
+                        tool_calls.append(tool_call)
+            except Exception as e:
+                logger.error(f"解析 LangChain tool_calls 时出错: {str(e)}")
+        
+        # 检查 additional_kwargs 中的 tool_calls（OpenAI 格式）
+        elif (hasattr(message, 'additional_kwargs') and
+              message.additional_kwargs and
+              "tool_calls" in message.additional_kwargs):
+            try:
+                for tool_call_data in message.additional_kwargs["tool_calls"]:
+                    tool_call = self._convert_to_tool_call(tool_call_data, config)
+                    if tool_call:
+                        tool_calls.append(tool_call)
+            except Exception as e:
+                logger.error(f"解析 additional_kwargs tool_calls 时出错: {str(e)}")
+        
+        # 检查是否是字典格式的消息（包含 tool_calls）
+        elif isinstance(message, dict) and "tool_calls" in message:
+            try:
+                for tool_call_data in message["tool_calls"]:
+                    tool_call = self._convert_to_tool_call(tool_call_data, config)
+                    if tool_call:
+                        tool_calls.append(tool_call)
+            except Exception as e:
+                logger.error(f"解析字典格式 tool_calls 时出错: {str(e)}")
+        
+        # 最后尝试从文本内容中解析（非标准方式，仅作为后备）
+        elif (isinstance(message, dict) and "content" in message and
+              isinstance(message["content"], str) and
+              message["content"].strip()):
+            try:
+                content = message["content"].strip()
+                # 检查是否包含可能的工具调用指示
+                if any(indicator in content.lower() for indicator in ["调用工具", "call tool", "tool:"]):
+                    logger.warning("使用非标准的文本解析方式提取工具调用，建议使用标准格式")
+                    tool_calls = self._parse_tool_calls_from_text(content)
+            except Exception as e:
+                logger.error(f"从文本解析工具调用时出错: {str(e)}")
+        
         return tool_calls
 
     def _parse_tool_calls_from_text(self, content: str) -> List[ToolCall]:

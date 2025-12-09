@@ -109,17 +109,19 @@ class UserUIMessage(BaseUIMessage):
         """从字典创建实例"""
         base_data = {
             "message_id": data.get("message_id"),
-            "message_type": data.get("message_type"),
-            "display_content": data.get("display_content"),
             "metadata": data.get("metadata", {})
         }
-        
+
         # 提取时间戳
         metadata = base_data["metadata"]
         timestamp_str = metadata.pop("timestamp", None)
         if timestamp_str:
             base_data["timestamp"] = datetime.fromisoformat(timestamp_str)
-        
+
+        # Remove message_type and display_content from base_data since they're set by constructor
+        message_type = data.get("message_type")
+        display_content = data.get("display_content")
+
         return cls(
             content=data.get("content", ""),
             user_name=data.get("user_name"),
@@ -172,17 +174,19 @@ class AssistantUIMessage(BaseUIMessage):
         """从字典创建实例"""
         base_data = {
             "message_id": data.get("message_id"),
-            "message_type": data.get("message_type"),
-            "display_content": data.get("display_content"),
             "metadata": data.get("metadata", {})
         }
-        
+
         # 提取时间戳
         metadata = base_data["metadata"]
         timestamp_str = metadata.pop("timestamp", None)
         if timestamp_str:
             base_data["timestamp"] = datetime.fromisoformat(timestamp_str)
-        
+
+        # Remove message_type and display_content from base_data since they're set by constructor
+        message_type = data.get("message_type")
+        display_content = data.get("display_content")
+
         return cls(
             content=data.get("content", ""),
             assistant_name=data.get("assistant_name"),
@@ -229,17 +233,19 @@ class SystemUIMessage(BaseUIMessage):
         """从字典创建实例"""
         base_data = {
             "message_id": data.get("message_id"),
-            "message_type": data.get("message_type"),
-            "display_content": data.get("display_content"),
             "metadata": data.get("metadata", {})
         }
-        
+
         # 提取时间戳
         metadata = base_data["metadata"]
         timestamp_str = metadata.pop("timestamp", None)
         if timestamp_str:
             base_data["timestamp"] = datetime.fromisoformat(timestamp_str)
-        
+
+        # Remove message_type and display_content from base_data since they're set by constructor
+        message_type = data.get("message_type")
+        display_content = data.get("display_content")
+
         return cls(
             content=data.get("content", ""),
             level=data.get("level", "info"),
@@ -303,17 +309,19 @@ class ToolUIMessage(BaseUIMessage):
         """从字典创建实例"""
         base_data = {
             "message_id": data.get("message_id"),
-            "message_type": data.get("message_type"),
-            "display_content": data.get("display_content"),
             "metadata": data.get("metadata", {})
         }
-        
+
         # 提取时间戳
         metadata = base_data["metadata"]
         timestamp_str = metadata.pop("timestamp", None)
         if timestamp_str:
             base_data["timestamp"] = datetime.fromisoformat(timestamp_str)
-        
+
+        # Remove message_type and display_content from base_data since they're set by constructor
+        message_type = data.get("message_type")
+        display_content = data.get("display_content")
+
         return cls(
             tool_name=data.get("tool_name", ""),
             tool_input=data.get("tool_input", {}),
@@ -375,17 +383,19 @@ class WorkflowUIMessage(BaseUIMessage):
         """从字典创建实例"""
         base_data = {
             "message_id": data.get("message_id"),
-            "message_type": data.get("message_type"),
-            "display_content": data.get("display_content"),
             "metadata": data.get("metadata", {})
         }
-        
+
         # 提取时间戳
         metadata = base_data["metadata"]
         timestamp_str = metadata.pop("timestamp", None)
         if timestamp_str:
             base_data["timestamp"] = datetime.fromisoformat(timestamp_str)
-        
+
+        # Remove message_type and display_content from base_data since they're set by constructor
+        message_type = data.get("message_type")
+        display_content = data.get("display_content")
+
         return cls(
             content=data.get("content", ""),
             workflow_name=data.get("workflow_name"),

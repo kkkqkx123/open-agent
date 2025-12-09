@@ -75,25 +75,39 @@ class ConditionEvaluator:
     # 内置条件函数实现
     def _has_tool_calls(self, state: IState, parameters: Dict[str, Any],
                        config: Dict[str, Any]) -> bool:
-        """检查是否有工具调用"""
+        """检查是否有工具调用（使用类型安全的接口）"""
         messages = state.get_data("messages", [])
         if not messages:
             return False
 
         last_message = messages[-1]
-        # 检查LangChain消息的tool_calls属性
-        if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
-            return True
-
+        
+        # 使用类型安全的接口方法
+        from ...interfaces.messages import IBaseMessage
+        if isinstance(last_message, IBaseMessage):
+            return last_message.has_tool_calls()
+        
+        # 对于非接口消息，使用消息转换器转换为接口类型
+        try:
+            from ...infrastructure.messages.converters import MessageConverter
+            converter = MessageConverter()
+            base_message = converter.to_base_message(last_message)
+            return base_message.has_tool_calls()
+        except Exception:
+            # 转换失败，使用后备方案
+            return self._fallback_tool_call_check(last_message)
+    
+    def _fallback_tool_call_check(self, message: Any) -> bool:
+        """后备工具调用检查（用于兼容性）"""
         # 检查消息的metadata中的tool_calls
-        if hasattr(last_message, 'metadata'):
-            metadata = getattr(last_message, 'metadata', {})
+        if hasattr(message, 'metadata'):
+            metadata = getattr(message, 'metadata', {})
             if isinstance(metadata, dict) and metadata.get("tool_calls"):
                 return True
 
         # 检查消息内容
-        if hasattr(last_message, 'content'):
-            content = str(getattr(last_message, 'content', ''))
+        if hasattr(message, 'content'):
+            content = str(getattr(message, 'content', ''))
             return "tool_call" in content.lower() or "调用工具" in content
 
         return False

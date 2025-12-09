@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 import json
 
-from ...interfaces.messages import IBaseMessage
+from src.interfaces.messages import IBaseMessage
 
 
 class BaseMessage(IBaseMessage):
@@ -135,18 +135,28 @@ class BaseMessage(IBaseMessage):
     
     def has_tool_calls(self) -> bool:
         """检查是否包含工具调用"""
-        return "tool_calls" in self.additional_kwargs
+        # 基础实现：子类可以重写
+        return False
     
     def get_tool_calls(self) -> List[Dict[str, Any]]:
-        """获取工具调用信息"""
-        tool_calls = self.additional_kwargs.get("tool_calls", [])
-        return tool_calls if isinstance(tool_calls, list) else []
+        """获取所有工具调用（包括无效的）"""
+        # 基础实现：子类可以重写
+        return []
+    
+    def get_valid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取有效的工具调用"""
+        # 基础实现：子类可以重写
+        return []
+    
+    def get_invalid_tool_calls(self) -> List[Dict[str, Any]]:
+        """获取无效的工具调用"""
+        # 基础实现：子类可以重写
+        return []
     
     def add_tool_call(self, tool_call: Dict[str, Any]) -> None:
         """添加工具调用"""
-        if "tool_calls" not in self.additional_kwargs:
-            self.additional_kwargs["tool_calls"] = []
-        self.additional_kwargs["tool_calls"].append(tool_call)
+        # 基础实现：子类可以重写
+        pass
     
     def get_additional_kwarg(self, key: str, default: Any = None) -> Any:
         """获取额外参数"""

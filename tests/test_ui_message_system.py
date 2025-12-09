@@ -180,11 +180,22 @@ class TestMessageAdapters:
         assert isinstance(ui_msg, UserUIMessage)
         assert ui_msg.content == "用户消息"
         
-        # 测试AIMessage转换
-        ai_msg = AIMessage(content="AI回复")
+        # 测试AIMessage转换（带工具调用）
+        tool_calls = [
+            {"name": "test_tool", "args": {"param": "value"}, "id": "call_123"}
+        ]
+        ai_msg = AIMessage(content="AI回复", tool_calls=tool_calls)
         ui_msg = adapter.to_ui_message(ai_msg)
         assert isinstance(ui_msg, AssistantUIMessage)
         assert ui_msg.content == "AI回复"
+        assert ui_msg.tool_calls == tool_calls
+        
+        # 测试AIMessage转换（不带工具调用）
+        ai_msg_no_tools = AIMessage(content="AI回复，无工具调用")
+        ui_msg_no_tools = adapter.to_ui_message(ai_msg_no_tools)
+        assert isinstance(ui_msg_no_tools, AssistantUIMessage)
+        assert ui_msg_no_tools.content == "AI回复，无工具调用"
+        assert ui_msg_no_tools.tool_calls == []
         
         # 测试SystemMessage转换
         sys_msg = SystemMessage(content="系统消息")
@@ -195,14 +206,11 @@ class TestMessageAdapters:
         # 测试ToolMessage转换
         tool_msg = ToolMessage(
             content="工具结果",
-            additional_kwargs={
-                "tool_name": "测试工具",
-                "tool_input": {"param": "value"}
-            }
+            tool_call_id="call_123"
         )
         ui_msg = adapter.to_ui_message(tool_msg)
         assert isinstance(ui_msg, ToolUIMessage)
-        assert ui_msg.tool_name == "测试工具"
+        # ToolMessage 现在需要通过 tool_call_id 来识别工具
     
     def test_llm_message_adapter_from_ui(self):
         """测试LLM消息适配器从UI消息转换"""
@@ -214,11 +222,23 @@ class TestMessageAdapters:
         assert isinstance(internal_msg, HumanMessage)
         assert internal_msg.get_text_content() == "用户输入"
         
-        # 测试AssistantUIMessage转换
-        assistant_ui = AssistantUIMessage(content="助手回复")
+        # 测试AssistantUIMessage转换（带工具调用）
+        tool_calls = [
+            {"name": "test_tool", "args": {"param": "value"}}
+        ]
+        assistant_ui = AssistantUIMessage(content="助手回复", tool_calls=tool_calls)
         internal_msg = adapter.from_ui_message(assistant_ui)
         assert isinstance(internal_msg, AIMessage)
         assert internal_msg.get_text_content() == "助手回复"
+        assert internal_msg.has_tool_calls() == True
+        assert len(internal_msg.get_tool_calls()) == 1
+        
+        # 测试AssistantUIMessage转换（不带工具调用）
+        assistant_ui_no_tools = AssistantUIMessage(content="助手回复，无工具调用")
+        internal_msg_no_tools = adapter.from_ui_message(assistant_ui_no_tools)
+        assert isinstance(internal_msg_no_tools, AIMessage)
+        assert internal_msg_no_tools.get_text_content() == "助手回复，无工具调用"
+        assert internal_msg_no_tools.has_tool_calls() == False
         
         # 测试SystemUIMessage转换
         system_ui = SystemUIMessage(content="系统通知")
@@ -270,7 +290,7 @@ class TestUIMessageManager:
         # 测试获取消息
         retrieved = manager.get_message(message.message_id)
         assert retrieved is not None
-        assert retrieved.content == "测试消息"
+        assert retrieved.display_content == "测试消息"
         
         # 测试获取所有消息
         all_messages = manager.get_all_messages()

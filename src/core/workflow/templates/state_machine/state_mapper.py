@@ -249,11 +249,11 @@ class StateMachineStateMapper:
         if messages:
             last_message = messages[-1]
             
-            # 检查LangChain格式
-            if hasattr(last_message, 'tool_calls') and getattr(last_message, 'tool_calls', None):
-                return len(last_message.tool_calls) > 0
+            # 使用类型安全的接口检查工具调用
+            if hasattr(last_message, 'has_tool_calls') and callable(last_message.has_tool_calls):
+                return bool(last_message.has_tool_calls())
             
-            # 检查字典格式
+            # 检查字典格式（后备方案）
             elif isinstance(last_message, dict) and "tool_calls" in last_message:
                 return len(last_message["tool_calls"]) > 0
         

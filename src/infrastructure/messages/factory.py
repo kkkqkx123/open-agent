@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 import uuid
 
-from ...interfaces.messages import IMessageFactory, IBaseMessage
+from src.interfaces.messages import IMessageFactory, IBaseMessage
 from .types import HumanMessage, AIMessage, SystemMessage, ToolMessage
 
 

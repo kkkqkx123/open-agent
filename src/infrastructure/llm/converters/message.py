@@ -7,13 +7,19 @@
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 
-from .base import ConversionContext, MessageRole
+from .base import MessageRole
 from .utils import (
     process_content_to_list,
     extract_text_from_content,
     create_timestamp,
     safe_get
 )
+
+# 导入新的消息系统
+from src.infrastructure.messages.types import (
+    BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
+)
+from src.interfaces.messages import IBaseMessage
 
 
 class LLMMessage:
@@ -34,58 +40,6 @@ class LLMMessage:
         self.tool_calls = tool_calls or []
         self.metadata = metadata or {}
         self.timestamp = timestamp or create_timestamp()
-
-
-class BaseMessage:
-    """基础消息类"""
-    
-    def __init__(
-        self,
-        content: Union[str, List[Union[str, Dict[str, Any]]]],
-        name: Optional[str] = None,
-        additional_kwargs: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[datetime] = None
-    ):
-        self.content = content
-        self.name = name
-        self.additional_kwargs = additional_kwargs or {}
-        self.timestamp = timestamp or create_timestamp()
-
-
-class HumanMessage(BaseMessage):
-    """人类消息"""
-    pass
-
-
-class AIMessage(BaseMessage):
-    """AI消息"""
-    
-    def __init__(
-        self,
-        content: Union[str, List[Union[str, Dict[str, Any]]]],
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        **kwargs
-    ):
-        super().__init__(content, **kwargs)
-        self.tool_calls = tool_calls or []
-
-
-class SystemMessage(BaseMessage):
-    """系统消息"""
-    pass
-
-
-class ToolMessage(BaseMessage):
-    """工具消息"""
-    
-    def __init__(
-        self,
-        content: Union[str, List[Union[str, Dict[str, Any]]]],
-        tool_call_id: str,
-        **kwargs
-    ):
-        super().__init__(content, **kwargs)
-        self.tool_call_id = tool_call_id
 
 
 class MessageConverter:
@@ -329,7 +283,7 @@ class MessageConverter:
             )
     
     def _base_to_llm(self, message: BaseMessage) -> LLMMessage:
-        """将基础消息转换为LLM消息"""
+        """将基础消息转换为LLM消息（使用新的接口）"""
         if isinstance(message, HumanMessage):
             role = MessageRole.USER
         elif isinstance(message, AIMessage):
@@ -350,20 +304,28 @@ class MessageConverter:
         # 处理特殊字段
         if isinstance(message, ToolMessage):
             metadata["tool_call_id"] = message.tool_call_id
-        elif isinstance(message, AIMessage) and message.tool_calls:
-            metadata["tool_calls"] = message.tool_calls
+        elif isinstance(message, AIMessage):
+            # 使用新的接口方法获取工具调用
+            tool_calls = message.get_tool_calls()
+            if tool_calls:
+                metadata["tool_calls"] = tool_calls
+        
+        # 获取工具调用（使用新的接口）
+        tool_calls = None
+        if isinstance(message, AIMessage):
+            tool_calls = message.get_tool_calls()
         
         return LLMMessage(
             role=role,
             content=content,
             name=message.name,
-            tool_calls=getattr(message, 'tool_calls', None),
+            tool_calls=tool_calls,
             metadata=metadata,
             timestamp=message.timestamp
         )
     
     def _base_to_dict(self, message: BaseMessage) -> Dict[str, Any]:
-        """将基础消息转换为字典格式"""
+        """将基础消息转换为字典格式（使用新的接口）"""
         result = {
             "content": message.content,
             "type": self._get_message_type(message)
@@ -380,8 +342,11 @@ class MessageConverter:
         if message.additional_kwargs:
             result["additional_kwargs"] = message.additional_kwargs
         
-        if isinstance(message, AIMessage) and message.tool_calls:
-            result["tool_calls"] = message.tool_calls
+        # 使用新的接口方法获取工具调用
+        if isinstance(message, AIMessage):
+            tool_calls = message.get_tool_calls()
+            if tool_calls:
+                result["tool_calls"] = tool_calls
         
         return result
     
@@ -451,28 +416,17 @@ class MessageConverter:
         )
     
     def extract_tool_calls(self, message: Union[LLMMessage, BaseMessage]) -> List[Dict[str, Any]]:
-        """提取工具调用信息"""
-        if isinstance(message, LLMMessage):
+        """提取工具调用信息（使用类型安全的接口）"""
+        if isinstance(message, IBaseMessage):
+            # 使用类型安全的接口方法
+            return message.get_tool_calls()
+        elif isinstance(message, LLMMessage):
             # 优先使用 tool_calls 属性
             if message.tool_calls:
                 return message.tool_calls
             # 回退到 metadata
             tool_calls_meta = message.metadata.get("tool_calls", [])
             return tool_calls_meta if isinstance(tool_calls_meta, list) else []
-        elif isinstance(message, AIMessage):
-            # 从 AIMessage 提取 tool_calls
-            if message.tool_calls:
-                return message.tool_calls if isinstance(message.tool_calls, list) else []
-            if message.additional_kwargs:
-                tool_calls_kwargs = message.additional_kwargs.get("tool_calls", [])
-                return tool_calls_kwargs if isinstance(tool_calls_kwargs, list) else []
-            return []
-        elif isinstance(message, BaseMessage):
-            # 其他消息类型尝试从 additional_kwargs 提取
-            if message.additional_kwargs:
-                tool_calls_base = message.additional_kwargs.get("tool_calls", [])
-                return tool_calls_base if isinstance(tool_calls_base, list) else []
-            return []
         else:
             return []
     
@@ -490,3 +444,14 @@ class MessageConverter:
             metadata=new_metadata,
             timestamp=message.timestamp
         )
+    
+    def has_tool_calls(self, message: Union[LLMMessage, BaseMessage]) -> bool:
+        """检查是否包含工具调用（使用类型安全的接口）"""
+        if isinstance(message, IBaseMessage):
+            # 使用类型安全的接口方法
+            return message.has_tool_calls()
+        elif isinstance(message, LLMMessage):
+            # 检查 LLMMessage 的 tool_calls 属性
+            return bool(message.tool_calls)
+        else:
+            return False

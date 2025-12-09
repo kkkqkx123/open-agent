@@ -178,17 +178,17 @@ class UIMessageManager(IUIMessageManager):
         return 'unknown'
 
 
-class DefaultUIMessageRenderer:
+class DefaultUIMessageRenderer(IUIMessageRenderer):
     """默认UI消息渲染器
-    
+
     提供基本的消息渲染功能。
     """
-    
+
     def render(self, message: IUIMessage) -> str:
         """渲染消息"""
         timestamp = message.metadata.get("timestamp", "")
         message_type = message.message_type.upper()
-        
+
         # 根据消息类型添加前缀
         if message_type == "USER":
             user_name = getattr(message, 'user_name', '用户')
@@ -210,9 +210,9 @@ class DefaultUIMessageRenderer:
             prefix = f"[工作流-{workflow_name}-{node_name}-{status}]" if node_name else f"[工作流-{workflow_name}-{status}]"
         else:
             prefix = f"[{message_type}]"
-        
+
         return f"{timestamp} {prefix} {message.display_content}"
-    
+
     def can_render(self, message_type: str) -> bool:
         """检查是否可以渲染指定类型的消息"""
         return True  # 默认渲染器可以渲染所有类型

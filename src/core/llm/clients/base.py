@@ -246,25 +246,15 @@ class BaseLLMClient(ILLMClient):
                     if isinstance(result, dict):
                         return result
         
-        # 检查tool_calls
-        if hasattr(response, "tool_calls"):
-            tool_calls = response.tool_calls
-            # 处理Mock对象和实际对象
-            if tool_calls is not None:
-                # 如果是Mock对象，尝试获取其长度或直接检查是否为空
-                try:
-                    if hasattr(tool_calls, "__len__") and len(tool_calls) > 0:
-                        # 返回第一个工具调用
-                        tool_call = tool_calls[0]
-                        if hasattr(tool_call, "dict"):
-                            result = tool_call.dict()
-                            if isinstance(result, dict):
-                                return result
-                        elif isinstance(tool_call, dict):
-                            return tool_call
-                except TypeError:
-                    # 如果tool_calls是Mock对象且没有长度，跳过
-                    pass
+        # 使用类型安全的接口检查tool_calls
+        if hasattr(response, "has_tool_calls") and callable(response.has_tool_calls):
+            if response.has_tool_calls():
+                tool_calls = response.get_tool_calls()
+                if tool_calls:
+                    # 返回第一个工具调用
+                    tool_call = tool_calls[0]
+                    if isinstance(tool_call, dict):
+                        return tool_call
         
         # 检查response_metadata中的函数调用信息
         if hasattr(response, "response_metadata"):
@@ -276,15 +266,10 @@ class BaseLLMClient(ILLMClient):
                         return result
                 elif "tool_calls" in metadata:
                     tool_calls = metadata["tool_calls"]
-                    if tool_calls is not None:
-                        try:
-                            if hasattr(tool_calls, "__len__") and len(tool_calls) > 0:
-                                tool_call = tool_calls[0]
-                                if isinstance(tool_call, dict):
-                                    return tool_call
-                        except TypeError:
-                            # 如果tool_calls是Mock对象且没有长度，跳过
-                            pass
+                    if isinstance(tool_calls, list) and tool_calls:
+                        tool_call = tool_calls[0]
+                        if isinstance(tool_call, dict):
+                            return tool_call
         
         return None
 

@@ -19,7 +19,7 @@ class MetricsCollectionHook(ConfigurableHook):
     收集节点执行过程中的各种指标数据，包括性能指标、业务指标和系统指标。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化指标收集Hook"""
         super().__init__(
             hook_id="metrics_collection",
@@ -116,10 +116,18 @@ class MetricsCollectionHook(ConfigurableHook):
             iteration_key = f"business.{context.node_type}.iteration_count"
             self._metrics[iteration_key] = state.iteration_count
         
-        # 工具调用次数
-        if hasattr(state, 'tool_calls'):
+        # 工具调用次数 - 使用类型安全的接口
+        messages = state.get_data("messages", []) if hasattr(state, 'get_data') else []
+        tool_calls_count = 0
+        if messages:
+            last_message = messages[-1]
+            if hasattr(last_message, 'has_tool_calls') and callable(last_message.has_tool_calls):
+                if last_message.has_tool_calls():
+                    tool_calls_count = len(last_message.get_tool_calls())
+        
+        if tool_calls_count > 0:
             tool_calls_key = f"business.{context.node_type}.tool_calls_count"
-            self._metrics[tool_calls_key] = len(getattr(state, 'tool_calls', []))
+            self._metrics[tool_calls_key] = tool_calls_count
     
     def _collect_system_metrics(self, context: HookContext) -> None:
         """收集系统指标"""
