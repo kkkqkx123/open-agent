@@ -149,11 +149,11 @@ class ThreadStorageMixin(BaseStorageMixin):
             logger.error(f"Failed to get thread branches: {e}")
             raise
     
-    def _prepare_data(self, thread_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_data(self, id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """准备线程数据用于存储
         
         Args:
-            thread_id: 线程ID
+            id: 线程ID
             data: 原始线程数据
             
         Returns:
@@ -162,7 +162,7 @@ class ThreadStorageMixin(BaseStorageMixin):
         current_time = time.time()
         
         thread_data = {
-            "id": thread_id,
+            "id": id,
             "session_id": data["session_id"],
             "status": data["status"],
             "created_at": data.get("created_at", current_time),

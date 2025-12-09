@@ -12,7 +12,7 @@ class StorageBackendError(StorageError):
     用于存储后端相关的错误。
     """
     
-    def __init__(self, message: str, backend_type: str = None, error_code: str = None):
+    def __init__(self, message: str, backend_type: str | None = None, error_code: str | None = None):
         """初始化存储后端错误
         
         Args:
@@ -31,7 +31,7 @@ class ProviderError(StorageError):
     用于存储提供者相关的错误。
     """
     
-    def __init__(self, message: str, provider_type: str = None, operation: str = None):
+    def __init__(self, message: str, provider_type: str | None = None, operation: str | None = None):
         """初始化存储提供者错误
         
         Args:
@@ -50,7 +50,7 @@ class ConnectionError(StorageBackendError):
     用于连接相关的错误。
     """
     
-    def __init__(self, message: str, backend_type: str = None, connection_details: str = None):
+    def __init__(self, message: str, backend_type: str | None = None, connection_details: str | None = None):
         """初始化连接错误
         
         Args:
@@ -68,7 +68,7 @@ class ConfigurationError(StorageBackendError):
     用于配置相关的错误。
     """
     
-    def __init__(self, message: str, backend_type: str = None, config_key: str = None):
+    def __init__(self, message: str, backend_type: str | None = None, config_key: str | None = None):
         """初始化配置错误
         
         Args:
@@ -86,7 +86,7 @@ class TransactionError(ProviderError):
     用于事务相关的错误。
     """
     
-    def __init__(self, message: str, provider_type: str = None, transaction_id: str = None):
+    def __init__(self, message: str, provider_type: str | None = None, transaction_id: str | None = None):
         """初始化事务错误
         
         Args:
@@ -104,7 +104,7 @@ class ValidationError(StorageBackendError):
     用于数据验证相关的错误。
     """
     
-    def __init__(self, message: str, backend_type: str = None, field_name: str = None):
+    def __init__(self, message: str, backend_type: str | None = None, field_name: str | None = None):
         """初始化验证错误
         
         Args:

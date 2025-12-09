@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     # 仅在类型检查时导入，避免运行时循环依赖
-    from src.adapters.storage.backends import SQLiteThreadBackend, FileThreadBackend
+    from src.adapters.storage.backends import ThreadBackend
     from src.services.threads.repository import ThreadRepository
     from src.services.threads.basic_service import BasicThreadService
     from src.services.threads.workflow_service import WorkflowThreadService
@@ -153,34 +153,71 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
     primary_backend_type = config.get("thread", {}).get("primary_backend", "sqlite")
     
     # 延迟导入具体实现，避免循环依赖
-    def create_primary_backend() -> 'SQLiteThreadBackend':
+    def create_primary_backend() -> 'ThreadBackend':
+        from src.adapters.storage.backends.factory import StorageBackendFactory
+        from src.adapters.storage.backends import ThreadBackend
+        
+        factory = StorageBackendFactory()
+        
         if primary_backend_type == "sqlite":
-            from src.adapters.storage.backends import SQLiteThreadBackend
             sqlite_config = config.get("thread", {}).get("sqlite", {})
             db_path = sqlite_config.get("db_path", "./data/threads.db")
-            return SQLiteThreadBackend(db_path=db_path)
+            
+            # 创建SQLite提供者配置
+            provider_config = {
+                "provider_type": "sqlite",
+                "db_path": db_path,
+                "max_connections": 10,
+                "timeout": 30.0
+            }
+            
+            # 使用工厂创建后端实例
+            backend = factory.create_backend("thread", provider_config)
+            return backend
         else:
             raise ValueError(f"Unsupported primary backend type: {primary_backend_type}")
     
-    def create_secondary_backends() -> List[Union['SQLiteThreadBackend', 'FileThreadBackend']]:
+    def create_secondary_backends() -> List['ThreadBackend']:
         secondary_backends = []
         secondary_types = config.get("thread", {}).get("secondary_backends", [])
         
         for backend_type in secondary_types:
+            from src.adapters.storage.backends.factory import StorageBackendFactory
+            from src.adapters.storage.backends import ThreadBackend
+            
+            factory = StorageBackendFactory()
+            
             if backend_type == "file":
-                from src.adapters.storage.backends import FileThreadBackend
                 file_config = config.get("thread", {}).get("file", {})
                 base_path = file_config.get("base_path", "./threads_backup")
-                backend: Union[SQLiteThreadBackend, FileThreadBackend] = FileThreadBackend(
-                    base_path=base_path
-                )
+                
+                # 创建文件提供者配置
+                provider_config = {
+                    "provider_type": "file",
+                    "base_path": base_path,
+                    "file_extension": ".json"
+                }
+                
+                # 使用工厂创建后端实例
+                backend = factory.create_backend("thread", provider_config)
                 secondary_backends.append(backend)
+                
             elif backend_type == "sqlite":
-                from src.adapters.storage.backends import SQLiteThreadBackend
                 sqlite_config = config.get("thread", {}).get("sqlite_secondary", {})
                 db_path = sqlite_config.get("db_path", "./data/threads_backup.db")
-                backend = SQLiteThreadBackend(db_path=db_path)
+                
+                # 创建SQLite提供者配置
+                provider_config = {
+                    "provider_type": "sqlite",
+                    "db_path": db_path,
+                    "max_connections": 10,
+                    "timeout": 30.0
+                }
+                
+                # 使用工厂创建后端实例
+                backend = factory.create_backend("thread", provider_config)
                 secondary_backends.append(backend)
+                
             else:
                 print(f"[WARNING] Unknown secondary backend type: {backend_type}", file=sys.stderr)
         

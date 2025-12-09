@@ -69,7 +69,7 @@ class BaseStorageProvider(IStorageProvider):
                 self._record_error("connection", str(e))
                 raise ConnectionError(
                     f"Failed to connect {self.__class__.__name__}: {e}",
-                    provider_type=self.__class__.__name__
+                    backend_type=self.__class__.__name__
                 )
     
     async def disconnect(self) -> None:
@@ -87,7 +87,7 @@ class BaseStorageProvider(IStorageProvider):
                 self._record_error("connection", str(e))
                 raise ConnectionError(
                     f"Failed to disconnect {self.__class__.__name__}: {e}",
-                    provider_type=self.__class__.__name__
+                    backend_type=self.__class__.__name__
                 )
     
     async def is_connected(self) -> bool:

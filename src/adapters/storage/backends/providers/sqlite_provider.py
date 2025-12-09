@@ -3,6 +3,7 @@
 提供SQLite数据库的底层存储操作实现。
 """
 
+import asyncio
 import sqlite3
 import json
 import time

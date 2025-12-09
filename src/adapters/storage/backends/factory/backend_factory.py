@@ -12,9 +12,9 @@ from ..core.base_backend import BaseStorageBackend
 from ..providers.sqlite_provider import SQLiteProvider
 from ..providers.file_provider import FileProvider
 from ..providers.memory_provider import MemoryProvider
-from ..impl.combined_backends import (
-    SQLiteSessionBackend, SQLiteThreadBackend,
-    FileSessionBackend, FileThreadBackend
+from ..impl import (
+    SessionBackend,
+    ThreadBackend
 )
 
 
@@ -46,51 +46,29 @@ class BackendRegistry:
     
     def _register_default_backends(self) -> None:
         """注册默认后端"""
-        # SQLite后端
+        # 会话存储后端
         self.register_backend(
-            "sqlite_session",
-            SQLiteSessionBackend,
-            "SQLite会话存储后端",
+            "session",
+            SessionBackend,
+            "会话存储后端",
             {
-                "provider_type": "sqlite",
+                "provider_type": "sqlite",  # 默认使用SQLite
                 "db_path": "./data/sessions.db",
                 "max_connections": 10,
                 "timeout": 30.0
             }
         )
         
+        # 线程存储后端
         self.register_backend(
-            "sqlite_thread",
-            SQLiteThreadBackend,
-            "SQLite线程存储后端",
+            "thread",
+            ThreadBackend,
+            "线程存储后端",
             {
-                "provider_type": "sqlite",
+                "provider_type": "sqlite",  # 默认使用SQLite
                 "db_path": "./data/threads.db",
                 "max_connections": 10,
                 "timeout": 30.0
-            }
-        )
-        
-        # 文件后端
-        self.register_backend(
-            "file_session",
-            FileSessionBackend,
-            "文件会话存储后端",
-            {
-                "provider_type": "file",
-                "base_path": "./sessions",
-                "file_extension": ".json"
-            }
-        )
-        
-        self.register_backend(
-            "file_thread",
-            FileThreadBackend,
-            "文件线程存储后端",
-            {
-                "provider_type": "file",
-                "base_path": "./threads",
-                "file_extension": ".json"
             }
         )
     

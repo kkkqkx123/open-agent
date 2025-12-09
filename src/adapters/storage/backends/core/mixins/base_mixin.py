@@ -43,6 +43,34 @@ class BaseStorageMixin(ABC):
         """
         pass
     
+    async def update(self, id: str, updates: Dict[str, Any]) -> bool:
+        """更新数据
+        
+        Args:
+            id: 数据ID
+            updates: 更新的字段字典
+            
+        Returns:
+            是否更新成功
+        """
+        try:
+            # 加载现有数据
+            existing_data = await self.load(id)
+            
+            if existing_data is None:
+                logger.warning(f"Data not found for update: {id}")
+                return False
+            
+            # 合并更新数据
+            existing_data.update(updates)
+            
+            # 保存更新后的数据
+            return await self.save(id, existing_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to update data {id}: {e}")
+            raise StorageBackendError(f"Failed to update data: {e}")
+    
     @abstractmethod
     def _extract_data(self, storage_data: Dict[str, Any]) -> Dict[str, Any]:
         """从存储数据提取业务数据

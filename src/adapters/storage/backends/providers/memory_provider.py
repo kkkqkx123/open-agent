@@ -103,15 +103,15 @@ class MemoryProvider(BaseStorageProvider):
             if "id" not in data:
                 data["id"] = str(time.time()) + str(id(data))
             
-            id = data["id"]
+            record_id = data["id"]
             
             # 估算新数据大小
             new_size = self._estimate_data_size(data)
             
             # 检查内存限制
             old_size = 0
-            if id in self._storage[table]:
-                old_size = self._estimate_data_size(self._storage[table][id])
+            if record_id in self._storage[table]:
+                old_size = self._estimate_data_size(self._storage[table][record_id])
             
             self._check_memory_limit(new_size - old_size)
             
@@ -119,11 +119,11 @@ class MemoryProvider(BaseStorageProvider):
             self._current_memory_usage += (new_size - old_size)
             
             # 保存数据
-            self._storage[table][id] = data.copy()
+            self._storage[table][record_id] = data.copy()
             
             self._record_operation("save", True)
-            logger.debug(f"Data saved to {table}: {id}")
-            return id
+            logger.debug(f"Data saved to {table}: {record_id}")
+            return record_id
             
         except Exception as e:
             self._record_operation("save", False)

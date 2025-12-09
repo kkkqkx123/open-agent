@@ -132,11 +132,11 @@ class SessionStorageMixin(BaseStorageMixin):
             logger.error(f"Failed to update session status: {e}")
             raise
     
-    def _prepare_data(self, session_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_data(self, id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """准备会话数据用于存储
         
         Args:
-            session_id: 会话ID
+            id: 会话ID
             data: 原始会话数据
             
         Returns:
@@ -145,7 +145,7 @@ class SessionStorageMixin(BaseStorageMixin):
         current_time = time.time()
         
         session_data = {
-            "id": session_id,
+            "id": id,
             "status": data["status"],
             "message_count": data.get("message_count", 0),
             "checkpoint_count": data.get("checkpoint_count", 0),

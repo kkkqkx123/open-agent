@@ -6,7 +6,6 @@
 from typing import Dict, Any, Optional, List
 from src.services.logger.injection import get_logger
 
-from ..core.base_backend import BaseStorageBackend
 from ..core.mixins.thread_mixin import ThreadStorageMixin
 from src.interfaces.storage import IThreadStorage
 
@@ -14,10 +13,10 @@ from src.interfaces.storage import IThreadStorage
 logger = get_logger(__name__)
 
 
-class ThreadBackend(BaseStorageBackend, IThreadStorage):
+class ThreadBackend(IThreadStorage):
     """线程存储后端
     
-    提供线程存储功能的具体实现，通过组合基础后端和线程混入。
+    专注于线程存储业务逻辑，通过组合线程混入实现功能。
     """
     
     def __init__(self, provider, **config: Any) -> None:
@@ -27,27 +26,41 @@ class ThreadBackend(BaseStorageBackend, IThreadStorage):
             provider: 存储提供者实例
             **config: 其他配置参数
         """
-        super().__init__(provider=provider, **config)
+        self._provider = provider
+        self._config = config
+        self._connected = False
         
         # 创建线程存储混入
         self._thread_mixin = ThreadStorageMixin(provider)
     
-    async def _connect_impl(self) -> None:
-        """实际连接实现"""
+    async def connect(self) -> None:
+        """连接到存储后端"""
+        if self._connected:
+            return
+        
         # 连接到提供者
         await self._provider.connect()
         
         # 创建线程表
         await self._provider.create_table("threads", {})
+        self._connected = True
         logger.debug("Thread backend connected and initialized")
     
-    async def _disconnect_impl(self) -> None:
-        """实际断开连接实现"""
+    async def disconnect(self) -> None:
+        """断开与存储后端的连接"""
+        if not self._connected:
+            return
+        
         await self._provider.disconnect()
+        self._connected = False
         logger.debug("Thread backend disconnected")
     
-    async def _health_check_impl(self) -> Dict[str, Any]:
-        """实际健康检查实现"""
+    async def is_connected(self) -> bool:
+        """检查是否已连接"""
+        return self._connected
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """健康检查"""
         provider_health = await self._provider.health_check()
         
         return {
@@ -132,11 +145,37 @@ class ThreadBackend(BaseStorageBackend, IThreadStorage):
         """批量删除"""
         return await self._provider.batch_delete("threads", ids)
     
-    async def stream_list(
+    def stream_list(
         self,
         filters: Dict[str, Any],
         batch_size: int = 100
-    ) -> List[Dict[str, Any]]:
+    ):
         """流式列出数据（简化实现）"""
-        results = await self.list(filters, batch_size)
-        return results
+        # 注意：这里应该返回异步迭代器，简化实现
+        async def generator():
+            results = await self.list(filters, batch_size)
+            yield results
+        return generator()
+    
+    async def transaction(self, operations: List[Dict[str, Any]]) -> bool:
+        """执行事务（简化实现）"""
+        # 简化实现：按顺序执行操作
+        for op in operations:
+            op_type = op.get("type")
+            data = op.get("data")
+            
+            if data is None:
+                continue
+                
+            if op_type == "save":
+                await self.save(data)
+            elif op_type == "update":
+                await self.update(data["id"], data["updates"])
+            elif op_type == "delete":
+                await self.delete(data["id"])
+        
+        return True
+    
+    async def close(self) -> None:
+        """关闭存储连接"""
+        await self.disconnect()
