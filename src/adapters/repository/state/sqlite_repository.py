@@ -8,7 +8,6 @@ from src.interfaces.repository.state import IStateRepository
 from src.interfaces.state.base import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..base import BaseRepository
-from ...storage.adapter import StateDataTransformer
 from src.core.storage.config import StorageConfigManager
 
 
@@ -17,13 +16,9 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
     
     def __init__(self, config: Dict[str, Any]) -> None:
         """初始化SQLite状态Repository"""
-        # 使用状态数据转换器
-        data_transformer = StateDataTransformer()
-        
         # 初始化基类，指定仓库类型为state
         super().__init__(
             config=config,
-            data_transformer=data_transformer,
             repository_type="state"
         )
         
@@ -60,8 +55,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
                 "type": "state"
             }
             
-            # 使用适配器保存
-            result_id = await self.storage_adapter.save(data)
+            # 使用存储后端保存
+            result_id = await self.storage_backend.save(self.table_name, data)
             
             self._log_operation("状态保存", True, state_id)
             return result_id
@@ -80,8 +75,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             状态数据，如果不存在则返回None
         """
         try:
-            # 使用适配器加载
-            data = await self.storage_adapter.load(state_id)
+            # 使用存储后端加载
+            data = await self.storage_backend.load(self.table_name, state_id)
             
             if data:
                 return data.get("state_data")
@@ -102,8 +97,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             是否删除成功
         """
         try:
-            # 使用适配器删除
-            result = await self.storage_adapter.delete(state_id)
+            # 使用存储后端删除
+            result = await self.storage_backend.delete(self.table_name, state_id)
             
             self._log_operation("状态删除", result, state_id)
             return result
@@ -122,8 +117,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             状态是否存在
         """
         try:
-            # 使用适配器检查存在性
-            return await self.storage_adapter.exists(state_id)
+            # 使用存储后端检查存在性
+            return await self.storage_backend.exists(self.table_name, state_id)
             
         except Exception as e:
             self._handle_exception("检查状态存在性", e)
@@ -139,9 +134,9 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             状态列表
         """
         try:
-            # 使用适配器列表查询
+            # 使用存储后端列表查询
             filters = {"type": "state"}
-            results = await self.storage_adapter.list(filters, limit)
+            results = await self.storage_backend.list(self.table_name, filters, limit)
             
             # 提取状态数据
             states = []
@@ -182,8 +177,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
                 "type": "snapshot"
             }
             
-            # 使用适配器保存
-            result_id = await self.storage_adapter.save(data)
+            # 使用存储后端保存
+            result_id = await self.storage_backend.save(self.table_name, data)
             
             self._log_operation("快照保存", True, snapshot.snapshot_id)
             return result_id
@@ -202,8 +197,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             状态快照，如果不存在则返回None
         """
         try:
-            # 使用适配器加载
-            data = await self.storage_adapter.load(snapshot_id)
+            # 使用存储后端加载
+            data = await self.storage_backend.load(self.table_name, snapshot_id)
             
             if data:
                 snapshot_id_value = data.get("snapshot_id")
@@ -249,8 +244,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
                 "type": "history"
             }
             
-            # 使用适配器保存
-            result_id = await self.storage_adapter.save(data)
+            # 使用存储后端保存
+            result_id = await self.storage_backend.save(self.table_name, data)
             
             self._log_operation("历史记录保存", True, entry.history_id)
             return result_id
@@ -270,9 +265,9 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             历史记录列表
         """
         try:
-            # 使用适配器列表查询
+            # 使用存储后端列表查询
             filters = {"thread_id": thread_id, "type": "history"}
-            results = await self.storage_adapter.list(filters, limit)
+            results = await self.storage_backend.list(self.table_name, filters, limit)
             
             # 转换为历史记录对象
             entries = []

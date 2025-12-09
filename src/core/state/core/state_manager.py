@@ -11,7 +11,7 @@ from src.interfaces.state.base import IState
 from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.lifecycle import IStateLifecycleManager
-from src.interfaces.state.storage.adapter import IStateStorageAdapter
+from src.interfaces.storage.state import IStateStorageAdapter
 
 # 导入基础实现
 from .base import BaseStateValidator, BaseStateLifecycleManager, BaseStateSerializer, BaseState

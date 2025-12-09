@@ -15,7 +15,7 @@ from .exceptions import StorageBackendError, ConnectionError, ConfigurationError
 logger = get_logger(__name__)
 
 
-class BaseStorageBackend(IStorageBackend):
+class BaseStorageBackend(IStorage):
     """基础存储后端抽象类
     
     提供基础设施组件管理，不包含具体的数据操作逻辑。

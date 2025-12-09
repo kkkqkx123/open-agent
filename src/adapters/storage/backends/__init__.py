@@ -46,7 +46,6 @@ __all__ = [
     "IStorage",
     "ISessionStorage",
     "IThreadStorage",
-    "IStorageBackend",
     "IStorageProvider",
     
     # 核心层

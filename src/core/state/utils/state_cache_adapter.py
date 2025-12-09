@@ -8,7 +8,8 @@ from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional
 
 from src.infrastructure.common.cache import CacheManager
-from src.interfaces.state.base import IState, IStateCache
+from src.interfaces.state.base import IState
+from src.interfaces.state.cache import IStateCache
 
 
 logger = get_logger(__name__)

@@ -223,16 +223,9 @@ class StateHistoryPlayer:
                 # 创建新的状态实例
                 new_state = state.__class__.from_dict(data)
                 
-                # 如果状态有更新方法，使用它
-                if hasattr(state, 'update_from'):
-                    state.update_from(new_state)
-                else:
-                    # 否则直接更新属性
-                    for key, value in data.items():
-                        if hasattr(state, f'set_{key}'):
-                            getattr(state, f'set_{key}')(value)
-                        elif hasattr(state, key):
-                            setattr(state, key, value)
+                # 使用set_data方法更新状态数据
+                for key, value in data.items():
+                    state.set_data(key, value)
             except Exception:
                 # 如果更新失败，忽略
                 pass

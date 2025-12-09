@@ -33,17 +33,8 @@ class StateAdapterFactory:
             工作流状态适配器实例
         """
         # 动态导入以避免循环依赖
-        try:
-            from src.services.workflow.state_converter import WorkflowStateAdapter
-            if new_state:
-                return WorkflowStateAdapter()
-            elif legacy_state:
-                return WorkflowStateAdapter()
-            else:
-                return WorkflowStateAdapter()
-        except ImportError:
-            # 如果无法导入工作流适配器，返回原始状态
-            return new_state or legacy_state
+        # 工作流状态适配器暂时返回原始状态
+        return new_state or legacy_state
     
     @classmethod
     def create_tool_adapter(cls,
