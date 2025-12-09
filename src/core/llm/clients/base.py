@@ -14,6 +14,7 @@ from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMModelNotFoundError,
     LLMInvalidRequestError,
+    LLMTokenLimitError,
 )
 
 
@@ -64,7 +65,7 @@ class BaseLLMClient(ILLMClient):
         for hook in self._hooks:
             try:
                 # 类型转换：IBaseMessage -> BaseMessage，用于hooks接口兼容
-                hook.before_call(messages, parameters, **kwargs)  # type: ignore
+                hook.before_call(messages, parameters, **kwargs)
             except Exception as e:
                 # 钩子错误不应该影响主流程
                 print(f"Warning: Hook before_call failed: {e}")
@@ -79,7 +80,7 @@ class BaseLLMClient(ILLMClient):
         """调用后置钩子"""
         for hook in self._hooks:
             try:
-                hook.after_call(response, messages, parameters, **kwargs)  # type: ignore
+                hook.after_call(response, messages, parameters, **kwargs)
             except Exception as e:
                 # 钩子错误不应该影响主流程
                 print(f"Warning: Hook after_call failed: {e}")
@@ -94,7 +95,7 @@ class BaseLLMClient(ILLMClient):
         """调用错误钩子"""
         for hook in self._hooks:
             try:
-                response = hook.on_error(error, messages, parameters, **kwargs)  # type: ignore
+                response = hook.on_error(error, messages, parameters, **kwargs)
                 if response is not None:
                     return response
             except Exception as e:
@@ -236,40 +237,22 @@ class BaseLLMClient(ILLMClient):
         return messages, params
     
     def _extract_function_call_enhanced(self, response: Any) -> Optional[Dict[str, Any]]:
-        """增强的函数调用信息提取，支持多种格式"""
-        # 检查additional_kwargs中的function_call
-        if hasattr(response, "additional_kwargs"):
-            additional_kwargs = response.additional_kwargs
-            if isinstance(additional_kwargs, dict):
-                if "function_call" in additional_kwargs:
-                    result = additional_kwargs["function_call"]
-                    if isinstance(result, dict):
-                        return result
-        
+        """增强的函数调用信息提取，使用类型安全的接口"""
         # 使用类型安全的接口检查tool_calls
         if hasattr(response, "has_tool_calls") and callable(response.has_tool_calls):
             if response.has_tool_calls():
                 tool_calls = response.get_tool_calls()
                 if tool_calls:
-                    # 返回第一个工具调用
-                    tool_call = tool_calls[0]
-                    if isinstance(tool_call, dict):
-                        return tool_call
-        
-        # 检查response_metadata中的函数调用信息
-        if hasattr(response, "response_metadata"):
-            metadata = response.response_metadata
-            if isinstance(metadata, dict):
-                if "function_call" in metadata:
-                    result = metadata["function_call"]
-                    if isinstance(result, dict):
-                        return result
-                elif "tool_calls" in metadata:
-                    tool_calls = metadata["tool_calls"]
-                    if isinstance(tool_calls, list) and tool_calls:
-                        tool_call = tool_calls[0]
-                        if isinstance(tool_call, dict):
-                            return tool_call
+                    # 使用基础设施层的解析器解析工具调用
+                    from src.infrastructure.messages.tool_call_parser import ToolCallParser
+                    
+                    # 标准化工具调用数据
+                    normalized_calls = [
+                        ToolCallParser.normalize_tool_call_data(call)
+                        for call in tool_calls
+                    ]
+                    if normalized_calls:
+                        return normalized_calls[0]
         
         return None
 
@@ -285,12 +268,41 @@ class BaseLLMClient(ILLMClient):
 
     def _validate_token_limit(self, messages: Sequence[IBaseMessage]) -> None:
         """验证Token限制"""
-        # 注意：由于已移除Core层的token计算方法，此验证需要通过依赖注入的TokenCalculationService来完成
-        # 为保持向后兼容，暂时跳过此验证，后续需要重构客户端以使用TokenCalculationService
-        # 如果需要精确的token验证，应通过依赖注入获取TokenCalculationService
-        pass
+        # 如果配置中没有设置max_tokens，则跳过验证
+        if not self.config.max_tokens:
+            return
+            
+        try:
+            # 通过依赖注入获取TokenCalculationService
+            from src.services.history.injection import get_token_calculation_service
+            token_service = get_token_calculation_service()
+            
+            # 计算消息列表的token数量
+            token_count = token_service.calculate_messages_tokens(
+                messages,
+                self.config.model_type,
+                self.config.model_name
+            )
+            
+            # 检查是否超过限制
+            if token_count > self.config.max_tokens:
+                raise LLMTokenLimitError(
+                    message=f"Token数量超过限制: {token_count} > {self.config.max_tokens}",
+                    token_count=token_count,
+                    limit=self.config.max_tokens,
+                    model_name=self.config.model_name
+                )
+                
+        except Exception as e:
+            # 如果是TokenLimitError，直接抛出
+            if isinstance(e, LLMTokenLimitError):
+                raise
+                
+            # 对于其他错误（如服务不可用），记录警告但不阻止请求
+            # 这确保了即使token计算服务不可用，系统仍能正常工作
+            print(f"Warning: Token验证失败，继续执行请求: {e}")
 
-    async def generate(  # type: ignore[override]
+    async def generate(
         self,
         messages: Sequence[IBaseMessage],
         parameters: Optional[Dict[str, Any]] = None,

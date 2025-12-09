@@ -430,6 +430,23 @@ class MessageConverter:
         else:
             return []
     
+    def extract_and_parse_tool_calls(self, message: Union[LLMMessage, BaseMessage]) -> List[Dict[str, Any]]:
+        """提取并解析工具调用信息（使用基础设施层的解析器）"""
+        from src.infrastructure.messages.tool_call_parser import ToolCallParser
+        
+        tool_calls_data = self.extract_tool_calls(message)
+        parsed_tool_calls = ToolCallParser.parse_tool_calls(tool_calls_data)
+        
+        # 转换ToolCall对象为字典格式
+        return [
+            {
+                "name": tool_call.name,
+                "arguments": tool_call.arguments,
+                "call_id": tool_call.call_id
+            }
+            for tool_call in parsed_tool_calls
+        ]
+    
     def add_tool_calls_to_message(self, message: LLMMessage, tool_calls: List[Dict[str, Any]]) -> LLMMessage:
         """添加工具调用到消息"""
         # 创建新消息，更新 tool_calls 和 metadata

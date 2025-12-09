@@ -66,34 +66,16 @@ class FunctionCallingFormatter(IToolFormatter):
         Raises:
             ValueError: 响应格式不正确
         """
-        # 检查是否有function_call属性（在additional_kwargs中）
-        if (
-            hasattr(response, "additional_kwargs")
-            and "function_call" in response.additional_kwargs
-        ):
-            function_call = response.additional_kwargs["function_call"]
-            arguments: Dict[str, Any] = json.loads(function_call["arguments"])
-            call_id: Optional[str] = function_call.get("id")
-            return ToolCall(
-                name=function_call["name"],
-                arguments=arguments,
-                call_id=call_id,
-            )
-
         # 使用类型安全的接口检查工具调用
         if response.has_tool_calls():
             tool_calls = response.get_tool_calls()
             if tool_calls:
-                # 返回第一个工具调用
-                tool_call = tool_calls[0]
-                function = tool_call["function"]
-                arguments = json.loads(function["arguments"])
-                call_id = tool_call.get("id")
-                return ToolCall(
-                    name=function["name"],
-                    arguments=arguments,
-                    call_id=call_id,
-                )
+                # 使用基础设施层的解析器解析工具调用
+                from src.infrastructure.messages.tool_call_parser import ToolCallParser
+                
+                parsed_tool_calls = ToolCallParser.parse_tool_calls(tool_calls)
+                if parsed_tool_calls:
+                    return parsed_tool_calls[0]
 
         # 尝试从内容中解析JSON格式的工具调用
         if hasattr(response, "content") and response.content:
