@@ -6,6 +6,7 @@
 import asyncio
 from typing import Dict, Any, Optional, List, Union
 from src.interfaces.storage.base import IStorage, IStorageFactory
+from src.interfaces.storage import ISessionStorage, IThreadStorage, IStorageProvider
 from src.interfaces.storage.exceptions import StorageError, StorageConfigurationError
 from src.services.logger.injection import get_logger
 from .backend_registry import BackendRegistry, get_global_registry
@@ -35,7 +36,7 @@ class StorageFactory(IStorageFactory):
         self.default_config = default_config or {}
         
         # 存储实例缓存
-        self._instance_cache: Dict[str, IStorage] = {}
+        self._instance_cache: Dict[str, Union[IStorage, ISessionStorage, IThreadStorage, IStorageProvider]] = {}
         
         # 实例配置记录
         self._instance_configs: Dict[str, Dict[str, Any]] = {}
@@ -76,7 +77,7 @@ class StorageFactory(IStorageFactory):
             
             if cache_key in self._instance_cache:
                 logger.info(f"Using cached storage instance: {cache_key}")
-                return self._instance_cache[cache_key]
+                return self._instance_cache[cache_key]  # type: ignore
         
         try:
             # 创建实例
@@ -88,7 +89,7 @@ class StorageFactory(IStorageFactory):
                 self._instance_configs[cache_key] = merged_config.copy()
             
             logger.info(f"Created storage instance of type '{storage_type}'")
-            return instance
+            return instance  # type: ignore
             
         except Exception as e:
             raise StorageError(f"Failed to create storage instance: {e}")
