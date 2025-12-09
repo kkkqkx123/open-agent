@@ -100,7 +100,6 @@ class AbstractSessionData(ABC):
 
 
 
-
 '''
 领域层基础接口
 '''
@@ -138,7 +137,6 @@ class ISerializable(ABC):
 
 
 
-
 '''
 通用数据传输对象
 '''
@@ -150,6 +148,7 @@ class ValidationResult:
     errors: List[str]
     warnings: List[str]
     metadata: Dict[str, Any] = field(default_factory=dict)
+    info: List[str] = field(default_factory=list)
     
     def add_error(self, message: str) -> None:
         """添加错误信息"""
@@ -159,6 +158,10 @@ class ValidationResult:
     def add_warning(self, message: str) -> None:
         """添加警告信息"""
         self.warnings.append(message)
+    
+    def add_info(self, message: str) -> None:
+        """添加信息"""
+        self.info.append(message)
     
     def has_errors(self) -> bool:
         """检查是否有错误"""

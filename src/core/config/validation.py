@@ -14,6 +14,9 @@ import yaml
 import json
 from pathlib import Path
 
+from src.interfaces.common_domain import ValidationResult as BaseValidationResult
+from src.interfaces.config.interfaces import IConfigValidator
+
 
 class ValidationLevel(Enum):
     """验证级别"""
@@ -32,68 +35,8 @@ class ValidationSeverity(Enum):
     CRITICAL = "critical"
 
 
-@dataclass
-class ValidationResult:
-    """验证结果数据结构"""
-    is_valid: bool = True
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    info: List[str] = field(default_factory=list)
-    
-    def add_error(self, message: str) -> None:
-        """添加错误信息"""
-        self.errors.append(message)
-        self.is_valid = False
-    
-    def add_warning(self, message: str) -> None:
-        """添加警告信息"""
-        self.warnings.append(message)
-    
-    def add_info(self, message: str) -> None:
-        """添加信息"""
-        self.info.append(message)
-    
-    def merge(self, other: 'ValidationResult') -> None:
-        """合并另一个验证结果"""
-        self.errors.extend(other.errors)
-        self.warnings.extend(other.warnings)
-        self.info.extend(other.info)
-        if not other.is_valid:
-            self.is_valid = False
-    
-    def has_messages(self, severity: ValidationSeverity) -> bool:
-        """检查是否有指定严重程度的消息"""
-        if severity == ValidationSeverity.ERROR:
-            return len(self.errors) > 0
-        elif severity == ValidationSeverity.WARNING:
-            return len(self.warnings) > 0
-        elif severity == ValidationSeverity.INFO:
-            return len(self.info) > 0
-        return False
-    
-    def get_messages(self, severity: ValidationSeverity) -> List[str]:
-        """获取指定严重程度的消息"""
-        if severity == ValidationSeverity.ERROR:
-            return self.errors
-        elif severity == ValidationSeverity.WARNING:
-            return self.warnings
-        elif severity == ValidationSeverity.INFO:
-            return self.info
-        return []
-    
-    def get_summary(self) -> str:
-        """获取验证结果摘要"""
-        if self.is_valid:
-            return "验证通过"
-        else:
-            error_count = len(self.errors)
-            warning_count = len(self.warnings)
-            summary_parts = []
-            if error_count > 0:
-                summary_parts.append(f"{error_count}个错误")
-            if warning_count > 0:
-                summary_parts.append(f"{warning_count}个警告")
-            return f"验证失败: {', '.join(summary_parts)}"
+# 使用 interfaces 层的 ValidationResult
+ValidationResult = BaseValidationResult
 
 
 class EnhancedValidationResult:
@@ -346,11 +289,11 @@ def generate_cache_key(config_path: str, levels: List[ValidationLevel]) -> str:
     return f"{config_path}_{level_names}"
 
 
-class BaseConfigValidator:
+class BaseConfigValidator(IConfigValidator):
     """配置验证器基类
     
     提供基础验证逻辑和扩展点。
-    实现 IConfigValidator 接口的功能。
+    实现 IConfigValidator 接口。
     """
     
     def __init__(self, name: str = "BaseValidator"):
@@ -382,7 +325,7 @@ class BaseConfigValidator:
         Returns:
             ValidationResult: 验证结果
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
         # 基础验证
         self._validate_basic_structure(config, result)

@@ -230,8 +230,8 @@ class ConfigManager:
                     # 创建一个临时方法来利用 IConfigLoader 的环境变量处理能力
                     # 这是一个适配器模式的应用
                     try:
-                        from src.core.config.processor.config_processor_chain import EnvironmentVariableProcessor
-                        processor = EnvironmentVariableProcessor()
+                        from src.core.config.processor.environment_processor import EnvironmentProcessor
+                        processor = EnvironmentProcessor()
                         data = processor._resolve_env_vars_recursive(data)
                     except Exception:
                         # 如果配置解析失败，保持原数据
