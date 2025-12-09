@@ -1,6 +1,6 @@
 """存储后端实现模块"""
 
-from .base import ISessionStorageBackend
+from .session_base import ISessionStorageBackend
 from .thread_base import IThreadStorageBackend
 from .sqlite_session_backend import SQLiteSessionBackend
 from .file_session_backend import FileSessionBackend

@@ -1,45 +1,42 @@
 """存储适配器模块
 
-提供统一的异步存储适配器实现。
+提供统一的存储适配器实现，包括存储后端、工厂和服务。
 """
 
-# 导入主要的适配器类
-from .adapters.async_adapter import AsyncStateStorageAdapter
-from .adapters.sqlite import SQLiteStateStorageAdapter
-from .adapters.memory import MemoryStateStorageAdapter
-from .adapters.file import FileStateStorageAdapter
+# 后端实现
+from .backends.base import BaseStorageBackend
 
-# 导入工厂类
-from .factory import StorageAdapterFactory, create_storage_adapter
-
-# 导入接口
-from .interfaces import (
-    ISessionStorageBackendFactory,
-    IThreadStorageBackendFactory,
-    ISessionThreadAssociationFactory
+# 工厂实现
+from .factory import (
+    BackendRegistry,
+    StorageFactory,
+    get_global_registry,
+    get_global_factory,
+    create_storage,
+    create_storage_async
 )
 
-# 导入后端
-from .backends.base import ISessionStorageBackend
-from .backends.thread_base import IThreadStorageBackend
+# 服务实现从services层导入
+from src.services.storage import (
+    StateService,
+    HistoryService,
+    SnapshotService
+)
 
 __all__ = [
-    # 适配器类
-    'AsyncStateStorageAdapter',
-    'SQLiteStateStorageAdapter',
-    'MemoryStateStorageAdapter',
-    'FileStateStorageAdapter',
-    
-    # 工厂类
-    'StorageAdapterFactory',
-    'create_storage_adapter',
-    
-    # 接口
-    'ISessionStorageBackendFactory',
-    'IThreadStorageBackendFactory',
-    'ISessionThreadAssociationFactory',
-    
     # 后端
-    'ISessionStorageBackend',
-    'IThreadStorageBackend',
+    "BaseStorageBackend",
+    
+    # 工厂
+    "BackendRegistry",
+    "StorageFactory",
+    "get_global_registry",
+    "get_global_factory",
+    "create_storage",
+    "create_storage_async",
+    
+    # 服务
+    "StateService",
+    "HistoryService",
+    "SnapshotService",
 ]

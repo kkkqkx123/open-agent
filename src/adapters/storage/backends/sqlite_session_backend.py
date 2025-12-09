@@ -7,7 +7,7 @@ from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from .base import ISessionStorageBackend
+from .session_base import ISessionStorageBackend
 
 logger = get_logger(__name__)
 

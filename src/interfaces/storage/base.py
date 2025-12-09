@@ -223,6 +223,33 @@ class IStorage(ABC):
         pass
     
     # 生命周期管理
+    @abstractmethod
+    async def connect(self) -> None:
+        """连接到存储后端
+        
+        Raises:
+            StorageConnectionError: 连接失败时抛出
+        """
+        pass
+    
+    @abstractmethod
+    async def disconnect(self) -> None:
+        """断开与存储后端的连接
+        
+        Raises:
+            StorageConnectionError: 断开失败时抛出
+        """
+        pass
+    
+    @abstractmethod
+    async def is_connected(self) -> bool:
+        """检查是否已连接
+        
+        Returns:
+            是否已连接
+        """
+        pass
+    
     async def close(self) -> None:
         """关闭存储连接
         

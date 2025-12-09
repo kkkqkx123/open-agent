@@ -16,7 +16,7 @@ from src.interfaces.storage.exceptions import (
     StorageValidationError
 )
 from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
-from ..adapters.base import StorageBackend
+from .base import BaseStorageBackend
 from ..utils.common_utils import StorageCommonUtils
 from ..utils.file_utils import FileStorageUtils
 
@@ -24,7 +24,7 @@ from ..utils.file_utils import FileStorageUtils
 logger = get_logger(__name__)
 
 
-class FileStorageBackend(StorageBackend):
+class FileStorageBackend(BaseStorageBackend):
     """优化的文件存储后端实现
     
     提供基于文件的存储后端，支持持久化、压缩、目录组织等功能。
@@ -38,7 +38,7 @@ class FileStorageBackend(StorageBackend):
             **config: 配置参数
         """
         # 初始化基类
-        StorageBackend.__init__(self, **config)
+        BaseStorageBackend.__init__(self, **config)
         
         # 文件存储特定配置
         self.base_path = config.get("base_path", "file_storage")
@@ -69,7 +69,7 @@ class FileStorageBackend(StorageBackend):
             StorageCommonUtils.ensure_directory_exists(self.base_path)
             
             # 调用父类连接逻辑（启动清理和备份任务）
-            await StorageBackend.connect(self)
+            await BaseStorageBackend.connect(self)
             
         except Exception as e:
             # 使用统一错误处理
@@ -88,7 +88,7 @@ class FileStorageBackend(StorageBackend):
                 return
             
             # 调用父类断开逻辑
-            await StorageBackend.disconnect(self)
+            await BaseStorageBackend.disconnect(self)
             
         except Exception as e:
             # 使用统一错误处理

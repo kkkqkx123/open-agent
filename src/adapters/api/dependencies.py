@@ -17,7 +17,7 @@ from .cache.cache_manager import CacheManager
 from .services.session_service import SessionService
 from .services.workflow_service import WorkflowService
 from .services.analytics_service import AnalyticsService
-from .services.history_service import HistoryService
+from .services.history_service import HistoryService  # API专用历史服务
 from .services.state_service import StateService
 from .services.websocket_service import websocket_service
 
