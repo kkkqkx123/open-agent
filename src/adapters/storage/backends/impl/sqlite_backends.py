@@ -9,7 +9,7 @@ from src.services.logger.injection import get_logger
 from ..core.base_backend import BaseStorageBackend
 from ..core.mixins import SessionStorageMixin, ThreadStorageMixin
 from ..providers.sqlite_provider import SQLiteProvider
-from ..interfaces.storage import ISessionStorage, IThreadStorage
+from src.interfaces.storage import ISessionStorage, IThreadStorage
 from ..core.exceptions import StorageBackendError
 
 

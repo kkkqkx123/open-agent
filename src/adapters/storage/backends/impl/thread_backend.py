@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 
 from ..core.base_backend import BaseStorageBackend
 from ..core.mixins.thread_mixin import ThreadStorageMixin
-from ..interfaces.storage import IThreadStorage
+from src.interfaces.storage import IThreadStorage
 
 
 logger = get_logger(__name__)

@@ -3,14 +3,14 @@
 全新的存储后端架构，按功能拆分，支持组合式开发。
 """
 
-# 接口层
-from .interfaces import (
+# 接口层 - 从统一接口层导入
+from src.interfaces.storage import (
     IStorage,
     ISessionStorage,
     IThreadStorage,
-    IStorageBackend,
     IStorageProvider
 )
+from src.interfaces.state.storage import IStorageBackend
 
 # 核心层
 from .core import (

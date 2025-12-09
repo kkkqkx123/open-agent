@@ -7,8 +7,7 @@ import asyncio
 from typing import Dict, Any, Optional, List, Type, Union
 from src.services.logger.injection import get_logger
 
-from ..interfaces.storage import IStorage, ISessionStorage, IThreadStorage
-from ..interfaces.backend import IStorageProvider
+from src.interfaces.storage import IStorage, ISessionStorage, IThreadStorage, IStorageProvider
 from ..core.base_backend import BaseStorageBackend
 from ..providers.sqlite_provider import SQLiteProvider
 from ..providers.file_provider import FileProvider

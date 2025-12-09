@@ -6,6 +6,8 @@
 """
 
 from .base import IStorage, IStorageFactory
+from .provider import IStorageProvider
+from .session_thread import ISessionStorage, IThreadStorage
 from .monitoring import IStorageMonitoring, IStorageMetrics, IStorageAlerting
 from .migration import IStorageMigration, ISchemaMigration, IDataTransformer, IMigrationPlanner
 from .transaction import IStorageTransaction, IDistributedTransaction, ITransactionRecovery, ITransactionManager, IConsistencyManager
@@ -38,6 +40,9 @@ __all__ = [
     # 基础接口
     "IStorage",
     "IStorageFactory",
+    "IStorageProvider",
+    "ISessionStorage",
+    "IThreadStorage",
     
     # 监控接口
     "IStorageMonitoring",

@@ -8,7 +8,7 @@ import time
 from typing import Dict, Any, Optional
 from src.services.logger.injection import get_logger
 
-from ..interfaces.backend import IStorageBackend
+from src.interfaces.state.storage import IStorageBackend
 from .exceptions import StorageBackendError, ConnectionError, ConfigurationError
 
 

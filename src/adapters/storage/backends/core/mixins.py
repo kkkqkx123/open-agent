@@ -8,8 +8,7 @@ import uuid
 from typing import Dict, Any, Optional, List
 from src.services.logger.injection import get_logger
 
-from ..interfaces.storage import ISessionStorage, IThreadStorage
-from ..interfaces.backend import IStorageProvider
+from src.interfaces.storage import ISessionStorage, IThreadStorage, IStorageProvider
 from .exceptions import StorageBackendError, ValidationError
 
 

@@ -164,6 +164,9 @@ from .container import (
 from .storage import (
     IStorage,
     IStorageFactory,
+    IStorageProvider,
+    ISessionStorage,
+    IThreadStorage,
     IStorageMonitoring,
     IStorageMetrics,
     IStorageAlerting,
@@ -414,6 +417,9 @@ __all__ = [
     # 存储接口
     "IStorage",
     "IStorageFactory",
+    "IStorageProvider",
+    "ISessionStorage",
+    "IThreadStorage",
     "IStorageMonitoring",
     "IStorageMetrics",
     "IStorageAlerting",

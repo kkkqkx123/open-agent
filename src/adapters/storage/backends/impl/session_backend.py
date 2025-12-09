@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 
 from ..core.base_backend import BaseStorageBackend
 from ..core.mixins.session_mixin import SessionStorageMixin
-from ..interfaces.storage import ISessionStorage
+from src.interfaces.storage import ISessionStorage
 
 
 logger = get_logger(__name__)

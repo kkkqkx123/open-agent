@@ -1,92 +1,10 @@
-"""后端接口定义
+"""存储提供者接口定义
 
-定义存储后端和存储提供者的抽象接口。
+定义存储技术抽象，专注于底层存储操作。
 """
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-
-
-class IStorageBackend(ABC):
-    """存储后端接口
-    
-    定义后端基础能力，专注于基础设施组件管理。
-    """
-    
-    # === 基础连接管理 ===
-    
-    @abstractmethod
-    async def connect(self) -> None:
-        """连接到存储后端"""
-        pass
-    
-    @abstractmethod
-    async def disconnect(self) -> None:
-        """断开与存储后端的连接"""
-        pass
-    
-    @abstractmethod
-    async def is_connected(self) -> bool:
-        """检查是否已连接"""
-        pass
-    
-    # === 健康检查 ===
-    
-    @abstractmethod
-    async def health_check(self) -> Dict[str, Any]:
-        """健康检查
-        
-        Returns:
-            健康状态信息
-        """
-        pass
-    
-    # === 配置管理 ===
-    
-    @abstractmethod
-    def get_config(self) -> Dict[str, Any]:
-        """获取当前配置
-        
-        Returns:
-            配置字典
-        """
-        pass
-    
-    @abstractmethod
-    def update_config(self, config: Dict[str, Any]) -> None:
-        """更新配置
-        
-        Args:
-            config: 新配置
-        """
-        pass
-    
-    # === 统计信息 ===
-    
-    @abstractmethod
-    def get_statistics(self) -> Dict[str, Any]:
-        """获取统计信息
-        
-        Returns:
-            统计信息字典
-        """
-        pass
-    
-    # === 错误处理 ===
-    
-    @abstractmethod
-    def get_error_stats(self) -> Dict[str, Any]:
-        """获取错误统计
-        
-        Returns:
-            错误统计信息
-        """
-        pass
-    
-    @abstractmethod
-    def clear_error_stats(self) -> None:
-        """清除错误统计"""
-        pass
 
 
 class IStorageProvider(ABC):
