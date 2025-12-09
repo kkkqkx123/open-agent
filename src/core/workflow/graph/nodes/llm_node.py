@@ -66,6 +66,15 @@ class LLMNode(AsyncNode):
             # 选择LLM客户端
             llm_client = self._select_llm_client(processed_config)
             
+            # 检查是否应该启用工具
+            if self._should_enable_tools(processed_config):
+                # 根据LLM客户端能力自动确定工具调用策略
+                strategy = self._determine_tools_strategy(llm_client)
+                logger.debug(f"LLM节点使用工具调用策略: {strategy}")
+                
+                # 将策略信息添加到配置中，供提示词系统使用
+                processed_config["tool_calling_strategy"] = strategy
+            
             # 准备消息（使用提示词服务）
             prepared_messages = await self._prepare_messages_with_prompts(state, processed_config)
             
@@ -100,7 +109,8 @@ class LLMNode(AsyncNode):
                 "llm_response": response.content,
                 "token_usage": getattr(response, "token_usage", None),
                 "model_info": llm_client.get_model_info(),
-                "prompt_info": self._get_prompt_info(processed_config)
+                "prompt_info": self._get_prompt_info(processed_config),
+                "tools_config": processed_config.get("tools", {})
             }
             return NodeExecutionResult(state, next_node, result_metadata)
             
@@ -108,16 +118,78 @@ class LLMNode(AsyncNode):
             logger.error(f"LLM节点异步执行失败: {e}")
             raise
     
+    def _process_tools_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """处理工具配置（极简版本）
+        
+        Args:
+            config: 原始配置
+            
+        Returns:
+            Dict[str, Any]: 处理后的配置
+        """
+        # 获取工具配置
+        tools_config = config.get("tools", {})
+        
+        # 设置默认值
+        processed_config = config.copy()
+        processed_config["tools"] = {
+            "enabled": tools_config.get("enabled", False),
+            "available_tools": tools_config.get("available_tools", [])
+        }
+        
+        return processed_config
+    
+    def _determine_tools_strategy(self, llm_client: ILLMClient) -> str:
+        """根据LLM客户端能力自动确定工具调用策略
+        
+        Args:
+            llm_client: LLM客户端
+            
+        Returns:
+            str: 工具调用策略 ("function_calling" 或 "jsonl")
+        """
+        # 如果LLM支持function calling，优先使用
+        if llm_client.supports_function_calling():
+            return "function_calling"
+        # 否则使用JSONL
+        else:
+            return "jsonl"
+    
+    def _should_enable_tools(self, config: Dict[str, Any]) -> bool:
+        """判断是否应该启用工具（极简版本）
+        
+        Args:
+            config: 节点配置
+            
+        Returns:
+            bool: 是否启用工具
+        """
+        tools_config = config.get("tools", {})
+        
+        # 检查工具是否启用
+        if not tools_config.get("enabled", False):
+            return False
+        
+        # 检查是否有可用工具
+        available_tools = tools_config.get("available_tools", [])
+        if not available_tools:
+            return False
+        
+        return True
+    
     async def _preprocess_config(self, state: IState, config: Dict[str, Any]) -> Dict[str, Any]:
         """预处理配置"""
         try:
+            # 处理工具配置
+            processed_config = self._process_tools_config(config)
+            
             # 使用提示词服务处理配置（如果已注入）
             if self._prompt_service and hasattr(self._prompt_service, 'process_node_input'):
                 processed_config = await self._prompt_service.process_node_input(
-                    "llm_node", config, state, config
+                    "llm_node", processed_config, state, config
                 )
                 return cast(Dict[str, Any], processed_config)
-            return config
+            return processed_config
         except Exception as e:
             logger.warning(f"配置预处理失败，使用原始配置: {e}")
             return config
@@ -485,6 +557,26 @@ class LLMNode(AsyncNode):
                 "next_node": {
                     "type": "string",
                     "description": "下一个节点ID"
+                },
+                "tools": {
+                    "type": "object",
+                    "description": "工具配置",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "是否启用工具"
+                        },
+                        "available_tools": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "default": [],
+                            "description": "可用工具列表"
+                        }
+                    },
+                    "required": []
                 }
             },
             "required": []

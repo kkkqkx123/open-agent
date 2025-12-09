@@ -65,6 +65,11 @@ llm_node:
     - "需要进一步分析"
     - "建议查询"
     - "让我确认"
+  
+  # 工具配置
+  tools:
+    enabled: false  # 是否启用工具
+    available_tools: []  # 可用工具列表
 
 # 工具节点默认配置
 tool_node:

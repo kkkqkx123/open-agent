@@ -135,6 +135,23 @@ class IToolFormatter(ABC):
         """解析LLM的工具调用响应"""
         pass
 
+    def parse_llm_response_batch(self, response: "IBaseMessage") -> List[ToolCall]:
+        """解析LLM的工具调用响应（批量）
+        
+        默认实现：调用单次解析并返回列表
+        
+        Args:
+            response: LLM响应消息
+            
+        Returns:
+            List[ToolCall]: 解析后的工具调用列表
+        """
+        try:
+            tool_call = self.parse_llm_response(response)
+            return [tool_call]
+        except ValueError:
+            return []
+
 
 class IToolExecutor(ABC):
     """工具执行器接口"""

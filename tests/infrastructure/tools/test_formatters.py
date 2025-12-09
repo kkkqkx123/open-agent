@@ -8,7 +8,6 @@ from unittest.mock import Mock
 
 from src.infrastructure.tools.formatters import (
     FunctionCallingFormatter,
-    StructuredOutputFormatter,
     JsonlFormatter,
     ToolFormatter,
 )
@@ -209,12 +208,11 @@ class TestJsonlFormatter:
         assert strategy == "jsonl"
     
     def test_detect_strategy_without_jsonl_support(self) -> None:
-        """测试没有JSONL支持时的策略检测"""
+        """测试JSONL策略检测（总是返回jsonl）"""
         client = MockLLMClient({})
-        # 设置不支持JSONL
-        client._supports_jsonl = False
+        # JSONL格式化器总是返回jsonl
         strategy = self.formatter.detect_strategy(client)
-        assert strategy == "structured_output"
+        assert strategy == "jsonl"
     
     def test_parse_single_jsonl_response(self) -> None:
         """测试解析单行JSONL响应"""
@@ -273,15 +271,10 @@ class TestToolFormatterWithJsonl:
         strategy = self.formatter.detect_strategy(client)
         assert strategy == "function_calling"
         
-        # 测试JSONL其次
+        # 测试JSONL作为回退
         object.__setattr__(client, 'supports_function_calling', lambda: False)
         strategy = self.formatter.detect_strategy(client)
         assert strategy == "jsonl"
-        
-        # 测试结构化输出最后
-        client._supports_jsonl = False
-        strategy = self.formatter.detect_strategy(client)
-        assert strategy == "structured_output"
     
     def test_format_with_jsonl_strategy(self) -> None:
         """测试使用JSONL策略格式化"""
