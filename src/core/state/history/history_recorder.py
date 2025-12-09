@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 
 
 class HistoryEntry:

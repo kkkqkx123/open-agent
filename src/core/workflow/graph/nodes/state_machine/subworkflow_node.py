@@ -9,7 +9,7 @@ from src.services.logger.injection import get_logger
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes.async_node import AsyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.workflow.core import IWorkflowRegistry
 from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import StateMachineConfig

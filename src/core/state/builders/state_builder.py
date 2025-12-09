@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, TypeVar, Generic, TYPE_CHECKING, Type
 
 if TYPE_CHECKING:
-    from src.interfaces.state.interfaces import IState
+    from src.interfaces.state.base import IState
 else:
-    from src.interfaces.state.interfaces import IState
+    from src.interfaces.state.base import IState
 
 T = TypeVar('T', bound=IState)
 

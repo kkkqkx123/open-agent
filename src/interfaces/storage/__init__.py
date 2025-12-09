@@ -11,6 +11,7 @@ from .session_thread import ISessionStorage, IThreadStorage
 from .monitoring import IStorageMonitoring, IStorageMetrics, IStorageAlerting
 from .migration import IStorageMigration, ISchemaMigration, IDataTransformer, IMigrationPlanner
 from .transaction import IStorageTransaction, IDistributedTransaction, ITransactionRecovery, ITransactionManager, IConsistencyManager
+from .state import IStateStorageAdapter, IStorageAdapterFactory, IStorageMigration as IStateStorageMigration
 from .exceptions import (
     StorageError,
     StorageConnectionError,
@@ -61,6 +62,11 @@ __all__ = [
     "ITransactionRecovery",
     "ITransactionManager",
     "IConsistencyManager",
+    
+    # 状态存储接口
+    "IStateStorageAdapter",
+    "IStorageAdapterFactory",
+    "IStateStorageMigration",
     
     # 异常类型
     "StorageError",

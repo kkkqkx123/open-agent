@@ -5,7 +5,7 @@
 
 from typing import Any, Dict, Optional, Type, cast
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.workflow import IWorkflowState
 

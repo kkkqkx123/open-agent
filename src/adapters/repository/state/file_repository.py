@@ -4,7 +4,7 @@ import asyncio
 from typing import Dict, Any, List, Optional, cast
 
 from src.interfaces.repository.state import IStateRepository
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..file_base import FileBaseRepository
 from ..utils import TimeUtils

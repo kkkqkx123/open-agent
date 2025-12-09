@@ -8,7 +8,7 @@ import asyncio
 from typing import Any, Dict, List, Optional
 
 from src.infrastructure.common.cache import CacheManager, get_global_cache_manager
-from src.interfaces.state.interfaces import IState, IStateCache
+from src.interfaces.state.base import IState, IStateCache
 
 logger = get_logger(__name__)
 

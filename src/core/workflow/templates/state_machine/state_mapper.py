@@ -6,9 +6,9 @@
 from typing import Dict, Any, List, Optional
 from src.services.logger.injection import get_logger
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.core.workflow.graph.nodes.state_machine.state_machine_workflow import (
-    StateMachineConfig, StateDefinition, StateType
+    StateMachineConfig, StateDefinition
 )
 
 logger = get_logger(__name__)

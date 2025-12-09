@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Sequence
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from .history_storage import IHistoryStorage, MemoryHistoryStorage
 from .history_recorder import StateHistoryRecorder, HistoryEntry
 from .history_player import StateHistoryPlayer

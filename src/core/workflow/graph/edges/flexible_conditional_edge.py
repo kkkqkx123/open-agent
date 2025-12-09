@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Callable, Union, TYPE_CHECKING
 from src.services.logger.injection import get_logger
 
 from src.interfaces.workflow.graph import IEdge
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from .base import BaseEdge
 
 if TYPE_CHECKING:

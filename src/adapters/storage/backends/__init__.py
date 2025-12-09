@@ -10,7 +10,7 @@ from src.interfaces.storage import (
     IThreadStorage,
     IStorageProvider
 )
-from src.interfaces.state.storage import IStorageBackend
+from src.interfaces.storage.base import IStorage
 
 # 核心层
 from .core import (

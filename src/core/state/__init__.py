@@ -20,7 +20,7 @@ from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.history import IStateHistoryManager
 from src.interfaces.state.snapshot import IStateSnapshotManager
 from src.interfaces.state.factory import IStateFactory
-from src.interfaces.state.storage import IStorageBackend, IStateStorageAdapter
+from src.interfaces.storage.state import IStateStorageAdapter
 
 # 工具状态类型枚举 - 需要从中央接口层获取或重新定义
 from enum import Enum

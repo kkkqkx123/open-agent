@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
 from src.interfaces.state.session import ISessionState
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.common_domain import AbstractSessionStatus
 from ..implementations.base_state import BaseStateImpl
 

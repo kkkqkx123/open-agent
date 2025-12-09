@@ -7,7 +7,7 @@ import threading
 import uuid
 from typing import Any, Dict, List, Optional, Type, Callable, Tuple
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.manager import IStateManager
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.lifecycle import IStateLifecycleManager

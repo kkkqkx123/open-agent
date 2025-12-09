@@ -5,7 +5,7 @@
 
 from typing import Any, Callable, Dict, Optional
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from ..factories.state_factory import StateFactory
 from .snapshot_storage import StateSnapshot
 

@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional
 
 from src.adapters.repository.utils.sqlite_utils import SQLiteUtils
 from src.interfaces.repository.state import IStateRepository
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..base import BaseRepository
 from ...storage.adapter import StateDataTransformer

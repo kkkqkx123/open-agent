@@ -7,7 +7,7 @@ from typing import Dict, Any, List
 
 from src.infrastructure.graph.nodes.base import BaseNode
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 
 
 class SimpleNode(BaseNode):

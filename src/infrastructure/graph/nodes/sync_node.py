@@ -6,7 +6,6 @@
 from typing import Dict, Any
 
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.infrastructure.graph.nodes.base import BaseNode
 

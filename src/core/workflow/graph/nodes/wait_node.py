@@ -7,14 +7,14 @@
 import time
 import threading
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional, List, Callable, cast, Union
+from typing import Dict, Any, Optional, List, Callable, cast
 from dataclasses import dataclass
 from enum import Enum
 
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import SystemMessage
 

@@ -4,10 +4,10 @@
 """
 
 from src.services.logger.injection import get_logger
-from typing import Dict, Any, Optional, List, Callable, Tuple
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.repository import IHistoryRepository, ISnapshotRepository
 

@@ -8,7 +8,7 @@ from src.services.logger.injection import get_logger
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from ..implementations.base_state import BaseStateImpl
 
 # 由于中央接口层没有检查点状态特化接口，使用基础接口作为替代

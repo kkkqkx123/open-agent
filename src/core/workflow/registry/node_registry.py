@@ -4,14 +4,10 @@
 """
 
 from abc import abstractmethod
-from typing import Dict, Any, List, Type, Optional, TYPE_CHECKING
-from src.interfaces.workflow.graph import INode
-from src.interfaces.state.interfaces import IState
+from typing import Dict, Any, List, Type, Optional
+from src.interfaces.state.base import IState
 from src.interfaces.workflow.graph import NodeExecutionResult
 from .base_registry import BaseRegistry
-
-if TYPE_CHECKING:
-    pass
 
 
 class BaseNode:

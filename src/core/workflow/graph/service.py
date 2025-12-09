@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Type, Union, TYPE_CHECKING, cast
 from abc import ABC, abstractmethod
 
 from src.interfaces.workflow.graph import IGraph, INode, IEdge, NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.registry.registry import UnifiedRegistry
 

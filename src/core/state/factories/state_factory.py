@@ -10,7 +10,7 @@ from enum import Enum
 # 定义状态类型的类型别名
 StateType = Union[str, Enum]
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.workflow import IWorkflowState
 from src.interfaces.state.session import ISessionState
 

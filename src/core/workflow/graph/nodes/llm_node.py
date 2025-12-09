@@ -15,7 +15,7 @@ from src.services.logger.injection import get_logger
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes import AsyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.llm import ILLMClient
 from src.services.llm.scheduling.task_group_manager import TaskGroupManager
 

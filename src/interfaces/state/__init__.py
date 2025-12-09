@@ -8,13 +8,15 @@
 """
 
 # 核心状态接口
-from .interfaces import IState, IStateCache
+from .base import IState
+from .cache import IStateCache
 
 # 工作流状态接口
 from .workflow import IWorkflowState, IWorkflowStateBuilder
 
 # 会话状态接口
-from .session import ISessionState, ISessionStateManager
+from .session import ISessionState
+from .session_manager import ISessionStateManager
 
 # 历史管理接口
 from .history import IStateHistoryManager
@@ -45,14 +47,14 @@ from .entities import (
 # 注意：具体实现（StateSnapshot等）应该从src.core.state导入，而不是从接口层
 # 接口层只负责定义合约，不导出具体实现
 
-# 存储相关接口（统一为异步接口）
-from .storage import (
-    IStorageBackend,
-    IStateStorageAdapter,
-    IStorageAdapterFactory,
-    IStorageMigration,
-    IStorageCache,
-    IStorageMetrics
+# 异常定义
+from .exceptions import (
+    StateException,
+    StateNotFoundError,
+    StateValidationError,
+    StateConflictError,
+    StateSerializationError,
+    StateCacheError
 )
 
 __all__ = [
@@ -93,11 +95,11 @@ __all__ = [
     'IStateConflict',
     'IStateStatistics',
     
-    # 存储相关接口（统一异步）
-    'IStorageBackend',
-    'IStateStorageAdapter',
-    'IStorageAdapterFactory',
-    'IStorageMigration',
-    'IStorageCache',
-    'IStorageMetrics'
+    # 异常定义
+    'StateException',
+    'StateNotFoundError',
+    'StateValidationError',
+    'StateConflictError',
+    'StateSerializationError',
+    'StateCacheError'
 ]

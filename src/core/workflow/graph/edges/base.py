@@ -6,7 +6,7 @@
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.interfaces.state.interfaces import IState
+    from src.interfaces.state.base import IState
 
 
 class BaseEdge:

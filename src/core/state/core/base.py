@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, Type
 from datetime import datetime
 
-from src.interfaces.state.interfaces import IState
+from src.interfaces.state.base import IState
 from src.interfaces.state.serializer import IStateSerializer
 from src.interfaces.state.lifecycle import IStateLifecycleManager
 from src.interfaces.state.history import IStateHistoryManager
