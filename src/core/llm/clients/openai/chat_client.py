@@ -22,23 +22,21 @@ class ChatClient(ChatCompletionClient):
         super().__init__(config)
         self._http_client: Optional[ILLMHttpClient] = None
         # 延迟导入基础设施层组件，避免循环依赖
-        self._response_converter = None  # type: ignore
-        self._message_converter = None  # type: ignore
-        self._token_parser = None  # type: ignore
-        self._error_handler = None  # type: ignore
+        self._response_converter: Optional[Any] = None
+        self._message_converter: Optional[Any] = None
+        self._token_parser: Optional[Any] = None
+        self._error_handler: Optional[Any] = None
     
     def _get_infrastructure_components(self) -> tuple[Any, Any, Any, Any]:
         """获取基础设施层组件（延迟初始化）"""
         if self._response_converter is None:
-            from src.infrastructure.llm.converters.message_converters import get_provider_response_converter
-            from src.infrastructure.llm.converters.message_converters import get_message_converter
+            from src.infrastructure.llm.converters.message import MessageConverter
             from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
-            from src.infrastructure.llm.converters.common.error_handlers import ErrorHandler
             
-            self._response_converter = get_provider_response_converter()
-            self._message_converter = get_message_converter()
+            self._response_converter = MessageConverter()
+            self._message_converter = MessageConverter()
             self._token_parser = get_token_response_parser()
-            self._error_handler = ErrorHandler()
+            self._error_handler = self._create_error_handler()
         
         # 确保所有组件都已初始化，返回类型
         assert self._response_converter is not None
@@ -47,6 +45,22 @@ class ChatClient(ChatCompletionClient):
         assert self._error_handler is not None
         return (self._response_converter, self._message_converter,
                 self._token_parser, self._error_handler)
+    
+    def _create_error_handler(self) -> Any:
+        """创建错误处理器"""
+        # 简单的错误处理器实现
+        class SimpleErrorHandler:
+            def handle_api_error(self, error_response: Dict[str, Any], provider: str) -> str:
+                """处理API错误"""
+                error_info = error_response.get("error", {})
+                message = error_info.get("message", "未知错误")
+                return f"API错误 ({provider}): {message}"
+            
+            def handle_network_error(self, error: Exception, provider: str) -> str:
+                """处理网络错误"""
+                return f"网络错误 ({provider}): {str(error)}"
+        
+        return SimpleErrorHandler()
     
     def set_http_client(self, http_client: ILLMHttpClient) -> None:
         """设置HTTP客户端
@@ -92,7 +106,7 @@ class ChatClient(ChatCompletionClient):
             )
             
             # 使用基础设施层的响应转换器
-            base_message = response_converter.convert_from_provider_response("openai", response)
+            base_message = response_converter.to_base_message(response, "openai")
             
             # 创建LLMResponse
             from src.infrastructure.llm.models import TokenUsage
@@ -130,7 +144,9 @@ class ChatClient(ChatCompletionClient):
         """提取完成原因"""
         choices = response.get("choices", [])
         if choices:
-            return choices[0].get("finish_reason")
+            finish_reason = choices[0].get("finish_reason")
+            if isinstance(finish_reason, str):
+                return finish_reason
         return None
     
     def _prepare_request_params(self, **kwargs: Any) -> Dict[str, Any]:

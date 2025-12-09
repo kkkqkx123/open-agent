@@ -93,7 +93,16 @@ class ILLMClient(ABC):
             bool: 是否支持函数调用
         """
         pass
+    
+    def supports_jsonl(self) -> bool:
+        """
+        检查是否支持JSONL格式
 
+        Returns:
+            bool: 是否支持JSONL格式
+        """
+        return False
+    
     @abstractmethod
     def get_model_info(self) -> Dict[str, Any]:
         """

@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional, Union, TYPE_CHECKING
 from datetime import datetime
 
 from src.interfaces.messages import IMessageConverter, IBaseMessage
+# 不导入特定的异常类，使用通用的Exception
 from src.infrastructure.llm.models import LLMMessage, MessageRole
 from .types import HumanMessage, AIMessage, SystemMessage, ToolMessage, create_message_from_dict
 
@@ -55,8 +56,10 @@ class MessageConverter(IMessageConverter):
             return result
             
         except Exception as e:
-            # 转换失败时返回人类消息
-            return HumanMessage(content=str(message))
+            # 转换失败时直接抛异常，让上层处理
+            raise Exception(
+                f"消息转换失败 - 目标类型: IBaseMessage, 源消息: {message}, 原始错误: {e}"
+            ) from e
     
     def from_base_message(self, message: IBaseMessage) -> Any:
         """从标准消息格式转换"""
@@ -66,12 +69,10 @@ class MessageConverter(IMessageConverter):
             else:
                 return self._to_llm_message(message)
         except Exception as e:
-            # 转换失败时返回基础LLMMessage
-            return LLMMessage(
-                role=MessageRole.USER,
-                content=str(message.content) if hasattr(message, 'content') else str(message),
-                timestamp=datetime.now()
-            )
+            # 转换失败时直接抛异常，让上层处理
+            raise Exception(
+                f"消息转换失败 - 目标类型: LLMMessage, 源消息: {message}, 原始错误: {e}"
+            ) from e
     
     def convert_message_list(self, messages: List[Any]) -> List[IBaseMessage]:
         """批量转换消息列表为标准格式"""
@@ -186,10 +187,11 @@ class MessageConverter(IMessageConverter):
         """从字典转换"""
         try:
             return create_message_from_dict(message_dict)
-        except Exception:
-            # 如果创建失败，创建基本的人类消息
-            content = message_dict.get("content", str(message_dict))
-            return HumanMessage(content=content)
+        except Exception as e:
+            # 字典转换失败时直接抛异常
+            raise Exception(
+                f"字典消息转换失败 - 目标类型: IBaseMessage, 源数据: {message_dict}, 原始错误: {e}"
+            ) from e
     
     def _from_object(self, message_obj: Any) -> IBaseMessage:
         """从对象转换"""
@@ -225,10 +227,11 @@ class MessageConverter(IMessageConverter):
             else:
                 return HumanMessage(content=content, **kwargs)
                 
-        except Exception:
-            # 转换失败时返回基本消息
-            content = getattr(message_obj, 'content', str(message_obj))
-            return HumanMessage(content=content)
+        except Exception as e:
+            # 对象转换失败时直接抛异常
+            raise Exception(
+                f"对象消息转换失败 - 目标类型: IBaseMessage, 源对象: {message_obj}, 原始错误: {e}"
+            ) from e
     
     def _get_cache_key(self, message: Any) -> str:
         """生成缓存键"""

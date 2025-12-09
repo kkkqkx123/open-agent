@@ -248,6 +248,7 @@ class ToolFormatter(IToolFormatter):
         """初始化工具格式化器"""
         self.function_calling_formatter = FunctionCallingFormatter()
         self.structured_output_formatter = StructuredOutputFormatter()
+        self.jsonl_formatter = JsonlFormatter()
 
     def format_for_llm(self, tools: Sequence[ITool]) -> Dict[str, Any]:
         """将工具格式化为LLM可识别的格式
@@ -271,9 +272,15 @@ class ToolFormatter(IToolFormatter):
         Returns:
             str: 策略类型
         """
-        # 使用Function Calling格式化器的检测逻辑
-        result: str = self.function_calling_formatter.detect_strategy(llm_client)
-        return result
+        # 优先检测Function Calling支持
+        if llm_client.supports_function_calling():
+            return "function_calling"
+        # 然后检测JSONL支持
+        elif hasattr(llm_client, 'supports_jsonl') and llm_client.supports_jsonl():
+            return "jsonl"
+        # 最后回退到结构化输出
+        else:
+            return "structured_output"
 
     def parse_llm_response(self, response: IBaseMessage) -> ToolCall:
         """解析LLM的工具调用响应
@@ -292,13 +299,18 @@ class ToolFormatter(IToolFormatter):
             result: ToolCall = self.function_calling_formatter.parse_llm_response(response)
             return result
         except ValueError:
-            # 如果失败，尝试结构化输出解析
+            # 如果失败，尝试JSONL解析
             try:
-                result = self.structured_output_formatter.parse_llm_response(response)
+                result = self.jsonl_formatter.parse_llm_response(response)
                 return result
             except ValueError:
-                # 如果都失败，抛出异常
-                raise ValueError("无法解析LLM响应为工具调用")
+                # 如果都失败，尝试结构化输出解析
+                try:
+                    result = self.structured_output_formatter.parse_llm_response(response)
+                    return result
+                except ValueError:
+                    # 如果都失败，抛出异常
+                    raise ValueError("无法解析LLM响应为工具调用")
 
     def format_for_llm_with_strategy(
         self, tools: Sequence[ITool], strategy: str
@@ -318,6 +330,9 @@ class ToolFormatter(IToolFormatter):
         result: Dict[str, Any]
         if strategy == "function_calling":
             result = self.function_calling_formatter.format_for_llm(tools)
+            return result
+        elif strategy == "jsonl":
+            result = self.jsonl_formatter.format_for_llm(tools)
             return result
         elif strategy == "structured_output":
             result = self.structured_output_formatter.format_for_llm(tools)
@@ -344,8 +359,131 @@ class ToolFormatter(IToolFormatter):
         if strategy == "function_calling":
             result = self.function_calling_formatter.parse_llm_response(response)
             return result
+        elif strategy == "jsonl":
+            result = self.jsonl_formatter.parse_llm_response(response)
+            return result
         elif strategy == "structured_output":
             result = self.structured_output_formatter.parse_llm_response(response)
             return result
         else:
             raise ValueError(f"不支持的格式化策略: {strategy}")
+
+
+class JsonlFormatter(IToolFormatter):
+    """JSONL格式化策略
+
+    将工具格式化为JSONL格式，支持批量工具调用。
+    """
+
+    def format_for_llm(self, tools: Sequence[ITool]) -> Dict[str, Any]:
+        """将工具格式化为LLM可识别的JSONL格式
+
+        Args:
+            tools: 工具列表
+
+        Returns:
+            Dict[str, Any]: 格式化后的工具描述
+        """
+        tool_schemas = []
+        for tool in tools:
+            schema = {
+                "name": tool.name,
+                "description": tool.description,
+                "parameters": tool.get_schema(),
+            }
+            tool_schemas.append(schema)
+
+        # 生成JSONL格式的提示词
+        prompt = f"""
+请按以下JSONL格式调用工具（每行一个JSON对象）：
+{{"name": "工具名称", "parameters": {{"参数1": "值1", "参数2": "值2"}}}}
+{{"name": "工具名称", "parameters": {{"参数1": "值1", "参数2": "值2"}}}}
+
+可用工具：
+{chr(10).join([f"- {tool.name}: {tool.description}" for tool in tools])}
+
+请只返回JSONL格式的工具调用，每行一个JSON对象，不要包含其他文本。
+""".strip()
+
+        return {"prompt": prompt, "tools": tool_schemas}
+
+    def detect_strategy(self, llm_client: ILLMClient) -> str:
+        """检测模型支持的输出策略
+
+        Args:
+            llm_client: LLM客户端实例
+
+        Returns:
+            str: 策略类型
+        """
+        # 通过LLM客户端的supports_jsonl方法判断是否支持JSONL格式
+        if hasattr(llm_client, 'supports_jsonl') and llm_client.supports_jsonl():
+            return "jsonl"
+        # 如果模型不支持JSONL，回退到结构化输出
+        return "structured_output"
+
+    def parse_llm_response(self, response: IBaseMessage) -> ToolCall:
+        """解析LLM的JSONL工具调用响应
+
+        Args:
+            response: LLM响应消息
+
+        Returns:
+            ToolCall: 解析后的工具调用（返回第一个有效的工具调用）
+
+        Raises:
+            ValueError: 响应格式不正确
+        """
+        if not hasattr(response, "content") or not response.content:
+            raise ValueError("LLM响应内容为空")
+
+        # 处理content可能是列表的情况
+        content = response.content
+        if isinstance(content, list):
+            # 如果是列表，提取文本内容
+            content = " ".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in content
+                if isinstance(item, (dict, str))
+            )
+        content = content.strip()
+
+        # 尝试解析JSONL格式（每行一个JSON对象）
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            try:
+                data = json.loads(line)
+                if "name" in data and "parameters" in data:
+                    arguments: Dict[str, Any] = data["parameters"]
+                    call_id: Optional[str] = data.get("call_id")
+                    return ToolCall(
+                        name=data["name"],
+                        arguments=arguments,
+                        call_id=call_id,
+                    )
+            except json.JSONDecodeError:
+                continue
+
+        # 如果JSONL解析失败，尝试单行JSON解析
+        try:
+            # 查找JSON对象
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(0)
+                data = json.loads(json_str)
+                if "name" in data and "parameters" in data:
+                    arguments: Dict[str, Any] = data["parameters"]
+                    call_id: Optional[str] = data.get("call_id")
+                    return ToolCall(
+                        name=data["name"],
+                        arguments=arguments,
+                        call_id=call_id,
+                    )
+        except (json.JSONDecodeError, AttributeError):
+            pass
+
+        raise ValueError(f"无法从响应中解析JSONL格式的工具调用: {content}")

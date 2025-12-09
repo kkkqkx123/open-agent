@@ -76,7 +76,7 @@ class BaseHistoryManager(ABC):
             # 使用统一错误处理
             error_context = {
                 "record_id": record.record_id if hasattr(record, 'record_id') else None,
-                "record_type": record.record_type.value if hasattr(record, 'record_type') else None,
+                "record_type": record.record_type.value if (hasattr(record, 'record_type') and hasattr(record.record_type, 'value')) else (str(record.record_type) if hasattr(record, 'record_type') else None),
                 "session_id": record.session_id if hasattr(record, 'session_id') else None,
                 "operation": "save_record"
             }
@@ -104,7 +104,7 @@ class BaseHistoryManager(ABC):
                 # 使用统一错误处理
                 error_context = {
                     "record_id": record.record_id if hasattr(record, 'record_id') else None,
-                    "record_type": record.record_type.value if hasattr(record, 'record_type') else None,
+                    "record_type": record.record_type.value if (hasattr(record, 'record_type') and hasattr(record.record_type, 'value')) else (str(record.record_type) if hasattr(record, 'record_type') else None),
                     "operation": "save_records_batch"
                 }
                 handle_error(e, error_context)

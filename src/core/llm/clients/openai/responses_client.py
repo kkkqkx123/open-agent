@@ -24,12 +24,12 @@ class ResponsesClient(ResponsesAPIClient):
         self._conversation_history: List[Dict[str, Any]] = []
         
         # 延迟导入基础设施层组件，避免循环依赖
-        self._http_client = None  # type: ignore
-        self._message_converter = None  # type: ignore
-        self._stream_utils = None  # type: ignore
-        self._error_handler = None  # type: ignore
-        self._token_parser = None  # type: ignore
-        self._response_converter = None  # type: ignore
+        self._http_client: Optional[Any] = None
+        self._message_converter: Optional[Any] = None
+        self._stream_utils: Optional[Any] = None
+        self._error_handler: Optional[Any] = None
+        self._token_parser: Optional[Any] = None
+        self._response_converter: Optional[Any] = None
         
         # 初始化基础设施层HTTP客户端
         self._http_client = OpenAIHttpClient(
@@ -42,17 +42,14 @@ class ResponsesClient(ResponsesAPIClient):
     def _get_infrastructure_components(self) -> tuple[Any, Any, Any, Any, Any]:
         """获取基础设施层组件（延迟初始化）"""
         if self._message_converter is None:
-            from src.infrastructure.llm.converters.message_converters import get_message_converter
-            from src.infrastructure.llm.converters.openai.openai_stream_utils import OpenAIStreamUtils
-            from src.infrastructure.llm.converters.common.error_handlers import ErrorHandler
+            from src.infrastructure.llm.converters.message import MessageConverter
             from src.infrastructure.llm.token_calculators.token_response_parser import get_token_response_parser
-            from src.infrastructure.llm.converters.message_converters import get_provider_response_converter
             
-            self._message_converter = get_message_converter()
-            self._stream_utils = OpenAIStreamUtils()
-            self._error_handler = ErrorHandler()
+            self._message_converter = MessageConverter()
+            self._stream_utils = self._create_stream_utils()
+            self._error_handler = self._create_error_handler()
             self._token_parser = get_token_response_parser()
-            self._response_converter = get_provider_response_converter()
+            self._response_converter = MessageConverter()
         
         # 确保所有组件都已初始化
         assert self._message_converter is not None
@@ -62,6 +59,34 @@ class ResponsesClient(ResponsesAPIClient):
         assert self._response_converter is not None
         return (self._message_converter, self._stream_utils, self._error_handler,
                 self._token_parser, self._response_converter)
+    
+    def _create_stream_utils(self) -> Any:
+        """创建流式工具"""
+        # 简单的流式工具实现
+        class SimpleStreamUtils:
+            def parse_stream_event(self, chunk: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+                """解析流式事件"""
+                if isinstance(chunk, dict):
+                    return chunk
+                return None
+        
+        return SimpleStreamUtils()
+    
+    def _create_error_handler(self) -> Any:
+        """创建错误处理器"""
+        # 简单的错误处理器实现
+        class SimpleErrorHandler:
+            def handle_api_error(self, error_response: Dict[str, Any], provider: str) -> str:
+                """处理API错误"""
+                error_info = error_response.get("error", {})
+                message = error_info.get("message", "未知错误")
+                return f"API错误 ({provider}): {message}"
+            
+            def handle_network_error(self, error: Exception, provider: str) -> str:
+                """处理网络错误"""
+                return f"网络错误 ({provider}): {str(error)}"
+        
+        return SimpleErrorHandler()
     
     async def generate_async(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
@@ -108,9 +133,9 @@ class ResponsesClient(ResponsesAPIClient):
     
     def stream_generate(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
-    ) -> Generator[str, None, None]:
+    ) -> AsyncGenerator[str, None]:
         """
-        同步流式生成
+        流式生成文本响应（异步）
         
         Args:
             messages: 消息列表
@@ -119,55 +144,7 @@ class ResponsesClient(ResponsesAPIClient):
         Yields:
             str: 流式响应块
         """
-        import asyncio
-        import httpx
-        
-        # 获取基础设施层组件
-        message_converter, stream_utils, error_handler, token_parser, response_converter = self._get_infrastructure_components()
-        
-        # 转换消息为 input 格式
-        input_text = self._messages_to_input(messages)
-        
-        # 获取之前的响应 ID（如果有）
-        previous_response_id = self._get_previous_response_id()
-        
-        # 构建请求载荷
-        payload = self._build_payload(input_text, previous_response_id, stream=True, **kwargs)
-        
-        try:
-            # 使用同步 HTTP 客户端发送流式请求
-            assert self._http_client is not None
-            with httpx.Client(timeout=self.config.timeout) as client:
-                with client.stream(
-                    "POST",
-                    f"{self._http_client.base_url}/responses",
-                    headers=self._http_client.default_headers,
-                    json=payload
-                ) as response:
-                    response.raise_for_status()
-                    
-                    for line in response.iter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]  # 移除 "data: " 前缀
-                            if data == "[DONE]":
-                                break
-                            try:
-                                chunk = json.loads(data)
-                                # 使用基础设施层的流式工具解析事件
-                                event = stream_utils.parse_stream_event(f"data: {data}")
-                                if event and event.get("type") == "done":
-                                    break
-                                
-                                # 提取文本内容
-                                content = self._extract_stream_content(chunk)
-                                if content:
-                                    yield content
-                            except json.JSONDecodeError:
-                                continue
-                                
-        except Exception as e:
-            # 使用基础设施层的错误处理器
-            raise self._handle_error_with_infrastructure(e)
+        return self.stream_generate_async(messages, **kwargs)
     
     async def stream_generate_async(  # type: ignore[override]
         self, messages: Sequence[IBaseMessage], **kwargs: Any
