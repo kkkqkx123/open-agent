@@ -14,13 +14,6 @@ from .workflow_orchestrator import (
     WorkflowOrchestrator,
     create_workflow_orchestrator
 )
-from src.interfaces.workflow.services import (
-    IWorkflowManager,
-    IWorkflowFactory,
-    IWorkflowExecutor,
-    IWorkflowRegistry,
-    IWorkflowBuilderService
-)
 
 from .function_registry import (
     FunctionRegistry,
@@ -43,13 +36,8 @@ from .graph_cache import (
 
 __all__ = [
     # Original services
-    "IWorkflowManager",
     "WorkflowBuilderService",
     "WorkflowFactory",
-    "IWorkflowFactory",
-    "IWorkflowExecutor",
-    "IWorkflowRegistry",
-    "IWorkflowBuilderService",
     
     # Service factory
     "WorkflowServiceFactory",

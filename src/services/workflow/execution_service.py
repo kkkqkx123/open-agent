@@ -8,8 +8,7 @@ from typing import Dict, Any, Optional, AsyncGenerator
 from src.services.logger.injection import get_logger
 from datetime import datetime
 
-from src.interfaces.workflow.core import IWorkflow, IWorkflowState, ExecutionContext
-from src.interfaces.workflow.execution import IWorkflowExecutor as CoreIWorkflowExecutor
+from src.interfaces.workflow.core import IWorkflow, IWorkflowState
 from src.core.workflow.execution.executor import WorkflowExecutor
 from src.core.state.implementations.workflow_state import WorkflowState
 from src.interfaces.workflow.services import IWorkflowExecutor as ServiceIWorkflowExecutor
