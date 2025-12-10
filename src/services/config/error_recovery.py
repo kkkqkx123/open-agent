@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime
 
-from src.interfaces.configuration import ConfigError, ConfigurationValidationError as ConfigValidationError
+from src.interfaces.config.exceptions import ConfigError, ConfigurationValidationError as ConfigValidationError
 from src.infrastructure.error_management import handle_error, operation_with_retry
 
 

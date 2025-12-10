@@ -8,8 +8,8 @@ from .framework import (
     ValidationLevel,
     ValidationSeverity,
     ValidationResult,
-    ValidationResult,
-    ValidationReport
+    ValidationReport,
+    EnhancedValidationResult
 )
 
 # 导入验证规则
@@ -29,16 +29,16 @@ from .config_validator import ConfigValidator, generate_cache_key
 # 导入兼容性类型
 from .config_validator import UtilsConfigValidationResult
 
-# 注意：FixSuggestion 和 ConfigFixer 现在在基础设施层
-# 需要通过依赖注入使用，不应在core层直接导入
+# 导入修复相关类
+from ..fixer import FixSuggestion, ConfigFixer
 
 __all__ = [
     # 验证框架
     "ValidationLevel",
-    "ValidationSeverity", 
-    "ValidationResult",
+    "ValidationSeverity",
     "ValidationResult",
     "ValidationReport",
+    "EnhancedValidationResult",
     
     # 验证规则
     "ValidationRule",
@@ -54,5 +54,9 @@ __all__ = [
     "generate_cache_key",
     
     # 兼容性类型
-    "UtilsConfigValidationResult"
+    "UtilsConfigValidationResult",
+    
+    # 修复相关
+    "FixSuggestion",
+    "ConfigFixer"
 ]

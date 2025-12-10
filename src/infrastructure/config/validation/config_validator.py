@@ -3,16 +3,16 @@
 提供针对不同配置类型的具体验证实现。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Callable
 from pydantic import BaseModel
 
 from .framework import ValidationLevel, ValidationSeverity, ValidationReport, EnhancedValidationResult
 
 # 导入配置模型
-from ..models.global_config import GlobalConfig
-from ..models.llm_config import LLMConfig
-from ..models.tool_config import ToolConfig
-from ..models.token_counter_config import TokenCounterConfig
+from src.core.config.models.global_config import GlobalConfig
+from src.core.config.models.llm_config import LLMConfig
+from src.core.config.models.tool_config import ToolConfig
+from src.core.config.models.token_counter_config import TokenCounterConfig
 
 # 导入通用验证器
 from src.infrastructure.common.utils.validator import Validator as UtilsValidator
@@ -44,7 +44,7 @@ class ConfigValidator(IConfigValidator):
     在通用数据验证基础上添加配置特定的业务规则验证和高级功能。
     """
     
-    def __init__(self, cache_manager=None, config_fixer=None):
+    def __init__(self, cache_manager: Optional[CacheManager] = None, config_fixer: Optional[Any] = None):
         # 通过依赖注入使用基础设施层的服务
         self.cache = cache_manager
         self.config_fixer = config_fixer
@@ -260,7 +260,7 @@ class ConfigValidator(IConfigValidator):
 
     # 新增增强功能方法
     def _validate_config_with_report(self, config: Dict[str, Any], config_type: str,
-                                    validation_method) -> ValidationReport:
+                                    validation_method: Callable[[Dict[str, Any]], Any]) -> ValidationReport:
         """通用验证报告方法"""
         report = ValidationReport(f"{config_type}_config")
         # 基础验证
@@ -309,7 +309,7 @@ class ConfigValidator(IConfigValidator):
         if self.cache:
             cached_result = self.cache.get(cache_key)
             if cached_result:
-                return cached_result
+                return cached_result  # type: ignore
         
         # 根据配置类型加载并验证配置
         config_data = load_config_file(config_path)

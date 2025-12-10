@@ -6,7 +6,7 @@
 from typing import Dict, Any, List
 import logging
 
-from ....interfaces.config.interfaces import IConfigProcessor
+from src.interfaces.config import IConfigProcessor
 
 logger = logging.getLogger(__name__)
 

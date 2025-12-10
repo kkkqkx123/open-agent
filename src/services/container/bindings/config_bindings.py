@@ -11,7 +11,7 @@ from typing import Dict, Any, TYPE_CHECKING
 if TYPE_CHECKING:
     # 仅在类型检查时导入，避免运行时循环依赖
     from src.core.config.config_manager import ConfigManager
-    from src.core.config.validation import BaseConfigValidator
+    from src.infrastructure.config.validation import BaseConfigValidator
     from src.core.config.config_manager_factory import CoreConfigManagerFactory
     from src.core.config.processor.config_processor_chain import ConfigProcessorChain
     from src.infrastructure.config.processor import (
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.container.core import ServiceLifetime
 from src.interfaces.config import IConfigValidator, IConfigLoader
-from src.core.config.validation import BaseConfigValidator
+from src.infrastructure.config.validation import BaseConfigValidator
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
@@ -133,7 +133,7 @@ class ConfigServiceBindings(BaseServiceBindings):
             if container.has_service(CoreConfigManagerFactory):
                 set_config_manager_factory_instance(container.get(CoreConfigManagerFactory))
             
-            from src.core.config.validation import BaseConfigValidator
+            from src.infrastructure.config.validation import BaseConfigValidator
             if container.has_service(BaseConfigValidator):
                 validator = container.get(BaseConfigValidator)
                 set_config_validator_instance(validator)  # type: ignore[arg-type]
@@ -215,10 +215,10 @@ def _register_config_validator(container: IDependencyContainer, config: Dict[str
     """注册默认配置验证器"""
     # 延迟导入具体实现
     def create_config_validator() -> BaseConfigValidator:
-        from src.core.config.validation import BaseConfigValidator
+        from src.infrastructure.config.validation import BaseConfigValidator
         return BaseConfigValidator("DefaultValidator")
 
-    from src.core.config.validation import BaseConfigValidator
+    from src.infrastructure.config.validation import BaseConfigValidator
     
     # 注册具体类型和接口
     container.register_factory(

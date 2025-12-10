@@ -25,7 +25,7 @@ from src.infrastructure.config.processor import (
     InheritanceProcessor,
     ReferenceProcessor,
 )
-from .validation import (
+from src.infrastructure.config.validation import (
     ValidationResult,
     ValidationLevel,
     ValidationSeverity,

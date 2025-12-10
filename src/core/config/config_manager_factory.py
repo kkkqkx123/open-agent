@@ -14,7 +14,7 @@ from src.interfaces.config import (
 from src.interfaces.common_domain import ValidationResult
 from .config_manager import ConfigManager
 from .processor import ConfigProcessorChain
-from .validation import BaseConfigValidator
+from src.infrastructure.config.validation import BaseConfigValidator
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class CoreConfigManagerFactory(IConfigManagerFactory):
         """
         # 注册配置验证器
         try:
-            from .validation import ConfigValidator
+            from src.infrastructure.config.validation import ConfigValidator
             config_validator = ConfigValidator()
             manager.register_module_validator(module_type, config_validator)
             logger.debug(f"注册{module_type}模块配置验证器")

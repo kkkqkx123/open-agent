@@ -16,7 +16,7 @@ from src.interfaces.config import (
     ConfigurationValidationError as ConfigValidationError
 )
 from .processor import ConfigProcessorChain
-from .validation import BaseConfigValidator
+from src.infrastructure.config.validation import BaseConfigValidator
 
 logger = logging.getLogger(__name__)
 

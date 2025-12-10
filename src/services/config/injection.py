@@ -15,11 +15,11 @@ from src.infrastructure.config.processor import (
     ReferenceProcessor,
 )
 from src.core.config.adapter_factory import AdapterFactory
-from src.infrastructure.common.utils.validator import ValidationResult
+from src.interfaces.common_domain import ValidationResult
 from src.services.container.injection.injection_base import get_global_injection_registry
 from src.services.container.injection.injection_decorators import injectable
 from src.infrastructure.config.config_loader import ConfigLoader
-from src.core.config.validation import ConfigValidator
+from src.infrastructure.config.validation import ConfigValidator
 
 
 class _StubConfigManager(ConfigManager):
@@ -110,7 +110,7 @@ class _StubConfigLoader(ConfigLoader):
 class _StubConfigValidator(ConfigValidator):
     """临时 ConfigValidator 实现（用于极端情况）"""
     
-    def validate(self, data: dict[str, Any], model: type) -> ValidationResult:
+    def validate(self, config: dict[str, Any]) -> ValidationResult:
         """验证配置"""
         return ValidationResult(is_valid=True, errors=[], warnings=[])
     

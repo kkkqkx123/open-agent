@@ -14,17 +14,32 @@ from ..models.tool_config import ToolConfig
 from ..models.token_counter_config import TokenCounterConfig
 
 # 导入增强功能模块
-from ..validation.validation import (
-    ValidationCache,
+from src.infrastructure.config.validation import (
     ValidationLevel,
     ValidationSeverity,
-    load_config_file,
     generate_cache_key,
     ValidationReport,
     EnhancedValidationResult,
     ConfigFixer,
     FixSuggestion
 )
+from src.infrastructure.config.config_loader import load_config_file
+from src.infrastructure.cache.core.cache_manager import CacheManager
+
+# 创建ValidationCache类
+class ValidationCache:
+    """验证缓存类"""
+    
+    def __init__(self):
+        self.cache = {}
+    
+    def get(self, key):
+        """获取缓存值"""
+        return self.cache.get(key)
+    
+    def set(self, key, value):
+        """设置缓存值"""
+        self.cache[key] = value
 
 # 保持接口兼容
 ValidationResult = UtilsValidationResult
