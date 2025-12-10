@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, List, Callable
 
-from src.interfaces.configuration import (
+from src.interfaces.config import (
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationParseError as ConfigFormatError,
     ConfigError

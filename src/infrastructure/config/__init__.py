@@ -1,17 +1,58 @@
 """
 基础设施层配置模块
 
-提供配置加载和模式加载的基础设施实现。
+提供配置加载、处理、验证和管理的完整基础设施实现。
+采用impl+processor+provider架构模式。
 """
 
+# 基础组件
 from .config_loader import ConfigLoader
 from .schema_loader import SchemaLoader
+from .fixer import ConfigFixer
+from .config_registry import ConfigRegistry, get_global_registry, set_global_registry
+from .config_factory import ConfigFactory
+
+# 配置实现层
+from .impl import BaseConfigImpl, IConfigImpl
+
+# 配置处理器层
+from .processor.base_processor import BaseConfigProcessor, IConfigProcessor, ProcessorContext, ProcessorResult
+from .processor.validation_processor import ValidationProcessor, SchemaRegistry
+from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProcessor
 
+# 配置提供者层
+from .provider import BaseConfigProvider, IConfigProvider
+
 __all__ = [
+    # 基础组件
     "ConfigLoader",
     "SchemaLoader",
+    "ConfigFixer",
+    "ConfigRegistry",
+    "get_global_registry",
+    "set_global_registry",
+    "ConfigFactory",
+    
+    # 配置实现层
+    "BaseConfigImpl",
+    "IConfigImpl",
+    
+    # 配置处理器层
+    "BaseConfigProcessor",
+    "IConfigProcessor",
+    "ProcessorContext",
+    "ProcessorResult",
+    "ValidationProcessor",
+    "SchemaRegistry",
+    "TransformationProcessor",
+    "TypeConverter",
     "EnvironmentProcessor",
     "InheritanceProcessor",
-    "ReferenceProcessor"
+    "ReferenceProcessor",
+    
+    # 配置提供者层
+    "BaseConfigProvider",
+    "IConfigProvider",
+    "CommonConfigProvider"
 ]
