@@ -13,7 +13,12 @@ from .config_registry import ConfigRegistry, get_global_registry, set_global_reg
 from .config_factory import ConfigFactory
 
 # 配置实现层
-from .impl import BaseConfigImpl, IConfigImpl
+from .impl import (
+    BaseConfigImpl, IConfigImpl, IConfigSchema, IConfigProcessorChain,
+    ConfigProcessorChain, ConfigSchema,
+    LLMConfigImpl, WorkflowConfigImpl, GraphConfigImpl,
+    NodeConfigImpl, EdgeConfigImpl
+)
 
 # 配置处理器层
 from .processor.base_processor import BaseConfigProcessor, IConfigProcessor
@@ -22,7 +27,16 @@ from .processor.transformation_processor import TransformationProcessor, TypeCon
 from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProcessor
 
 # 配置提供者层
-from .provider import BaseConfigProvider, IConfigProvider
+from .provider import (
+    BaseConfigProvider, IConfigProvider, CommonConfigProvider,
+    LLMConfigProvider, WorkflowConfigProvider, GraphConfigProvider,
+    NodeConfigProvider, EdgeConfigProvider
+)
+
+# 配置模式层
+from .schema import (
+    LLMSchema, WorkflowSchema, GraphSchema, NodeSchema, EdgeSchema
+)
 
 __all__ = [
     # 基础组件
@@ -37,6 +51,15 @@ __all__ = [
     # 配置实现层
     "BaseConfigImpl",
     "IConfigImpl",
+    "IConfigSchema",
+    "IConfigProcessorChain",
+    "ConfigProcessorChain",
+    "ConfigSchema",
+    "LLMConfigImpl",
+    "WorkflowConfigImpl",
+    "GraphConfigImpl",
+    "NodeConfigImpl",
+    "EdgeConfigImpl",
     
     # 配置处理器层
     "BaseConfigProcessor",
@@ -52,5 +75,17 @@ __all__ = [
     # 配置提供者层
     "BaseConfigProvider",
     "IConfigProvider",
-    "CommonConfigProvider"
+    "CommonConfigProvider",
+    "LLMConfigProvider",
+    "WorkflowConfigProvider",
+    "GraphConfigProvider",
+    "NodeConfigProvider",
+    "EdgeConfigProvider",
+    
+    # 配置模式层
+    "LLMSchema",
+    "WorkflowSchema",
+    "GraphSchema",
+    "NodeSchema",
+    "EdgeSchema",
 ]
