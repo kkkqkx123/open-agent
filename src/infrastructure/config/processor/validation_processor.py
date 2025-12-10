@@ -102,7 +102,11 @@ class ValidationProcessor(BaseConfigProcessor):
             config_type = self._determine_config_type(config_path)
             
             # 获取相应的模式
-            schema = self.schema_registry.get_schema(config_type)
+            if self.schema_registry:
+                schema = self.schema_registry.get_schema(config_type)
+            else:
+                schema = None
+            
             if schema:
                 result = schema.validate(config)
                 if not result.is_valid:

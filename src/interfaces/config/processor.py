@@ -19,3 +19,12 @@ class IConfigProcessor(ABC):
             处理后的配置数据
         """
         pass
+    
+    @abstractmethod
+    def get_name(self) -> str:
+        """获取处理器名称
+        
+        Returns:
+            处理器名称
+        """
+        pass

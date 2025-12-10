@@ -10,7 +10,7 @@ import logging
 from .config_registry import ConfigRegistry
 from .config_loader import ConfigLoader
 from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain, ConfigSchema
-from .processor.base_processor import IConfigProcessor
+from src.interfaces.config.processor import IConfigProcessor
 from .processor.validation_processor import ValidationProcessor, SchemaRegistry
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor.environment_processor import EnvironmentProcessor
@@ -109,6 +109,10 @@ class ConfigFactory:
         loader = config_loader or self.create_config_loader()
         chain = processor_chain or self.create_default_processor_chain()
         
+        # 如果没有schema，创建一个默认的空schema
+        if schema is None:
+            schema = ConfigSchema()
+        
         impl = BaseConfigImpl(module_type, loader, chain, schema)
         
         # 注册到注册表
@@ -120,7 +124,7 @@ class ConfigFactory:
     def create_config_provider(self,
                               module_type: str,
                               config_impl: Optional[BaseConfigImpl] = None,
-                              provider_class: Optional[Type[IConfigProvider]] = None,
+                              provider_class: Optional[Type[BaseConfigProvider]] = None,
                               **kwargs) -> IConfigProvider:
         """创建配置提供者
         
@@ -140,8 +144,10 @@ class ConfigFactory:
             impl = self.create_config_implementation(module_type)
         
         # 使用指定的提供者类或默认的通用提供者
-        provider_cls = provider_class or CommonConfigProvider
-        provider = provider_cls(module_type, impl, **kwargs)
+        if provider_class:
+            provider: IConfigProvider = provider_class(module_type, impl, **kwargs)
+        else:
+            provider = CommonConfigProvider(module_type, impl, **kwargs)
         
         # 注册到注册表
         self.registry.register_provider(module_type, provider)
@@ -150,11 +156,11 @@ class ConfigFactory:
         return provider
     
     def register_module_config(self, 
-                              module_type: str,
-                              schema: Optional[ConfigSchema] = None,
-                              processor_names: Optional[List[str]] = None,
-                              provider_class: Optional[Type[IConfigProvider]] = None,
-                              **kwargs) -> None:
+                               module_type: str,
+                               schema: Optional[ConfigSchema] = None,
+                               processor_names: Optional[List[str]] = None,
+                               provider_class: Optional[Type[BaseConfigProvider]] = None,
+                               **kwargs) -> None:
         """注册模块配置
         
         Args:
@@ -199,7 +205,10 @@ class ConfigFactory:
             cache_ttl=300
         )
         
-        return self.registry.get_provider("llm")
+        provider = self.registry.get_provider("llm")
+        if provider is None:
+            raise RuntimeError("Failed to create LLM config provider")
+        return provider
     
     def setup_workflow_config(self) -> IConfigProvider:
         """设置工作流配置
@@ -218,7 +227,10 @@ class ConfigFactory:
             cache_ttl=600
         )
         
-        return self.registry.get_provider("workflow")
+        provider = self.registry.get_provider("workflow")
+        if provider is None:
+            raise RuntimeError("Failed to create workflow config provider")
+        return provider
     
     def setup_tools_config(self) -> IConfigProvider:
         """设置工具配置
@@ -237,7 +249,10 @@ class ConfigFactory:
             cache_ttl=300
         )
         
-        return self.registry.get_provider("tools")
+        provider = self.registry.get_provider("tools")
+        if provider is None:
+            raise RuntimeError("Failed to create tools config provider")
+        return provider
     
     def setup_state_config(self) -> IConfigProvider:
         """设置状态配置
@@ -256,7 +271,10 @@ class ConfigFactory:
             cache_ttl=600
         )
         
-        return self.registry.get_provider("state")
+        provider = self.registry.get_provider("state")
+        if provider is None:
+            raise RuntimeError("Failed to create state config provider")
+        return provider
     
     def setup_all_configs(self) -> Dict[str, IConfigProvider]:
         """设置所有模块配置

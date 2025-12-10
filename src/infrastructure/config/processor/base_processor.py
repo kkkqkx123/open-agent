@@ -9,33 +9,9 @@ import logging
 import time
 from pathlib import Path
 
+from src.interfaces.config.processor import IConfigProcessor
+
 logger = logging.getLogger(__name__)
-
-
-class IConfigProcessor(ABC):
-    """配置处理器接口"""
-    
-    @abstractmethod
-    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
-        """处理配置数据
-        
-        Args:
-            config: 原始配置数据
-            config_path: 配置文件路径
-            
-        Returns:
-            处理后的配置数据
-        """
-        pass
-    
-    @abstractmethod
-    def get_name(self) -> str:
-        """获取处理器名称
-        
-        Returns:
-            处理器名称
-        """
-        pass
 
 
 class BaseConfigProcessor(IConfigProcessor):
