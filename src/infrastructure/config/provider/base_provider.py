@@ -1,57 +1,17 @@
 """配置提供者基类
 
-定义配置提供者的基础接口和抽象类，提供配置获取、缓存和模型转换的通用框架。
+定义配置提供者的基础实现类，提供配置获取、缓存和模型转换的通用框架。
 """
 
-from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Type, Union
 from pathlib import Path
 import logging
 from datetime import datetime, timedelta
 
+from src.interfaces.config.provider import IConfigProvider
 from ..impl.base_impl import IConfigImpl
 
 logger = logging.getLogger(__name__)
-
-
-class IConfigProvider(ABC):
-    """配置提供者接口"""
-    
-    @abstractmethod
-    def get_config(self, config_name: str) -> Dict[str, Any]:
-        """获取配置数据
-        
-        Args:
-            config_name: 配置名称
-            
-        Returns:
-            配置数据
-        """
-        pass
-    
-    @abstractmethod
-    def get_config_model(self, config_name: str) -> Any:
-        """获取配置模型
-        
-        Args:
-            config_name: 配置名称
-            
-        Returns:
-            配置模型实例
-        """
-        pass
-    
-    @abstractmethod
-    def reload_config(self, config_name: str) -> Dict[str, Any]:
-        """重新加载配置
-        
-        Args:
-            config_name: 配置名称
-            
-        Returns:
-            重新加载的配置数据
-        """
-        pass
 
 
 class BaseConfigProvider(IConfigProvider):

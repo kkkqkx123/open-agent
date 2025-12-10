@@ -96,3 +96,43 @@ class ISchemaRegistry(ABC):
             bool: 是否成功注销
         """
         pass
+
+
+class ISchemaGenerator(ABC):
+    """Schema生成器接口
+    
+    定义从配置数据生成JSON Schema的基本契约。
+    """
+    
+    @abstractmethod
+    def generate_schema_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """从配置数据生成Schema
+        
+        Args:
+            config_data: 配置数据
+            
+        Returns:
+            Dict[str, Any]: JSON Schema
+        """
+        pass
+    
+    @abstractmethod
+    def generate_schema_from_type(self, config_type: str) -> Dict[str, Any]:
+        """从配置类型生成Schema
+        
+        Args:
+            config_type: 配置类型
+            
+        Returns:
+            Dict[str, Any]: JSON Schema
+        """
+        pass
+    
+    @abstractmethod
+    def get_generator_type(self) -> str:
+        """获取生成器类型
+        
+        Returns:
+            str: 生成器类型
+        """
+        pass

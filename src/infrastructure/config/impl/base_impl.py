@@ -10,6 +10,8 @@ import logging
 
 from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationResult
 from src.interfaces.common_domain import ValidationResult as CommonValidationResult
+from src.interfaces.config.schema import ISchemaGenerator
+from src.interfaces.config.provider import IConfigProvider
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +235,7 @@ class BaseConfigImpl(IConfigImpl):
 class ConfigProcessorChain(IConfigProcessorChain):
     """配置处理器链实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._processors: list[IConfigProcessor] = []
     
     def add_processor(self, processor: IConfigProcessor) -> None:
@@ -333,6 +335,93 @@ class ConfigSchema(IConfigSchema):
         
         expected_python_type = type_mapping.get(expected_type)
         if expected_python_type:
-            return isinstance(value, expected_python_type)
+            return isinstance(value, expected_python_type)  # type: ignore[arg-type]
         
         return True  # 未知类型，默认通过
+
+
+class BaseSchemaGenerator(ISchemaGenerator):
+    """Schema生成器基类
+    
+    提供Schema生成的通用功能和缓存机制。
+    """
+    
+    def __init__(self, generator_type: str, config_provider: Optional['IConfigProvider'] = None):
+        """初始化Schema生成器
+        
+        Args:
+            generator_type: 生成器类型
+            config_provider: 配置提供者
+        """
+        self.generator_type = generator_type
+        self.config_provider = config_provider
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
+        
+        logger.debug(f"初始化{generator_type} Schema生成器")
+    
+    def get_generator_type(self) -> str:
+        """获取生成器类型
+        
+        Returns:
+            str: 生成器类型
+        """
+        return self.generator_type
+    
+    def generate_schema_from_type(self, config_type: str) -> Dict[str, Any]:
+        """从配置类型生成Schema
+        
+        Args:
+            config_type: 配置类型
+            
+        Returns:
+            Dict[str, Any]: JSON Schema
+            
+        Raises:
+            ValueError: 如果config_provider未设置
+        """
+        if not self.config_provider:
+            raise ValueError("config_provider is required for this method")
+        
+        # 获取配置数据
+        config_data = self.config_provider.get_config(config_type)
+        return self.generate_schema_from_config(config_data)
+    
+    def _get_cached_schema(self, cache_key: str) -> Optional[Dict[str, Any]]:
+        """获取缓存的Schema
+        
+        Args:
+            cache_key: 缓存键
+            
+        Returns:
+            Optional[Dict[str, Any]]: 缓存的Schema，如果不存在则返回None
+        """
+        return self._schema_cache.get(cache_key)
+    
+    def _cache_schema(self, cache_key: str, schema: Dict[str, Any]) -> None:
+        """缓存Schema
+        
+        Args:
+            cache_key: 缓存键
+            schema: Schema数据
+        """
+        self._schema_cache[cache_key] = schema
+        logger.debug(f"缓存Schema: {cache_key}")
+    
+    def _clear_cache(self) -> None:
+        """清除缓存"""
+        self._schema_cache.clear()
+        logger.debug("清除Schema缓存")
+    
+    def _generate_cache_key(self, config_data: Dict[str, Any]) -> str:
+        """生成缓存键
+        
+        Args:
+            config_data: 配置数据
+            
+        Returns:
+            str: 缓存键
+        """
+        import hashlib
+        import json
+        config_str = json.dumps(config_data, sort_keys=True)
+        return hashlib.md5(config_str.encode()).hexdigest()

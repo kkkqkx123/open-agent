@@ -1,0 +1,249 @@
+"""图Schema生成器
+
+提供从图配置生成JSON Schema的功能。
+"""
+
+from typing import Dict, Any, Optional, List
+import logging
+
+from ...impl.base_impl import BaseSchemaGenerator
+from src.interfaces.config.provider import IConfigProvider
+
+logger = logging.getLogger(__name__)
+
+
+class GraphSchemaGenerator(BaseSchemaGenerator):
+    """图Schema生成器
+    
+    专门用于从图配置数据生成JSON Schema。
+    """
+    
+    def __init__(self, config_provider: Optional['IConfigProvider'] = None):
+        """初始化图Schema生成器
+        
+        Args:
+            config_provider: 配置提供者
+        """
+        super().__init__("graph", config_provider)
+        
+        # 图特定的字段定义
+        self._graph_fields = {
+            "name": {"type": "string", "description": "图名称"},
+            "description": {"type": "string", "description": "图描述"},
+            "version": {"type": "string", "description": "图版本"},
+            "nodes": {"type": "array", "description": "节点列表"},
+            "edges": {"type": "array", "description": "边列表"},
+            "directed": {"type": "boolean", "description": "是否有向图"},
+            "weighted": {"type": "boolean", "description": "是否加权图"},
+            "metadata": {"type": "object", "description": "元数据"}
+        }
+        
+        # 必需字段
+        self._required_fields = ["name", "nodes"]
+        
+        logger.debug("初始化图Schema生成器")
+    
+    def generate_schema_from_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """从图配置生成Schema
+        
+        Args:
+            config_data: 图配置数据
+            
+        Returns:
+            Dict[str, Any]: JSON Schema
+        """
+        cache_key = self._generate_cache_key(config_data)
+        
+        # 检查缓存
+        cached_schema = self._get_cached_schema(cache_key)
+        if cached_schema:
+            logger.debug(f"从缓存获取图Schema: {cache_key}")
+            return cached_schema
+        
+        logger.debug("开始生成图Schema")
+        
+        # 生成Schema
+        schema = self._generate_graph_schema(config_data)
+        
+        # 缓存Schema
+        self._cache_schema(cache_key, schema)
+        
+        logger.debug(f"图Schema生成完成: {cache_key}")
+        return schema
+    
+    def _generate_graph_schema(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """生成图Schema
+        
+        Args:
+            config_data: 配置数据
+            
+        Returns:
+            Dict[str, Any]: JSON Schema
+        """
+        schema: Dict[str, Any] = {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False
+        }
+        
+        # 处理每个配置项
+        for key, value in config_data.items():
+            if key == "description":  # 描述字段通常不需要在Schema中体现
+                continue
+            
+            property_schema = self._infer_property_schema(key, value)
+            schema["properties"][key] = property_schema
+            
+            # 判断字段是否必需
+            if self._is_required_field(key, value):
+                schema["required"].append(key)
+        
+        # 确保必需字段存在
+        for required_field in self._required_fields:
+            if required_field not in schema["required"]:
+                schema["required"].append(required_field)
+        
+        # 添加图特定的属性定义
+        self._add_graph_specific_properties(schema)
+        
+        return schema
+    
+    def _infer_property_schema(self, key: str, value: Any) -> Dict[str, Any]:
+        """推断属性Schema
+        
+        Args:
+            key: 属性名
+            value: 属性值
+            
+        Returns:
+            Dict[str, Any]: 属性Schema
+        """
+        # 如果有预定义的图字段，使用预定义Schema
+        if key in self._graph_fields:
+            return self._graph_fields[key].copy()
+        
+        # 根据值类型推断
+        return self._infer_type_from_value(value)
+    
+    def _infer_type_from_value(self, value: Any) -> Dict[str, Any]:
+        """从值推断类型
+        
+        Args:
+            value: 值
+            
+        Returns:
+            Dict[str, Any]: 类型Schema
+        """
+        if isinstance(value, str):
+            return {"type": "string"}
+        elif isinstance(value, bool):
+            return {"type": "boolean"}
+        elif isinstance(value, int):
+            return {"type": "integer"}
+        elif isinstance(value, float):
+            return {"type": "number"}
+        elif isinstance(value, list):
+            if value:  # 列表不为空，尝试推断元素类型
+                item_schema = self._infer_type_from_value(value[0])
+                return {"type": "array", "items": item_schema}
+            else:  # 空列表
+                return {"type": "array", "items": {"type": "string"}}
+        elif isinstance(value, dict):
+            return {"type": "object"}
+        else:
+            return {"type": "string"}  # 默认类型
+    
+    def _is_required_field(self, key: str, value: Any) -> bool:
+        """判断字段是否必需
+        
+        Args:
+            key: 字段名
+            value: 字段值
+            
+        Returns:
+            bool: 是否必需
+        """
+        # 检查是否在预定义的必需字段列表中
+        if key in self._required_fields:
+            return True
+        
+        # 根据字段名和值进行启发式判断
+        required_keywords = ["id", "name", "type", "key"]
+        if any(keyword in key.lower() for keyword in required_keywords):
+            return True
+        
+        # 如果值是None或空，通常不是必需的（除非明确指定）
+        if value is None or value == "":
+            return False
+        
+        return False
+    
+    def _add_graph_specific_properties(self, schema: Dict[str, Any]) -> None:
+        """添加图特定的属性定义
+        
+        Args:
+            schema: Schema对象
+        """
+        # 确保nodes属性有详细的定义
+        if "nodes" in schema["properties"]:
+            schema["properties"]["nodes"] = {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "节点ID"},
+                        "label": {"type": "string", "description": "节点标签"},
+                        "type": {"type": "string", "description": "节点类型"},
+                        "properties": {"type": "object", "description": "节点属性"},
+                        "position": {
+                            "type": "object",
+                            "properties": {
+                                "x": {"type": "number"},
+                                "y": {"type": "number"}
+                            },
+                            "description": "节点位置"
+                        },
+                        "style": {"type": "object", "description": "节点样式"}
+                    },
+                    "required": ["id"]
+                },
+                "minItems": 1,
+                "description": "图节点列表"
+            }
+        
+        # 确保edges属性有详细的定义
+        if "edges" in schema["properties"]:
+            schema["properties"]["edges"] = {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "边ID"},
+                        "source": {"type": "string", "description": "源节点ID"},
+                        "target": {"type": "string", "description": "目标节点ID"},
+                        "weight": {"type": "number", "description": "边权重"},
+                        "label": {"type": "string", "description": "边标签"},
+                        "directed": {"type": "boolean", "description": "是否有向"},
+                        "style": {"type": "object", "description": "边样式"}
+                    },
+                    "required": ["source", "target"]
+                },
+                "description": "图边列表"
+            }
+        
+        # 添加metadata的详细定义
+        if "metadata" in schema["properties"]:
+            schema["properties"]["metadata"] = {
+                "type": "object",
+                "properties": {
+                    "author": {"type": "string", "description": "作者"},
+                    "created_at": {"type": "string", "description": "创建时间"},
+                    "updated_at": {"type": "string", "description": "更新时间"},
+                    "tags": {"type": "array", "items": {"type": "string"}, "description": "标签"},
+                    "version": {"type": "string", "description": "版本"},
+                    "algorithm": {"type": "string", "description": "图算法类型"}
+                },
+                "additionalProperties": True,
+                "description": "图元数据"
+            }

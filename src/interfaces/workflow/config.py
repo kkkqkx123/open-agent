@@ -4,7 +4,7 @@
 遵循分层架构原则，interface层只定义接口，不依赖其他层。
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Mapping, Sequence
 from abc import ABC, abstractmethod
 from enum import Enum
 
@@ -213,7 +213,7 @@ class IGraphStateConfig(ISerializable, ABC):
     
     @property
     @abstractmethod
-    def fields(self) -> Dict[str, IStateFieldConfig]:
+    def fields(self) -> Mapping[str, "IStateFieldConfig"]:
         """状态字段"""
         pass
 
@@ -255,13 +255,13 @@ class IGraphConfig(ISerializable, ABC):
     
     @property
     @abstractmethod
-    def nodes(self) -> Dict[str, INodeConfig]:
+    def nodes(self) -> Mapping[str, INodeConfig]:
         """节点字典"""
         pass
     
     @property
     @abstractmethod
-    def edges(self) -> List[IEdgeConfig]:
+    def edges(self) -> Sequence[IEdgeConfig]:
         """边列表"""
         pass
     

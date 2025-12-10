@@ -11,6 +11,8 @@ from .config_registry import ConfigRegistry
 from .config_loader import ConfigLoader
 from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain, ConfigSchema
 from src.interfaces.config.processor import IConfigProcessor
+from src.interfaces.config.schema import ISchemaGenerator
+from src.interfaces.config.provider import IConfigProvider
 from .processor.validation_processor import ValidationProcessor, SchemaRegistry
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor.environment_processor import EnvironmentProcessor
@@ -124,8 +126,8 @@ class ConfigFactory:
     def create_config_provider(self,
                               module_type: str,
                               config_impl: Optional[BaseConfigImpl] = None,
-                              provider_class: Optional[Type[BaseConfigProvider]] = None,
-                              **kwargs) -> IConfigProvider:
+                              provider_class: Optional[Type['BaseConfigProvider']] = None,
+                              **kwargs: Any) -> IConfigProvider:
         """创建配置提供者
         
         Args:
@@ -155,12 +157,12 @@ class ConfigFactory:
         logger.debug(f"创建{module_type}模块配置提供者")
         return provider
     
-    def register_module_config(self, 
+    def register_module_config(self,
                                module_type: str,
                                schema: Optional[ConfigSchema] = None,
                                processor_names: Optional[List[str]] = None,
-                               provider_class: Optional[Type[BaseConfigProvider]] = None,
-                               **kwargs) -> None:
+                               provider_class: Optional[Type['BaseConfigProvider']] = None,
+                               **kwargs: Any) -> None:
         """注册模块配置
         
         Args:
@@ -346,3 +348,30 @@ class ConfigFactory:
             "registry_stats": self.registry.get_registry_stats(),
             "registry_validation": self.registry.validate_registry()
         }
+    
+    def create_schema_generator(self, generator_type: str, config_provider: Optional['IConfigProvider'] = None) -> ISchemaGenerator:
+        """创建Schema生成器
+        
+        Args:
+            generator_type: 生成器类型 (workflow, graph, node)
+            config_provider: 配置提供者
+            
+        Returns:
+            ISchemaGenerator: Schema生成器实例
+            
+        Raises:
+            ValueError: 如果不支持的生成器类型
+        """
+        logger.debug(f"创建Schema生成器: {generator_type}")
+        
+        if generator_type == "workflow":
+            from .schema.generators.workflow_schema_generator import WorkflowSchemaGenerator
+            return WorkflowSchemaGenerator(config_provider)
+        elif generator_type == "graph":
+            from .schema.generators.graph_schema_generator import GraphSchemaGenerator
+            return GraphSchemaGenerator(config_provider)
+        elif generator_type == "node":
+            from .schema.generators.node_schema_generator import NodeSchemaGenerator
+            return NodeSchemaGenerator(config_provider)
+        else:
+            raise ValueError(f"不支持的Schema生成器类型: {generator_type}")

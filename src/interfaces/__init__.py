@@ -273,7 +273,7 @@ from .ui import (
 )
 
 # 配置相关接口
-from .configuration import (
+from .config import (
     ConfigValidationResult,
     ValidationSeverity,
     IConfigValidator,

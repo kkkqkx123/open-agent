@@ -13,7 +13,10 @@ from .processor import IConfigProcessor
 from .validator import IConfigValidator, ConfigValidationResult, ValidationSeverity
 
 # 导入模式相关接口
-from .schema import IConfigSchema, ISchemaRegistry
+from .schema import IConfigSchema, ISchemaRegistry, ISchemaGenerator
+
+# 导入提供者相关接口
+from .provider import IConfigProvider
 
 # 导入管理器相关接口
 from .manager import IConfigManager, IUnifiedConfigManager, IConfigManagerFactory
@@ -50,6 +53,10 @@ __all__ = [
     # 模式接口
     "IConfigSchema",
     "ISchemaRegistry",
+    "ISchemaGenerator",
+    
+    # 提供者接口
+    "IConfigProvider",
     
     # 管理器接口
     "IConfigManager",

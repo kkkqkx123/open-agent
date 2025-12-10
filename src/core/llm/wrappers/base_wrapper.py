@@ -1,7 +1,7 @@
 """LLM包装器基类"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Generator, AsyncGenerator, Sequence
+from typing import Dict, Any, Optional, AsyncGenerator, Sequence
 from src.services.logger.injection import get_logger
 
 from abc import ABC

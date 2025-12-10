@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .base_processor import BaseConfigProcessor
 from src.interfaces.config import ValidationResult, IConfigSchema, ISchemaRegistry
+from src.interfaces.config.schema import ISchemaGenerator
 
 if TYPE_CHECKING:
     from src.interfaces.config import IConfigSchema, ISchemaRegistry
@@ -132,8 +133,8 @@ class ValidationProcessor(BaseConfigProcessor):
         Returns:
             错误列表和警告列表
         """
-        errors = []
-        warnings = []
+        errors: List[str] = []
+        warnings: List[str] = []
         
         try:
             # 根据配置路径确定配置类型
@@ -165,8 +166,8 @@ class ValidationProcessor(BaseConfigProcessor):
         Returns:
             错误列表和警告列表
         """
-        errors = []
-        warnings = []
+        errors: List[str] = []
+        warnings: List[str] = []
         
         # 检查配置是否为字典
         if not isinstance(config, dict):
@@ -218,12 +219,13 @@ class ValidationProcessor(BaseConfigProcessor):
 class SchemaRegistry(ISchemaRegistry):
     """模式注册表实现
     
-    管理所有配置模式定义的具体实现。
+    管理所有配置模式定义的具体实现，支持Schema生成器。
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化模式注册表"""
         self._schemas: Dict[str, IConfigSchema] = {}
+        self._schema_generators: Dict[str, 'ISchemaGenerator'] = {}
         logger.debug("初始化模式注册表")
     
     def register_schema(self, config_type: str, schema: IConfigSchema) -> None:
@@ -280,3 +282,90 @@ class SchemaRegistry(ISchemaRegistry):
             logger.debug(f"注销{config_type}配置模式")
             return True
         return False
+    
+    def register_schema_generator(self, generator_type: str, generator: ISchemaGenerator) -> None:
+        """注册Schema生成器
+        
+        Args:
+            generator_type: 生成器类型
+            generator: Schema生成器实例
+        """
+        self._schema_generators[generator_type] = generator
+        logger.debug(f"注册{generator_type} Schema生成器")
+    
+    def get_schema_generator(self, generator_type: str) -> Optional[ISchemaGenerator]:
+        """获取Schema生成器
+        
+        Args:
+            generator_type: 生成器类型
+            
+        Returns:
+            Optional[ISchemaGenerator]: Schema生成器实例，如果不存在则返回None
+        """
+        return self._schema_generators.get(generator_type)
+    
+    def has_schema_generator(self, generator_type: str) -> bool:
+        """检查是否存在Schema生成器
+        
+        Args:
+            generator_type: 生成器类型
+            
+        Returns:
+            bool: 是否存在
+        """
+        return generator_type in self._schema_generators
+    
+    def get_registered_generator_types(self) -> List[str]:
+        """获取已注册的生成器类型
+        
+        Returns:
+            List[str]: 生成器类型列表
+        """
+        return list(self._schema_generators.keys())
+    
+    def unregister_schema_generator(self, generator_type: str) -> bool:
+        """注销Schema生成器
+        
+        Args:
+            generator_type: 生成器类型
+            
+        Returns:
+            bool: 是否成功注销
+        """
+        if generator_type in self._schema_generators:
+            del self._schema_generators[generator_type]
+            logger.debug(f"注销{generator_type} Schema生成器")
+            return True
+        return False
+    
+    def generate_schema(self, generator_type: str, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """使用指定的生成器生成Schema
+        
+        Args:
+            generator_type: 生成器类型
+            config_data: 配置数据
+            
+        Returns:
+            Dict[str, Any]: 生成的JSON Schema
+            
+        Raises:
+            ValueError: 如果找不到指定的生成器
+        """
+        generator = self.get_schema_generator(generator_type)
+        if not generator:
+            raise ValueError(f"未找到{generator_type}类型的Schema生成器")
+        
+        return generator.generate_schema_from_config(config_data)
+    
+    def get_registry_stats(self) -> Dict[str, Any]:
+        """获取注册表统计信息
+        
+        Returns:
+            Dict[str, Any]: 统计信息
+        """
+        return {
+            "schema_count": len(self._schemas),
+            "generator_count": len(self._schema_generators),
+            "registered_schemas": list(self._schemas.keys()),
+            "registered_generators": list(self._schema_generators.keys())
+        }

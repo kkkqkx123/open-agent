@@ -21,7 +21,7 @@ from src.interfaces.sessions.exceptions import (
     WorkflowExecutionError,
     SynchronizationError
 )
-from src.interfaces.configuration import ConfigurationValidationError
+from src.interfaces.config import ConfigurationValidationError
 
 # 延迟初始化logger以避免循环导入
 logger = None
