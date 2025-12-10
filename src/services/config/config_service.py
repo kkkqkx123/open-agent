@@ -191,7 +191,7 @@ class ConfigService:
             return validator.validate(config)
         else:
             # 使用默认验证器
-            from src.core.config.validation import BaseConfigValidator
+            from src.core.config.validation.validation import BaseConfigValidator
             default_validator = BaseConfigValidator()
             return default_validator.validate(config)
     

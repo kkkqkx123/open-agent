@@ -19,7 +19,7 @@ from src.infrastructure.config.processor import (
     EnvironmentProcessor,
     ReferenceProcessor,
 )
-from .validation import (
+from .validation.validation import (
     ValidationResult,
     ValidationLevel,
     ValidationSeverity,

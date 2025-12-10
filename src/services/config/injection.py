@@ -19,7 +19,7 @@ from src.infrastructure.common.utils.validator import ValidationResult
 from src.services.container.injection.injection_base import get_global_injection_registry
 from src.services.container.injection.injection_decorators import injectable
 from src.infrastructure.config.config_loader import ConfigLoader
-from src.core.config.processor.validator import ConfigValidator
+from src.core.config.validation import ConfigValidator
 
 
 class _StubConfigManager(ConfigManager):

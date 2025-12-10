@@ -5,7 +5,7 @@
 
 from typing import Dict, List, Any, Optional
 import os
-from src.core.config.validation import BaseConfigValidator, ValidationResult, ValidationSeverity
+from src.core.config.validation.validation import BaseConfigValidator, ValidationResult, ValidationSeverity
 
 
 class RegistryConfigValidator(BaseConfigValidator):

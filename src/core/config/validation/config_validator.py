@@ -1,88 +1,39 @@
-"""配置验证器
+"""具体配置验证器模块
 
-配置专用验证器，在通用数据验证基础上添加业务规则验证和高级功能。
+提供针对不同配置类型的具体验证实现。
 """
 
-from abc import ABC, abstractmethod
 from typing import Dict, Any, List
-from src.infrastructure.common.utils.validator import Validator as UtilsValidator
-from src.infrastructure.common.utils.validator import ValidationResult as UtilsValidationResult
 
+from .framework import ValidationLevel, ValidationSeverity, EnhancedValidationResult, ValidationReport
+
+# 导入配置模型
 from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig
 from ..models.tool_config import ToolConfig
 from ..models.token_counter_config import TokenCounterConfig
 
-# 导入增强功能模块
-from ..validation.validation import (
-    ValidationCache,
-    ValidationLevel,
-    ValidationSeverity,
-    load_config_file,
-    generate_cache_key,
-    ValidationReport,
-    EnhancedValidationResult,
-    ConfigFixer,
-    FixSuggestion
-)
+# 导入通用验证器
+from src.infrastructure.common.utils.validator import Validator as UtilsValidator
+from src.infrastructure.common.utils.validator import ValidationResult as UtilsValidationResult
 
-# 保持接口兼容
-ValidationResult = UtilsValidationResult
+# 导入基础设施层的配置加载器
+from src.infrastructure.config.config_loader import load_config_file
+
+# 导入基础设施层的缓存管理器
+from src.infrastructure.cache.core.cache_manager import CacheManager
+from src.infrastructure.cache.config.cache_config import BaseCacheConfig
+
+# 导入接口
+from src.interfaces.config.interfaces import IConfigValidator
+
+# 为了兼容性，创建一个别名
+UtilsConfigValidationResult = UtilsValidationResult
 
 
-class IConfigValidator(ABC):
-    """配置验证接口"""
-
-    @abstractmethod
-    def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证全局配置"""
-        pass
-
-    @abstractmethod
-    def validate_llm_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证LLM配置"""
-        pass
-
-    @abstractmethod
-    def validate_tool_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证工具配置"""
-        pass
-
-    @abstractmethod
-    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证Token计数器配置"""
-        pass
-
-    # 新增增强方法
-    @abstractmethod
-    def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
-        """验证全局配置并返回详细报告"""
-        pass
-
-    @abstractmethod
-    def validate_llm_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
-        """验证LLM配置并返回详细报告"""
-        pass
-
-    @abstractmethod
-    def validate_tool_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
-        """验证工具配置并返回详细报告"""
-        pass
-
-    @abstractmethod
-    def validate_token_counter_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
-        """验证Token计数器配置并返回详细报告"""
-        pass
-
-    @abstractmethod
-    def validate_config_with_cache(self, config_path: str, config_type: str) -> ValidationReport:
-        """带缓存的配置验证"""
-        pass
-
-    @abstractmethod
-    def suggest_config_fixes(self, config: Dict[str, Any], config_type: str) -> List[FixSuggestion]:
-        """为配置提供修复建议"""
-        pass
+def generate_cache_key(config_path: str, config_type: str) -> str:
+    """生成缓存键"""
+    return f"{config_path}_{config_type}"
 
 
 class ConfigValidator(UtilsValidator, IConfigValidator):
@@ -91,12 +42,13 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
     在通用数据验证基础上添加配置特定的业务规则验证和高级功能。
     """
     
-    def __init__(self):
+    def __init__(self, cache_manager=None, config_fixer=None):
         super().__init__()
-        self.cache = ValidationCache()
-        self.config_fixer = ConfigFixer()
+        # 通过依赖注入使用基础设施层的服务
+        self.cache = cache_manager
+        self.config_fixer = config_fixer
 
-    def validate_global_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_global_config(self, config: Dict[str, Any]) -> UtilsConfigValidationResult:
         """验证全局配置
 
         Args:
@@ -130,7 +82,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
 
         return result
 
-    def validate_llm_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_llm_config(self, config: Dict[str, Any]) -> UtilsConfigValidationResult:
         """验证LLM配置
 
         Args:
@@ -197,7 +149,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
 
         return result
 
-    def validate_tool_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_tool_config(self, config: Dict[str, Any]) -> UtilsConfigValidationResult:
         """验证工具配置
 
         Args:
@@ -216,7 +168,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
 
         return result
 
-    def validate_token_counter_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_token_counter_config(self, config: Dict[str, Any]) -> UtilsConfigValidationResult:
         """验证Token计数器配置
 
         Args:

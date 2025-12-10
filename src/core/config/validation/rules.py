@@ -1,11 +1,13 @@
 """验证规则模块
 
-提供可扩展的验证规则框架。
+包含所有具体的验证规则实现。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from ..validation import ValidationLevel, ValidationSeverity, EnhancedValidationResult
+from typing import Dict, Any, Optional
+import re
+
+from .validation import ValidationLevel, ValidationSeverity, EnhancedValidationResult
 
 
 class ValidationRule(ABC):
@@ -150,8 +152,6 @@ class RegexPatternRule(ValidationRule):
     
     def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> EnhancedValidationResult:
         """验证正则表达式"""
-        import re
-        
         keys = self.field_path.split('.')
         current = config
         

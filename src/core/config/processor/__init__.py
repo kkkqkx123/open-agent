@@ -3,7 +3,7 @@
 from .config_processor_chain import ConfigProcessorChain
 from src.infrastructure.config.processor import InheritanceProcessor, EnvironmentProcessor, ReferenceProcessor
 from .validator import ConfigValidator, IConfigValidator, ValidationResult
-from ..validation import ValidationLevel, ValidationSeverity, ValidationCache, ValidationReport, EnhancedValidationResult, ConfigFixer, FixSuggestion
+from ..validation.validation import ValidationLevel, ValidationSeverity, ValidationCache, ValidationReport, EnhancedValidationResult, ConfigFixer, FixSuggestion
 
 __all__ = [
     'ConfigProcessorChain',
