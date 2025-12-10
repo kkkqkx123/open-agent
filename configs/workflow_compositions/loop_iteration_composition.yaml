@@ -1,0 +1,220 @@
+# 循环迭代组合工作流配置示例
+name: "loop_iteration_composition"
+version: "1.0.0"
+description: "循环执行工作流直到满足条件的组合工作流"
+strategy: "loop"
+
+# 组合工作流状态模式
+state_schema:
+  name: "LoopIterationState"
+  fields:
+    input_data:
+      type: "dict"
+      default: {}
+      description: "输入数据"
+    iteration_count:
+      type: "int"
+      default: 0
+      description: "当前迭代次数"
+    max_iterations:
+      type: "int"
+      default: 10
+      description: "最大迭代次数"
+    loop_condition:
+      type: "dict"
+      default: {}
+      description: "循环条件"
+    iteration_results:
+      type: "List[dict]"
+      default: []
+      reducer: "extend"
+      description: "每次迭代的结果"
+    final_result:
+      type: "dict"
+      default: {}
+      description: "最终结果"
+    composition_status:
+      type: "str"
+      default: "pending"
+      description: "组合执行状态"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+
+# 组件工作流配置
+workflows:
+  - workflow_id: "iteration_processor"
+    name: "迭代处理工作流"
+    description: "执行单次迭代处理"
+    input_mapping:
+      data: "input_data"
+      iteration_count: "iteration_count"
+      previous_results: "iteration_results"
+      processing_config: "config.iteration_processing"
+    output_mapping:
+      iteration_result: "iteration_result"
+      updated_data: "input_data"
+      should_continue: "loop_condition.should_continue"
+      next_iteration_data: "loop_condition.next_data"
+    error_handling:
+      on_failure: "continue"
+      retry_count: 1
+
+# 组合级别配置
+composition_config:
+  # 错误处理策略
+  error_handling:
+    on_failure: "continue"
+    retry_count: 1
+    retry_delay: 0.1
+    continue_on_error: true
+    max_consecutive_errors: 3
+  
+  # 执行配置
+  execution:
+    timeout: 600
+    max_parallel_workflows: 1  # 循环执行，只执行一个工作流
+    checkpoint_interval: 1
+    evaluate_loop_condition_after_iteration: true
+  
+  # 监控配置
+  monitoring:
+    enable_metrics: true
+    enable_logging: true
+    log_level: "INFO"
+    log_iteration_progress: true
+    track_iteration_performance: true
+  
+  # 循环控制配置
+  loop_control:
+    max_iterations: 10
+    min_iterations: 1
+    iteration_timeout: 60
+    break_on_error: false
+    break_on_condition: true
+    condition_evaluation_delay: 0.1
+
+# 组合节点配置
+nodes:
+  composition_start:
+    function: "composition_start_node"
+    config:
+      description: "组合工作流开始节点"
+    description: "循环迭代组合的起始点"
+  
+  loop_initializer:
+    function: "loop_initializer_node"
+    config:
+      description: "循环初始化节点"
+    description: "初始化循环变量和条件"
+  
+  iteration_controller:
+    function: "iteration_controller_node"
+    config:
+      description: "迭代控制节点"
+    description: "控制循环迭代逻辑"
+  
+  iteration_processor:
+    function: "iteration_processor_node"
+    config:
+      description: "迭代处理节点"
+    description: "执行单次迭代处理"
+  
+  loop_terminator:
+    function: "loop_terminator_node"
+    config:
+      description: "循环终止节点"
+    description: "处理循环终止逻辑"
+  
+  composition_end:
+    function: "composition_end_node"
+    config:
+      description: "组合工作流结束节点"
+    description: "循环迭代组合的结束点"
+
+# 组合边配置
+edges:
+  - from: "composition_start"
+    to: "loop_initializer"
+    type: "simple"
+    description: "开始循环初始化"
+  
+  - from: "loop_initializer"
+    to: "iteration_controller"
+    type: "simple"
+    description: "初始化完成，开始迭代控制"
+  
+  - from: "iteration_controller"
+    to: "iteration_processor"
+    type: "conditional"
+    condition: "should_continue_iteration"
+    description: "满足循环条件，执行迭代"
+  
+  - from: "iteration_processor"
+    to: "iteration_controller"
+    type: "simple"
+    description: "迭代完成，继续下一次迭代"
+  
+  - from: "iteration_controller"
+    to: "loop_terminator"
+    type: "conditional"
+    condition: "!should_continue_iteration"
+    description: "不满足循环条件，终止循环"
+  
+  - from: "loop_terminator"
+    to: "composition_end"
+    type: "simple"
+    description: "循环终止，结束组合"
+
+# 入口点
+entry_point: "composition_start"
+
+# 验证规则
+validation_rules:
+  - field: "strategy"
+    rule_type: "required"
+    message: "组合策略不能为空"
+  - field: "workflows"
+    rule_type: "required"
+    message: "组件工作流列表不能为空"
+  - field: "workflows"
+    rule_type: "min_length"
+    value: 1
+    message: "至少需要一个组件工作流"
+  - field: "composition_config.loop_control.max_iterations"
+    rule_type: "range"
+    value: [1, 1000]
+    message: "最大迭代次数必须在1-1000之间"
+  - field: "composition_config.loop_control.min_iterations"
+    rule_type: "range"
+    value: [0, 100]
+    message: "最小迭代次数必须在0-100之间"
+
+# 环境变量配置
+environment_variables:
+  - name: "LOOP_TIMEOUT"
+    default: "600"
+    description: "循环组合超时时间（秒）"
+  - name: "MAX_ITERATIONS"
+    default: "10"
+    description: "最大迭代次数"
+  - name: "ITERATION_TIMEOUT"
+    default: "60"
+    description: "单次迭代超时时间（秒）"
+  - name: "ENABLE_ITERATION_LOGGING"
+    default: "true"
+    description: "是否启用迭代日志"
+
+# 标签和元数据
+metadata:
+  tags:
+    - "composition"
+    - "loop"
+    - "iteration"
+    - "example"
+  category: "iterative_processing"
+  author: "workflow_system"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"

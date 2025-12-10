@@ -1,0 +1,161 @@
+# 顺序分析组合工作流配置示例
+name: "sequential_analysis_composition"
+version: "1.0.0"
+description: "顺序执行数据预处理和分析的组合工作流"
+strategy: "sequential"
+
+# 组合工作流状态模式
+state_schema:
+  name: "SequentialAnalysisState"
+  fields:
+    raw_data:
+      type: "dict"
+      default: {}
+      description: "原始输入数据"
+    preprocessed_data:
+      type: "dict"
+      default: {}
+      description: "预处理后的数据"
+    analysis_result:
+      type: "dict"
+      default: {}
+      description: "分析结果"
+    composition_status:
+      type: "str"
+      default: "pending"
+      description: "组合执行状态"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+
+# 组件工作流配置
+workflows:
+  - workflow_id: "data_preprocessing"
+    name: "数据预处理工作流"
+    description: "负责数据清洗和预处理"
+    input_mapping:
+      raw_data: "raw_data"
+      preprocessing_config: "config.preprocessing"
+    output_mapping:
+      processed_data: "preprocessed_data"
+      preprocessing_stats: "stats.preprocessing"
+    error_handling:
+      on_failure: "continue"
+      retry_count: 2
+    
+  - workflow_id: "data_analysis"
+    name: "数据分析工作流"
+    description: "执行数据分析和统计"
+    input_mapping:
+      data: "preprocessed_data"
+      analysis_config: "config.analysis"
+    output_mapping:
+      result: "analysis_result"
+      analysis_stats: "stats.analysis"
+    error_handling:
+      on_failure: "rollback"
+      retry_count: 3
+
+# 组合级别配置
+composition_config:
+  # 错误处理策略
+  error_handling:
+    on_failure: "rollback"
+    retry_count: 3
+    retry_delay: 1.0
+    continue_on_error: false
+  
+  # 执行配置
+  execution:
+    timeout: 600
+    max_parallel_workflows: 1  # 顺序执行
+    checkpoint_interval: 1
+  
+  # 监控配置
+  monitoring:
+    enable_metrics: true
+    enable_logging: true
+    log_level: "INFO"
+  
+  # 数据传递配置
+  data_flow:
+    validate_mappings: true
+    strict_mode: false
+    preserve_intermediate_results: true
+
+# 组合节点配置（用于可视化和管理）
+nodes:
+  composition_start:
+    function: "composition_start_node"
+    config:
+      description: "组合工作流开始节点"
+    description: "组合工作流的起始点"
+  
+  composition_end:
+    function: "composition_end_node"
+    config:
+      description: "组合工作流结束节点"
+    description: "组合工作流的结束点"
+
+# 组合边配置
+edges:
+  - from: "composition_start"
+    to: "data_preprocessing"
+    type: "simple"
+    description: "开始数据预处理"
+  
+  - from: "data_preprocessing"
+    to: "data_analysis"
+    type: "simple"
+    description: "预处理完成后开始分析"
+  
+  - from: "data_analysis"
+    to: "composition_end"
+    type: "simple"
+    description: "分析完成后结束"
+
+# 入口点
+entry_point: "composition_start"
+
+# 验证规则
+validation_rules:
+  - field: "strategy"
+    rule_type: "required"
+    message: "组合策略不能为空"
+  - field: "workflows"
+    rule_type: "required"
+    message: "组件工作流列表不能为空"
+  - field: "workflows"
+    rule_type: "min_length"
+    value: 1
+    message: "至少需要一个组件工作流"
+  - field: "composition_config.error_handling.retry_count"
+    rule_type: "range"
+    value: [0, 10]
+    message: "重试次数必须在0-10之间"
+
+# 环境变量配置
+environment_variables:
+  - name: "COMPOSITION_TIMEOUT"
+    default: "600"
+    description: "组合工作流超时时间（秒）"
+  - name: "ENABLE_MONITORING"
+    default: "true"
+    description: "是否启用监控"
+  - name: "LOG_LEVEL"
+    default: "INFO"
+    description: "日志级别"
+
+# 标签和元数据
+metadata:
+  tags:
+    - "composition"
+    - "sequential"
+    - "data_analysis"
+    - "example"
+  category: "data_processing"
+  author: "workflow_system"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"

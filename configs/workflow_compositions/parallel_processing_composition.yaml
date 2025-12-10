@@ -1,0 +1,216 @@
+# 并行处理组合工作流配置示例
+name: "parallel_processing_composition"
+version: "1.0.0"
+description: "并行执行多个数据处理任务的组合工作流"
+strategy: "parallel"
+
+# 组合工作流状态模式
+state_schema:
+  name: "ParallelProcessingState"
+  fields:
+    input_data:
+      type: "dict"
+      default: {}
+      description: "输入数据"
+    task_results:
+      type: "dict"
+      default: {}
+      reducer: "merge"
+      description: "各任务执行结果"
+    parallel_status:
+      type: "dict"
+      default: {}
+      description: "并行任务状态"
+    composition_status:
+      type: "str"
+      default: "pending"
+      description: "组合执行状态"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+
+# 组件工作流配置
+workflows:
+  - workflow_id: "image_processing"
+    name: "图像处理工作流"
+    description: "处理图像数据"
+    input_mapping:
+      images: "input_data.images"
+      processing_config: "config.image_processing"
+    output_mapping:
+      processed_images: "task_results.image_processing"
+      image_stats: "task_results.image_stats"
+    error_handling:
+      on_failure: "continue"
+      retry_count: 2
+    
+  - workflow_id: "text_analysis"
+    name: "文本分析工作流"
+    description: "分析文本数据"
+    input_mapping:
+      texts: "input_data.texts"
+      analysis_config: "config.text_analysis"
+    output_mapping:
+      analysis_results: "task_results.text_analysis"
+      text_stats: "task_results.text_stats"
+    error_handling:
+      on_failure: "continue"
+      retry_count: 2
+    
+  - workflow_id: "data_validation"
+    name: "数据验证工作流"
+    description: "验证数据完整性"
+    input_mapping:
+      data: "input_data"
+      validation_rules: "config.validation"
+    output_mapping:
+      validation_results: "task_results.validation"
+      validation_report: "task_results.validation_report"
+    error_handling:
+      on_failure: "continue"
+      retry_count: 1
+
+# 组合级别配置
+composition_config:
+  # 错误处理策略
+  error_handling:
+    on_failure: "continue"  # 并行执行时继续其他任务
+    retry_count: 2
+    retry_delay: 0.5
+    continue_on_error: true
+    fail_on_all_errors: true  # 所有任务都失败时才失败
+  
+  # 执行配置
+  execution:
+    timeout: 300
+    max_parallel_workflows: 3  # 并行执行所有工作流
+    checkpoint_interval: 1
+    wait_for_completion: true
+  
+  # 监控配置
+  monitoring:
+    enable_metrics: true
+    enable_logging: true
+    log_level: "INFO"
+    track_individual_progress: true
+  
+  # 数据传递配置
+  data_flow:
+    validate_mappings: true
+    strict_mode: false
+    preserve_intermediate_results: true
+    merge_strategy: "deep_merge"
+
+# 组合节点配置
+nodes:
+  composition_start:
+    function: "composition_start_node"
+    config:
+      description: "组合工作流开始节点"
+    description: "并行处理组合的起始点"
+  
+  parallel_fork:
+    function: "parallel_fork_node"
+    config:
+      description: "并行分叉节点"
+    description: "创建并行执行分支"
+  
+  parallel_join:
+    function: "parallel_join_node"
+    config:
+      description: "并行汇聚节点"
+    description: "汇聚并行执行结果"
+  
+  composition_end:
+    function: "composition_end_node"
+    config:
+      description: "组合工作流结束节点"
+    description: "并行处理组合的结束点"
+
+# 组合边配置
+edges:
+  - from: "composition_start"
+    to: "parallel_fork"
+    type: "simple"
+    description: "开始并行处理"
+  
+  - from: "parallel_fork"
+    to: "image_processing"
+    type: "simple"
+    description: "启动图像处理分支"
+  
+  - from: "parallel_fork"
+    to: "text_analysis"
+    type: "simple"
+    description: "启动文本分析分支"
+  
+  - from: "parallel_fork"
+    to: "data_validation"
+    type: "simple"
+    description: "启动数据验证分支"
+  
+  - from: "image_processing"
+    to: "parallel_join"
+    type: "simple"
+    description: "图像处理完成，等待汇聚"
+  
+  - from: "text_analysis"
+    to: "parallel_join"
+    type: "simple"
+    description: "文本分析完成，等待汇聚"
+  
+  - from: "data_validation"
+    to: "parallel_join"
+    type: "simple"
+    description: "数据验证完成，等待汇聚"
+  
+  - from: "parallel_join"
+    to: "composition_end"
+    type: "simple"
+    description: "所有任务完成，结束组合"
+
+# 入口点
+entry_point: "composition_start"
+
+# 验证规则
+validation_rules:
+  - field: "strategy"
+    rule_type: "required"
+    message: "组合策略不能为空"
+  - field: "workflows"
+    rule_type: "required"
+    message: "组件工作流列表不能为空"
+  - field: "workflows"
+    rule_type: "min_length"
+    value: 2
+    message: "并行组合至少需要两个组件工作流"
+  - field: "composition_config.execution.max_parallel_workflows"
+    rule_type: "min_value"
+    value: 2
+    message: "并行执行的最大工作流数至少为2"
+
+# 环境变量配置
+environment_variables:
+  - name: "PARALLEL_TIMEOUT"
+    default: "300"
+    description: "并行组合超时时间（秒）"
+  - name: "MAX_PARALLEL_WORKFLOWS"
+    default: "3"
+    description: "最大并行工作流数量"
+  - name: "ENABLE_PROGRESS_TRACKING"
+    default: "true"
+    description: "是否启用进度跟踪"
+
+# 标签和元数据
+metadata:
+  tags:
+    - "composition"
+    - "parallel"
+    - "data_processing"
+    - "example"
+  category: "parallel_processing"
+  author: "workflow_system"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"

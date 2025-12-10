@@ -1,0 +1,233 @@
+# 条件路由组合工作流配置示例
+name: "conditional_routing_composition"
+version: "1.0.0"
+description: "根据条件选择执行不同工作流的组合工作流"
+strategy: "conditional"
+
+# 组合工作流状态模式
+state_schema:
+  name: "ConditionalRoutingState"
+  fields:
+    input_data:
+      type: "dict"
+      default: {}
+      description: "输入数据"
+    routing_condition:
+      type: "str"
+      default: ""
+      description: "路由条件"
+    selected_workflow:
+      type: "str"
+      default: ""
+      description: "选中的工作流"
+    execution_result:
+      type: "dict"
+      default: {}
+      description: "执行结果"
+    composition_status:
+      type: "str"
+      default: "pending"
+      description: "组合执行状态"
+    errors:
+      type: "List[str]"
+      default: []
+      reducer: "extend"
+      description: "错误列表"
+
+# 组件工作流配置
+workflows:
+  - workflow_id: "simple_processing"
+    name: "简单处理工作流"
+    description: "处理简单数据"
+    input_mapping:
+      data: "input_data"
+      config: "config.simple_processing"
+    output_mapping:
+      result: "execution_result"
+      processing_type: "execution_result.processing_type"
+    condition:
+      field: "routing_condition"
+      operator: "equals"
+      value: "simple"
+    error_handling:
+      on_failure: "fallback"
+      retry_count: 1
+    
+  - workflow_id: "complex_processing"
+    name: "复杂处理工作流"
+    description: "处理复杂数据"
+    input_mapping:
+      data: "input_data"
+      config: "config.complex_processing"
+    output_mapping:
+      result: "execution_result"
+      processing_type: "execution_result.processing_type"
+    condition:
+      field: "routing_condition"
+      operator: "equals"
+      value: "complex"
+    error_handling:
+      on_failure: "fallback"
+      retry_count: 2
+    
+  - workflow_id: "advanced_processing"
+    name: "高级处理工作流"
+    description: "处理高级数据"
+    input_mapping:
+      data: "input_data"
+      config: "config.advanced_processing"
+    output_mapping:
+      result: "execution_result"
+      processing_type: "execution_result.processing_type"
+    condition:
+      field: "routing_condition"
+      operator: "equals"
+      value: "advanced"
+    error_handling:
+      on_failure: "fallback"
+      retry_count: 3
+
+# 组合级别配置
+composition_config:
+  # 错误处理策略
+  error_handling:
+    on_failure: "fallback"
+    retry_count: 1
+    retry_delay: 0.5
+    continue_on_error: false
+    fallback_workflow: "simple_processing"  # 默认回退工作流
+  
+  # 执行配置
+  execution:
+    timeout: 180
+    max_parallel_workflows: 1  # 条件执行，只选择一个
+    checkpoint_interval: 1
+    evaluate_conditions_before_execution: true
+  
+  # 监控配置
+  monitoring:
+    enable_metrics: true
+    enable_logging: true
+    log_level: "INFO"
+    log_condition_evaluation: true
+  
+  # 条件评估配置
+  condition_evaluation:
+    strict_mode: true
+    default_condition: "simple"
+    cache_condition_results: false
+
+# 组合节点配置
+nodes:
+  composition_start:
+    function: "composition_start_node"
+    config:
+      description: "组合工作流开始节点"
+    description: "条件路由组合的起始点"
+  
+  condition_evaluator:
+    function: "condition_evaluator_node"
+    config:
+      description: "条件评估节点"
+    description: "评估路由条件"
+  
+  workflow_router:
+    function: "workflow_router_node"
+    config:
+      description: "工作流路由节点"
+    description: "根据条件路由到相应工作流"
+  
+  composition_end:
+    function: "composition_end_node"
+    config:
+      description: "组合工作流结束节点"
+    description: "条件路由组合的结束点"
+
+# 组合边配置
+edges:
+  - from: "composition_start"
+    to: "condition_evaluator"
+    type: "simple"
+    description: "开始条件评估"
+  
+  - from: "condition_evaluator"
+    to: "workflow_router"
+    type: "simple"
+    description: "条件评估完成，开始路由"
+  
+  - from: "workflow_router"
+    to: "simple_processing"
+    type: "conditional"
+    condition: "routing_condition == 'simple'"
+    description: "路由到简单处理工作流"
+  
+  - from: "workflow_router"
+    to: "complex_processing"
+    type: "conditional"
+    condition: "routing_condition == 'complex'"
+    description: "路由到复杂处理工作流"
+  
+  - from: "workflow_router"
+    to: "advanced_processing"
+    type: "conditional"
+    condition: "routing_condition == 'advanced'"
+    description: "路由到高级处理工作流"
+  
+  - from: "simple_processing"
+    to: "composition_end"
+    type: "simple"
+    description: "简单处理完成"
+  
+  - from: "complex_processing"
+    to: "composition_end"
+    type: "simple"
+    description: "复杂处理完成"
+  
+  - from: "advanced_processing"
+    to: "composition_end"
+    type: "simple"
+    description: "高级处理完成"
+
+# 入口点
+entry_point: "composition_start"
+
+# 验证规则
+validation_rules:
+  - field: "strategy"
+    rule_type: "required"
+    message: "组合策略不能为空"
+  - field: "workflows"
+    rule_type: "required"
+    message: "组件工作流列表不能为空"
+  - field: "workflows"
+    rule_type: "min_length"
+    value: 1
+    message: "至少需要一个组件工作流"
+  - field: "workflows"
+    rule_type: "custom"
+    validator: "validate_workflow_conditions"
+    message: "每个工作流必须包含有效的条件配置"
+
+# 环境变量配置
+environment_variables:
+  - name: "CONDITIONAL_TIMEOUT"
+    default: "180"
+    description: "条件组合超时时间（秒）"
+  - name: "DEFAULT_CONDITION"
+    default: "simple"
+    description: "默认路由条件"
+  - name: "ENABLE_CONDITION_LOGGING"
+    default: "true"
+    description: "是否启用条件评估日志"
+
+# 标签和元数据
+metadata:
+  tags:
+    - "composition"
+    - "conditional"
+    - "routing"
+    - "example"
+  category: "conditional_processing"
+  author: "workflow_system"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"

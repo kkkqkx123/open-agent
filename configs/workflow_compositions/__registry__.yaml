@@ -1,0 +1,228 @@
+# 工作流组合配置注册表
+# 用于管理和发现所有可用的工作流组合配置
+
+registry:
+  name: "workflow_compositions_registry"
+  version: "1.0.0"
+  description: "工作流组合配置注册表"
+
+# 组合配置列表
+compositions:
+  # 顺序组合示例
+  - name: "sequential_analysis_composition"
+    file: "sequential_analysis_composition.yaml"
+    description: "顺序执行数据预处理和分析的组合工作流"
+    strategy: "sequential"
+    tags:
+      - "sequential"
+      - "data_analysis"
+      - "example"
+    category: "data_processing"
+    status: "active"
+    
+  # 并行组合示例
+  - name: "parallel_processing_composition"
+    file: "parallel_processing_composition.yaml"
+    description: "并行执行多个数据处理任务的组合工作流"
+    strategy: "parallel"
+    tags:
+      - "parallel"
+      - "data_processing"
+      - "example"
+    category: "parallel_processing"
+    status: "active"
+    
+  # 条件组合示例
+  - name: "conditional_routing_composition"
+    file: "conditional_routing_composition.yaml"
+    description: "根据条件选择执行不同工作流的组合工作流"
+    strategy: "conditional"
+    tags:
+      - "conditional"
+      - "routing"
+      - "example"
+    category: "conditional_processing"
+    status: "active"
+    
+  # 循环组合示例
+  - name: "loop_iteration_composition"
+    file: "loop_iteration_composition.yaml"
+    description: "循环执行工作流直到满足条件的组合工作流"
+    strategy: "loop"
+    tags:
+      - "loop"
+      - "iteration"
+      - "example"
+    category: "iterative_processing"
+    status: "active"
+
+# 策略类型映射
+strategy_types:
+  sequential:
+    description: "顺序执行策略"
+    supported_features:
+      - "error_handling"
+      - "retry_mechanism"
+      - "data_mapping"
+    example_compositions:
+      - "sequential_analysis_composition"
+      
+  parallel:
+    description: "并行执行策略"
+    supported_features:
+      - "parallel_execution"
+      - "result_aggregation"
+      - "fault_tolerance"
+    example_compositions:
+      - "parallel_processing_composition"
+      
+  conditional:
+    description: "条件执行策略"
+    supported_features:
+      - "condition_evaluation"
+      - "dynamic_routing"
+      - "fallback_mechanism"
+    example_compositions:
+      - "conditional_routing_composition"
+      
+  loop:
+    description: "循环执行策略"
+    supported_features:
+      - "iteration_control"
+      - "termination_conditions"
+      - "progress_tracking"
+    example_compositions:
+      - "loop_iteration_composition"
+
+# 分类信息
+categories:
+  data_processing:
+    description: "数据处理相关的组合工作流"
+    compositions:
+      - "sequential_analysis_composition"
+      - "parallel_processing_composition"
+      
+  parallel_processing:
+    description: "并行处理相关的组合工作流"
+    compositions:
+      - "parallel_processing_composition"
+      
+  conditional_processing:
+    description: "条件处理相关的组合工作流"
+    compositions:
+      - "conditional_routing_composition"
+      
+  iterative_processing:
+    description: "迭代处理相关的组合工作流"
+    compositions:
+      - "loop_iteration_composition"
+
+# 标签索引
+tags:
+  sequential:
+    compositions:
+      - "sequential_analysis_composition"
+      
+  parallel:
+    compositions:
+      - "parallel_processing_composition"
+      
+  conditional:
+    compositions:
+      - "conditional_routing_composition"
+      
+  loop:
+    compositions:
+      - "loop_iteration_composition"
+      
+  data_analysis:
+    compositions:
+      - "sequential_analysis_composition"
+      
+  data_processing:
+    compositions:
+      - "sequential_analysis_composition"
+      - "parallel_processing_composition"
+      
+  routing:
+    compositions:
+      - "conditional_routing_composition"
+      
+  iteration:
+    compositions:
+      - "loop_iteration_composition"
+      
+  example:
+    compositions:
+      - "sequential_analysis_composition"
+      - "parallel_processing_composition"
+      - "conditional_routing_composition"
+      - "loop_iteration_composition"
+
+# 配置验证规则
+validation_rules:
+  global:
+    - field: "name"
+      rule_type: "required"
+      message: "组合名称不能为空"
+    - field: "strategy"
+      rule_type: "required"
+      message: "组合策略不能为空"
+    - field: "workflows"
+      rule_type: "required"
+      message: "组件工作流列表不能为空"
+      
+  strategy_specific:
+    sequential:
+      - field: "workflows"
+        rule_type: "min_length"
+        value: 1
+        message: "顺序组合至少需要一个工作流"
+    parallel:
+      - field: "workflows"
+        rule_type: "min_length"
+        value: 2
+        message: "并行组合至少需要两个工作流"
+    conditional:
+      - field: "workflows"
+        rule_type: "custom"
+        validator: "validate_workflow_conditions"
+        message: "条件组合的每个工作流必须包含有效的条件配置"
+    loop:
+      - field: "composition_config.loop_control.max_iterations"
+        rule_type: "min_value"
+        value: 1
+        message: "循环组合的最大迭代次数至少为1"
+
+# 环境变量模板
+environment_templates:
+  common:
+    - name: "ENABLE_MONITORING"
+      default: "true"
+      description: "是否启用监控"
+    - name: "LOG_LEVEL"
+      default: "INFO"
+      description: "日志级别"
+      
+  timeout:
+    - name: "COMPOSITION_TIMEOUT"
+      default: "300"
+      description: "组合工作流超时时间（秒）"
+      
+  retry:
+    - name: "MAX_RETRIES"
+      default: "3"
+      description: "最大重试次数"
+    - name: "RETRY_DELAY"
+      default: "1.0"
+      description: "重试延迟（秒）"
+
+# 元数据
+metadata:
+  registry_version: "1.0.0"
+  created_at: "2024-01-01T00:00:00Z"
+  updated_at: "2024-01-01T00:00:00Z"
+  total_compositions: 4
+  supported_strategies: 4
+  total_categories: 4
+  total_tags: 9
