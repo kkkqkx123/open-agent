@@ -8,7 +8,7 @@ from .framework import (
     ValidationLevel,
     ValidationSeverity,
     ValidationResult,
-    EnhancedValidationResult,
+    ValidationResult,
     ValidationReport
 )
 
@@ -37,7 +37,7 @@ __all__ = [
     "ValidationLevel",
     "ValidationSeverity", 
     "ValidationResult",
-    "EnhancedValidationResult",
+    "ValidationResult",
     "ValidationReport",
     
     # 验证规则

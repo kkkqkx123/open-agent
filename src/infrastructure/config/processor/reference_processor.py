@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, Set
 
-from src.interfaces.config.interfaces import IConfigProcessor
+from src.interfaces.config import IConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)

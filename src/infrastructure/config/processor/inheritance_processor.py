@@ -9,8 +9,8 @@ import yaml
 from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
-from src.interfaces.configuration import ConfigError as ConfigurationError
-from src.interfaces.config.interfaces import IConfigInheritanceHandler, IConfigProcessor, IConfigLoader
+from src.interfaces.config import ConfigError as ConfigurationError
+from src.interfaces.config import IConfigInheritanceHandler, IConfigProcessor, IConfigLoader
 import logging
 
 logger = logging.getLogger(__name__)

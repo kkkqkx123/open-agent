@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
+from src.infrastructure.config.fixer import FixSuggestion
 from src.interfaces.common_domain import ValidationResult as BaseValidationResult
 
 

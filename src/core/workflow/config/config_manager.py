@@ -12,7 +12,7 @@ import hashlib
 
 from src.core.workflow.config import WorkflowConfig, GraphConfig
 from src.interfaces.workflow.exceptions import WorkflowConfigError, WorkflowValidationError
-from src.core.config.config_loader import ConfigLoader
+from src.interfaces.config import IConfigLoader, IConfigInheritanceHandler
 
 logger = get_logger(__name__)
 
@@ -54,13 +54,15 @@ class WorkflowConfigManager(IWorkflowConfigManager):
     - 配置元数据管理
     """
     
-    def __init__(self, config_loader: Optional[ConfigLoader] = None):
+    def __init__(self, config_loader: Optional[IConfigLoader] = None, inheritance_handler: Optional[IConfigInheritanceHandler] = None):
         """初始化配置管理器
         
         Args:
             config_loader: 配置加载器
+            inheritance_handler: 继承处理器
         """
         self.config_loader = config_loader
+        self._inheritance_handler = inheritance_handler
         self._configs: Dict[str, WorkflowConfig] = {}
         self._config_metadata: Dict[str, Dict[str, Any]] = {}
     
@@ -85,6 +87,13 @@ class WorkflowConfigManager(IWorkflowConfigManager):
             # 加载配置
             if self.config_loader:
                 config_dict = self.config_loader.load(config_path)
+                
+                # 如果有继承处理器，处理继承关系
+                if self._inheritance_handler and "inherits_from" in config_dict:
+                    config_dict = self._inheritance_handler.resolve_inheritance(
+                        config_dict, Path(config_path).parent
+                    )
+                
                 config = WorkflowConfig.from_dict(config_dict)
             else:
                 # 简化实现，实际应该使用依赖注入的config_loader

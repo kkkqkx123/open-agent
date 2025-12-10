@@ -14,7 +14,7 @@ from src.interfaces.configuration import (
     ConfigurationParseError as ConfigFormatError,
     ConfigError
 )
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader
 
 class ConfigLoader(IConfigLoader):
     """基础配置加载器，只负责文件读取和格式解析"""

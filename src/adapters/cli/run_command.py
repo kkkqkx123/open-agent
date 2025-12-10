@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from src.services.container import get_global_container
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader
 from src.interfaces.sessions import ISessionService
 from src.core.sessions.entities import UserRequestEntity, UserInteractionEntity
 from src.interfaces.workflow.services import IWorkflowManager

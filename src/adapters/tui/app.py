@@ -38,7 +38,7 @@ from .session_handler import SessionHandler
 
 # 新架构导入
 from src.services.container import get_global_container
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader
 from src.core.config.models.global_config import GlobalConfig
 from src.interfaces.sessions.service import ISessionService
 from src.core.state import WorkflowState

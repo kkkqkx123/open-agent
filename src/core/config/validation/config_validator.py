@@ -4,8 +4,9 @@
 """
 
 from typing import Dict, Any, List
+from pydantic import BaseModel
 
-from .framework import ValidationLevel, ValidationSeverity, EnhancedValidationResult, ValidationReport
+from .framework import ValidationLevel, ValidationSeverity, ValidationReport, EnhancedValidationResult
 
 # 导入配置模型
 from ..models.global_config import GlobalConfig
@@ -25,7 +26,8 @@ from src.infrastructure.cache.core.cache_manager import CacheManager
 from src.infrastructure.cache.config.cache_config import BaseCacheConfig
 
 # 导入接口
-from src.interfaces.config.interfaces import IConfigValidator
+from src.interfaces.config import IConfigValidator
+from src.interfaces.common_domain import ValidationResult
 
 # 为了兼容性，创建一个别名
 UtilsConfigValidationResult = UtilsValidationResult
@@ -36,17 +38,69 @@ def generate_cache_key(config_path: str, config_type: str) -> str:
     return f"{config_path}_{config_type}"
 
 
-class ConfigValidator(UtilsValidator, IConfigValidator):
+class ConfigValidator(IConfigValidator):
     """配置验证器
     
     在通用数据验证基础上添加配置特定的业务规则验证和高级功能。
     """
     
     def __init__(self, cache_manager=None, config_fixer=None):
-        super().__init__()
         # 通过依赖注入使用基础设施层的服务
         self.cache = cache_manager
         self.config_fixer = config_fixer
+        # 使用组合方式持有工具验证器实例
+        self._utils_validator = UtilsValidator()
+    
+    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+        """验证配置
+        
+        Args:
+            config: 配置字典
+            
+        Returns:
+            验证结果
+        """
+        # 创建基础验证结果
+        result = ValidationResult(
+            is_valid=True,
+            errors=[],
+            warnings=[]
+        )
+        
+        # 基础结构验证
+        if not isinstance(config, dict):
+            result.add_error("配置必须是字典类型")
+            return result
+        
+        if not config:
+            result.add_error("配置不能为空")
+            return result
+        
+        return result
+    
+    def supports_module_type(self, module_type: str) -> bool:
+        """检查是否支持指定模块类型
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            是否支持
+        """
+        supported_types = ["global", "llm", "tool", "token_counter"]
+        return module_type in supported_types
+    
+    def _validate_with_model(self, config: Dict[str, Any], model: type[BaseModel]) -> UtilsConfigValidationResult:
+        """使用Pydantic模型验证配置
+        
+        Args:
+            config: 配置字典
+            model: Pydantic模型类
+            
+        Returns:
+            验证结果
+        """
+        return self._utils_validator.validate(config, model)
 
     def validate_global_config(self, config: Dict[str, Any]) -> UtilsConfigValidationResult:
         """验证全局配置
@@ -57,7 +111,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         Returns:
             验证结果
         """
-        result = self.validate(config, GlobalConfig)
+        result = self._validate_with_model(config, GlobalConfig)
 
         # 额外的业务逻辑验证
         if result.is_valid:
@@ -91,7 +145,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         Returns:
             验证结果
         """
-        result = self.validate(config, LLMConfig)
+        result = self._validate_with_model(config, LLMConfig)
 
         # 额外的业务逻辑验证
         if result.is_valid:
@@ -158,7 +212,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         Returns:
             验证结果
         """
-        result = self.validate(config, ToolConfig)
+        result = self._validate_with_model(config, ToolConfig)
 
         # 额外的业务逻辑验证
         if result.is_valid:
@@ -177,7 +231,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         Returns:
             验证结果
         """
-        result = self.validate(config, TokenCounterConfig)
+        result = self._validate_with_model(config, TokenCounterConfig)
 
         # 额外的业务逻辑验证
         if result.is_valid:
@@ -206,7 +260,7 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
 
     # 新增增强功能方法
     def _validate_config_with_report(self, config: Dict[str, Any], config_type: str,
-                                   validation_method) -> ValidationReport:
+                                    validation_method) -> ValidationReport:
         """通用验证报告方法"""
         report = ValidationReport(f"{config_type}_config")
         # 基础验证
@@ -250,10 +304,12 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
     def validate_config_with_cache(self, config_path: str, config_type: str) -> ValidationReport:
         """带缓存的配置验证"""
         cache_key = f"{config_path}_{config_type}"
-        cached_result = self.cache.get(cache_key)
         
-        if cached_result:
-            return cached_result
+        # 检查缓存
+        if self.cache:
+            cached_result = self.cache.get(cache_key)
+            if cached_result:
+                return cached_result
         
         # 根据配置类型加载并验证配置
         config_data = load_config_file(config_path)
@@ -269,10 +325,12 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         else:
             raise ValueError(f"不支持的配置类型: {config_type}")
         
-        self.cache.set(cache_key, result)
+        # 设置缓存
+        if self.cache:
+            self.cache.set(cache_key, result)
         return result
 
-    def suggest_config_fixes(self, config: Dict[str, Any], config_type: str) -> List[FixSuggestion]:
+    def suggest_config_fixes(self, config: Dict[str, Any], config_type: str) -> List[Any]:
         """为配置提供修复建议"""
         # 先验证配置获取问题
         if config_type == "global":

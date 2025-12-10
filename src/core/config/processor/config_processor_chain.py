@@ -1,6 +1,6 @@
 """配置处理器链实现
 
-提供可组合的配置处理功能，支持继承、环境变量替换和引用解析。
+简化的配置处理器链，直接使用Infrastructure层的处理器。
 """
 
 from typing import Dict, Any, List
@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class ConfigProcessorChain(IConfigProcessor):
-    """配置处理器链
+    """简化的配置处理器链
     
-    按顺序执行多个配置处理器，支持配置的逐步处理。
+    直接使用Infrastructure层的处理器，避免重复实现。
     """
     
     def __init__(self):

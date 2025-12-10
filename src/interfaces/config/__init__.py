@@ -1,32 +1,64 @@
-"""
-配置管理接口模块
+"""配置相关接口统一导出
 
-提供配置系统的统一接口定义，包括配置加载、处理、验证和热重载等功能。
+提供完整的配置系统接口定义，包括加载器、处理器、验证器、管理器和异常定义。
 """
 
-from .interfaces import (
-    IConfigLoader,
-    IConfigInheritanceHandler,
-    IConfigProcessor,
-    IHotReloadManager,
-    IUnifiedConfigManager,
-    IConfigManagerFactory,
-    IConfigValidator,
+# 导入加载器相关接口
+from .loader import IConfigLoader, IConfigInheritanceHandler, IHotReloadManager
+
+# 导入处理器相关接口
+from .processor import IConfigProcessor
+
+# 导入验证器相关接口
+from .validator import IConfigValidator, ConfigValidationResult, ValidationSeverity
+
+# 导入管理器相关接口
+from .manager import IConfigManager, IUnifiedConfigManager, IConfigManagerFactory
+
+# 导入异常定义
+from .exceptions import (
+    ConfigError,
+    ConfigurationValidationError,
+    ConfigurationLoadError,
+    ConfigurationEnvironmentError,
+    ConfigurationParseError,
+    ConfigurationMergeError,
+    ConfigurationSchemaError,
+    ConfigurationInheritanceError
 )
 
+# 为了向后兼容，保留原有的导入路径
+from ..common_domain import ValidationResult
+
 __all__ = [
-    # 核心配置接口
+    # 加载器接口
     "IConfigLoader",
-    "IConfigInheritanceHandler",
-    
-    # 配置处理接口
-    "IConfigProcessor",
+    "IConfigInheritanceHandler", 
     "IHotReloadManager",
     
-    # 统一配置管理
+    # 处理器接口
+    "IConfigProcessor",
+    
+    # 验证器接口
+    "IConfigValidator",
+    "ConfigValidationResult",
+    "ValidationSeverity",
+    
+    # 管理器接口
+    "IConfigManager",
     "IUnifiedConfigManager",
     "IConfigManagerFactory",
     
-    # 配置验证
-    "IConfigValidator",
+    # 异常定义
+    "ConfigError",
+    "ConfigurationValidationError",
+    "ConfigurationLoadError",
+    "ConfigurationEnvironmentError",
+    "ConfigurationParseError",
+    "ConfigurationMergeError",
+    "ConfigurationSchemaError",
+    "ConfigurationInheritanceError",
+    
+    # 向后兼容
+    "ValidationResult"
 ]

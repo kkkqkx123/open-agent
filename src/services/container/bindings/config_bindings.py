@@ -10,12 +10,12 @@ from typing import Dict, Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     # 仅在类型检查时导入，避免运行时循环依赖
-    from src.core.config.config_manager import ConfigManager, DefaultConfigValidator
-    from src.core.config.config_manager_factory import ConfigManagerFactory
+    from src.core.config.config_manager import ConfigManager
+    from src.core.config.validation import BaseConfigValidator
+    from src.core.config.config_manager_factory import CoreConfigManagerFactory
     from src.core.config.processor.config_processor_chain import ConfigProcessorChain
     from src.infrastructure.config.processor import (
         InheritanceProcessor,
-        EnvironmentProcessor,
         ReferenceProcessor
     )
     from src.core.config.adapter_factory import AdapterFactory
@@ -23,7 +23,8 @@ if TYPE_CHECKING:
 # 接口导入 - 集中化的接口定义
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.container.core import ServiceLifetime
-from src.interfaces.config.interfaces import IConfigValidator, IConfigLoader
+from src.interfaces.config import IConfigValidator, IConfigLoader
+from src.core.config.validation import BaseConfigValidator
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
 
@@ -55,7 +56,7 @@ class ConfigServiceBindings(BaseServiceBindings):
         _register_config_validator(container, config, environment)
         _register_config_processor_chain(container, config, environment)
         _register_inheritance_processor(container, config, environment)
-        _register_environment_variable_processor(container, config, environment)
+        # _register_environment_variable_processor 已弃用，因为InheritanceProcessor已包含环境变量处理功能
         _register_reference_processor(container, config, environment)
         _register_adapter_factory(container, config, environment)
         _register_config_loader(container, config, environment)
@@ -72,22 +73,20 @@ class ConfigServiceBindings(BaseServiceBindings):
             # 延迟导入具体实现类，避免循环依赖
             def get_service_types() -> list:
                 from src.core.config.config_manager import ConfigManager
-                from src.core.config.config_manager_factory import ConfigManagerFactory
+                from src.core.config.config_manager_factory import CoreConfigManagerFactory
                 from src.core.config.processor.config_processor_chain import ConfigProcessorChain
                 from src.infrastructure.config.processor import (
                     InheritanceProcessor,
-                    EnvironmentProcessor,
                     ReferenceProcessor
                 )
                 from src.core.config.adapter_factory import AdapterFactory
                 
                 return [
                     ConfigManager,
-                    ConfigManagerFactory,
-                    IConfigValidator,
+                    CoreConfigManagerFactory,
+                    BaseConfigValidator,
                     ConfigProcessorChain,
                     InheritanceProcessor,
-                    EnvironmentProcessor,
                     ReferenceProcessor,
                     AdapterFactory
                 ]
@@ -102,7 +101,7 @@ class ConfigServiceBindings(BaseServiceBindings):
                 set_config_validator_instance,
                 set_config_processor_chain_instance,
                 set_inheritance_processor_instance,
-                set_environment_variable_processor_instance,
+                # set_environment_variable_processor_instance 已弃用
                 set_reference_processor_instance,
                 set_adapter_factory_instance
             )
@@ -110,34 +109,34 @@ class ConfigServiceBindings(BaseServiceBindings):
             # 延迟导入具体实现类进行类型检查
             def get_concrete_types() -> tuple:
                 from src.core.config.config_manager import ConfigManager
-                from src.core.config.config_manager_factory import ConfigManagerFactory
+                from src.core.config.config_manager_factory import CoreConfigManagerFactory
                 from src.core.config.processor.config_processor_chain import ConfigProcessorChain
                 from src.infrastructure.config.processor import (
                     InheritanceProcessor,
-                    EnvironmentProcessor,
                     ReferenceProcessor
                 )
                 from src.core.config.adapter_factory import AdapterFactory
                 return (
                     ConfigManager,
-                    ConfigManagerFactory,
+                    CoreConfigManagerFactory,
                     ConfigProcessorChain,
                     InheritanceProcessor,
-                    EnvironmentProcessor,
                     ReferenceProcessor,
                     AdapterFactory
                 )
             
-            ConfigManager, ConfigManagerFactory, ConfigProcessorChain, InheritanceProcessor, EnvironmentVariableProcessor, ReferenceProcessor, AdapterFactory = get_concrete_types()
+            ConfigManager, CoreConfigManagerFactory, ConfigProcessorChain, InheritanceProcessor, ReferenceProcessor, AdapterFactory = get_concrete_types()
             
             if container.has_service(ConfigManager):
                 set_config_manager_instance(container.get(ConfigManager))
             
-            if container.has_service(ConfigManagerFactory):
-                set_config_manager_factory_instance(container.get(ConfigManagerFactory))
+            if container.has_service(CoreConfigManagerFactory):
+                set_config_manager_factory_instance(container.get(CoreConfigManagerFactory))
             
-            if container.has_service(IConfigValidator):
-                set_config_validator_instance(container.get(IConfigValidator))  # type: ignore[type-abstract]
+            from src.core.config.validation import BaseConfigValidator
+            if container.has_service(BaseConfigValidator):
+                validator = container.get(BaseConfigValidator)
+                set_config_validator_instance(validator)  # type: ignore[arg-type]
             
             if container.has_service(ConfigProcessorChain):
                 set_config_processor_chain_instance(container.get(ConfigProcessorChain))
@@ -145,8 +144,7 @@ class ConfigServiceBindings(BaseServiceBindings):
             if container.has_service(InheritanceProcessor):
                 set_inheritance_processor_instance(container.get(InheritanceProcessor))
             
-            if container.has_service(EnvironmentProcessor):
-                set_environment_variable_processor_instance(container.get(EnvironmentProcessor))
+            # EnvironmentProcessor 已弃用，不再设置全局实例
             
             if container.has_service(ReferenceProcessor):
                 set_reference_processor_instance(container.get(ReferenceProcessor))
@@ -167,7 +165,6 @@ def _register_config_manager(container: IDependencyContainer, config: Dict[str, 
         from src.infrastructure.config import ConfigLoader
         from src.infrastructure.config.processor import (
             InheritanceProcessor,
-            EnvironmentProcessor,
             ReferenceProcessor
         )
         from src.core.config.processor.config_processor_chain import ConfigProcessorChain
@@ -175,12 +172,14 @@ def _register_config_manager(container: IDependencyContainer, config: Dict[str, 
         # 创建基础设施层组件
         config_loader = ConfigLoader()
         processor_chain = ConfigProcessorChain()
-        processor_chain.add_processor(InheritanceProcessor(config_loader))
-        processor_chain.add_processor(EnvironmentProcessor())
+        inheritance_processor = InheritanceProcessor(config_loader)
+        
+        # 添加处理器：InheritanceProcessor已包含环境变量处理功能
+        processor_chain.add_processor(inheritance_processor)
         processor_chain.add_processor(ReferenceProcessor())
         
         # 通过依赖注入创建配置管理器
-        return ConfigManager(config_loader, processor_chain)
+        return ConfigManager(config_loader, processor_chain, inheritance_handler=inheritance_processor)
 
     container.register_factory(
         ConfigManager,
@@ -194,12 +193,17 @@ def _register_config_manager(container: IDependencyContainer, config: Dict[str, 
 def _register_config_manager_factory(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
     """注册配置管理器工厂"""
     # 延迟导入具体实现
-    def create_config_manager_factory() -> ConfigManagerFactory:
-        from src.core.config.config_manager_factory import ConfigManagerFactory
-        return ConfigManagerFactory()
+    def create_config_manager_factory() -> CoreConfigManagerFactory:
+        from src.core.config.config_manager_factory import CoreConfigManagerFactory
+        from src.infrastructure.config import ConfigLoader
+        from src.infrastructure.config.processor import InheritanceProcessor
+        
+        config_loader = ConfigLoader()
+        inheritance_handler = InheritanceProcessor(config_loader)
+        return CoreConfigManagerFactory(config_loader, inheritance_handler)
 
     container.register_factory(
-        ConfigManagerFactory,
+        CoreConfigManagerFactory,
         create_config_manager_factory,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
@@ -210,10 +214,20 @@ def _register_config_manager_factory(container: IDependencyContainer, config: Di
 def _register_config_validator(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
     """注册默认配置验证器"""
     # 延迟导入具体实现
-    def create_config_validator() -> IConfigValidator:
-        from src.core.config.config_manager import DefaultConfigValidator
-        return DefaultConfigValidator()
+    def create_config_validator() -> BaseConfigValidator:
+        from src.core.config.validation import BaseConfigValidator
+        return BaseConfigValidator("DefaultValidator")
 
+    from src.core.config.validation import BaseConfigValidator
+    
+    # 注册具体类型和接口
+    container.register_factory(
+        BaseConfigValidator,
+        create_config_validator,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    
     container.register_factory(
         IConfigValidator,
         create_config_validator,
@@ -239,7 +253,8 @@ def _register_inheritance_processor(container: IDependencyContainer, config: Dic
     # 延迟导入具体实现
     def create_inheritance_processor() -> 'InheritanceProcessor':
         from src.infrastructure.config.processor import InheritanceProcessor
-        return InheritanceProcessor()
+        from src.infrastructure.config import ConfigLoader
+        return InheritanceProcessor(ConfigLoader())
 
     container.register_factory(
         InheritanceProcessor,
@@ -251,19 +266,10 @@ def _register_inheritance_processor(container: IDependencyContainer, config: Dic
 
 
 def _register_environment_variable_processor(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
-    """注册环境变量处理器"""
-    # 延迟导入具体实现
-    def create_environment_variable_processor() -> 'EnvironmentProcessor':
-        from src.infrastructure.config.processor import EnvironmentProcessor
-        return EnvironmentProcessor()
-
-    container.register_factory(
-        EnvironmentProcessor,
-        create_environment_variable_processor,
-        environment=environment,
-        lifetime=ServiceLifetime.SINGLETON
-    )
-    print(f"[DEBUG] 已注册 EnvironmentVariableProcessor", file=sys.stdout)
+    """注册环境变量处理器（已弃用，因为InheritanceProcessor已包含此功能）"""
+    # 注意：此处理器已不再需要，因为InheritanceProcessor已包含环境变量处理功能
+    # 保留此函数仅用于向后兼容，但不注册服务
+    print(f"[DEBUG] EnvironmentProcessor 已弃用，使用 InheritanceProcessor 的环境变量处理功能", file=sys.stdout)
 
 
 def _register_reference_processor(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
@@ -300,14 +306,16 @@ def _create_processor_chain() -> ConfigProcessorChain:
         配置置处理器链实例
     """
     try:
-        processor_chain = ConfigProcessorChain()
+        from src.infrastructure.config import ConfigLoader
         
-        # 按顺序添加处理器
-        processor_chain.add_processor(InheritanceProcessor())
-        processor_chain.add_processor(EnvironmentProcessor())
+        processor_chain = ConfigProcessorChain()
+        config_loader = ConfigLoader()
+        
+        # 按顺序添加处理器：InheritanceProcessor已包含环境变量处理功能
+        processor_chain.add_processor(InheritanceProcessor(config_loader))
         processor_chain.add_processor(ReferenceProcessor())
         
-        print(f"[DEBUG] 配置处理器链创建完成，包含 3 个处理器", file=sys.stdout)
+        print(f"[DEBUG] 配置处理器链创建完成，包含 2 个处理器", file=sys.stdout)
         return processor_chain
         
     except Exception as e:
@@ -321,8 +329,19 @@ def _create_adapter_factory() -> 'AdapterFactory':
         适配器工厂实例
     """
     try:
-        from src.core.config.config_manager import get_default_manager
-        config_manager = get_default_manager()
+        from src.core.config.config_manager import ConfigManager
+        from src.infrastructure.config import ConfigLoader
+        from src.infrastructure.config.processor import InheritanceProcessor, ReferenceProcessor
+        from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+        
+        # 创建配置管理器
+        config_loader = ConfigLoader()
+        processor_chain = ConfigProcessorChain()
+        inheritance_processor = InheritanceProcessor(config_loader)
+        processor_chain.add_processor(inheritance_processor)
+        processor_chain.add_processor(ReferenceProcessor())
+        
+        config_manager = ConfigManager(config_loader, processor_chain, inheritance_handler=inheritance_processor)
         adapter_factory = AdapterFactory(config_manager)
         print(f"[DEBUG] 适配器工厂创建完成", file=sys.stdout)
         return adapter_factory

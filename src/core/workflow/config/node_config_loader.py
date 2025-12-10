@@ -5,20 +5,25 @@
 
 from typing import Dict, Any, Optional
 from pathlib import Path
+import logging
 
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader, IConfigInheritanceHandler
+
+logger = logging.getLogger(__name__)
 
 
 class NodeConfigLoader:
     """节点配置加载器"""
     
-    def __init__(self, config_loader: IConfigLoader) -> None:
+    def __init__(self, config_loader: IConfigLoader, inheritance_handler: Optional[IConfigInheritanceHandler] = None) -> None:
         """初始化节点配置加载器
 
         Args:
             config_loader: 配置加载器实例
+            inheritance_handler: 继承处理器实例（可选）
         """
         self._config_loader = config_loader
+        self._inheritance_handler = inheritance_handler
         self._node_configs: Dict[str, Dict[str, Any]] = {}
         self._loaded = False
     
@@ -55,11 +60,23 @@ class NodeConfigLoader:
 
                             # 3. 处理继承关系
                             if "inherits_from" in node_config:
-                                base_path = node_config["inherits_from"]
-                                base_config = self._resolve_inheritance(base_path, group_config)
-                                # 合并基础配置和节点特定配置
-                                merged_config = self._deep_merge(base_config, node_config)
-                                self._node_configs[node_type] = merged_config
+                                # 使用Infrastructure层的继承处理器
+                                if self._inheritance_handler:
+                                    try:
+                                        processed_config = self._inheritance_handler.resolve_inheritance(
+                                            node_config, node_file.parent
+                                        )
+                                        self._node_configs[node_type] = processed_config
+                                    except Exception as e:
+                                        logger.warning(f"继承处理失败 {node_file.name}: {e}，使用原始配置")
+                                        self._node_configs[node_type] = node_config
+                                else:
+                                    # 降级到本地继承处理
+                                    base_path = node_config["inherits_from"]
+                                    base_config = self._resolve_inheritance(base_path, group_config)
+                                    # 合并基础配置和节点特定配置
+                                    merged_config = self._deep_merge(base_config, node_config)
+                                    self._node_configs[node_type] = merged_config
                             else:
                                 self._node_configs[node_type] = node_config
                         except Exception:
@@ -120,7 +137,7 @@ class NodeConfigLoader:
         return config.get(key, default)
     
     def _resolve_inheritance(self, inheritance_path: str, group_config: Dict[str, Any]) -> Dict[str, Any]:
-        """解析配置继承路径
+        """解析配置继承路径（降级方法，仅在没有继承处理器时使用）
 
         Args:
             inheritance_path: 继承路径，格式为 "file.yaml#node_type"
@@ -164,17 +181,18 @@ class NodeConfigLoader:
 _node_config_loader: Optional[NodeConfigLoader] = None
 
 
-def set_node_config_loader(config_loader: IConfigLoader) -> NodeConfigLoader:
+def set_node_config_loader(config_loader: IConfigLoader, inheritance_handler: Optional[IConfigInheritanceHandler] = None) -> NodeConfigLoader:
     """设置节点配置加载器实例
 
     Args:
         config_loader: 配置加载器实例
+        inheritance_handler: 继承处理器实例（可选）
 
     Returns:
         节点配置加载器实例
     """
     global _node_config_loader
-    _node_config_loader = NodeConfigLoader(config_loader)
+    _node_config_loader = NodeConfigLoader(config_loader, inheritance_handler)
     return _node_config_loader
 
 

@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Mapping
 from pathlib import Path
 import os
 
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader
 from src.interfaces.logger import ILogger
 from src.interfaces.tool.base import IToolManager
 from src.core.config.config_manager import ConfigManager, get_default_manager

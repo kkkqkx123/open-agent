@@ -7,7 +7,7 @@ import os
 import re
 from typing import Dict, Any
 
-from src.interfaces.config.interfaces import IConfigProcessor
+from src.interfaces.config import IConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)

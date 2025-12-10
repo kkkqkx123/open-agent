@@ -5,7 +5,7 @@ import yaml
 from typing import Dict, Any, Optional, Union
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
-from src.interfaces.config.interfaces import IConfigLoader
+from src.interfaces.config import IConfigLoader
 
 from .layout import LayoutConfig, RegionConfig, LayoutRegion
 

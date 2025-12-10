@@ -5,11 +5,11 @@
 
 import re
 import logging
-from typing import Dict, Any, List, type
+from typing import Dict, Any, List
 from abc import ABC
 
-from .framework import ValidationResult
-from src.interfaces.config.interfaces import IConfigValidator
+from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigValidator
 
 
 class BaseConfigValidator(IConfigValidator, ABC):
