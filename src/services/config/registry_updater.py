@@ -196,7 +196,7 @@ class RegistryUpdater:
         Returns:
             Dict[str, List[Dict[str, Any]]]: 发现结果
         """
-        from src.core.config.config_loader import ConfigLoader
+        from src.infrastructure.config.config_loader import ConfigLoader
         
         loader = ConfigLoader(base_path=Path(self.base_path))
         config_files = loader.get_config_files(recursive=True)
@@ -412,7 +412,7 @@ class RegistryUpdater:
             # 使用统一配置管理器加载
             from src.core.config.config_manager import get_default_manager
             config_manager = get_default_manager()
-            return config_manager.load_config_for_module(str(file_path), "registry") or {}
+            return config_manager.load_config(str(file_path), module_type="registry") or {}
         except Exception as e:
             self.logger.error(f"加载注册表配置失败: {file_path}, 错误: {e}")
             return {}

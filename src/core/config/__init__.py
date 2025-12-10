@@ -13,6 +13,8 @@ from .models import (
 )
 from .processor import (
     ConfigProcessorChain,
+)
+from src.infrastructure.config.processor import (
     InheritanceProcessor,
     EnvironmentProcessor,
     ReferenceProcessor,

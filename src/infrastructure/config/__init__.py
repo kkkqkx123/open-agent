@@ -6,8 +6,12 @@
 
 from .config_loader import ConfigLoader
 from .schema_loader import SchemaLoader
+from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProcessor
 
 __all__ = [
     "ConfigLoader",
-    "SchemaLoader"
+    "SchemaLoader",
+    "EnvironmentProcessor",
+    "InheritanceProcessor",
+    "ReferenceProcessor"
 ]

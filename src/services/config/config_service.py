@@ -13,7 +13,7 @@ from enum import Enum
 
 from src.interfaces.configuration import IConfigManager, IConfigValidator, ConfigError
 from src.interfaces.common_domain import ValidationResult
-from src.core.config.config_manager import ConfigManager
+from src.core.config.config_manager import ConfigManager, get_default_manager
 
 
 class ConfigChangeType(Enum):
@@ -48,7 +48,7 @@ class ConfigService:
         Args:
             config_manager: 配置管理器实例，如果为None则使用默认的ConfigManager
         """
-        self.config_manager = config_manager or ConfigManager()
+        self.config_manager = config_manager or get_default_manager()
         self.logger = logging.getLogger(__name__)
         
         # 配置缓存

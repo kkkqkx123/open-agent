@@ -6,7 +6,6 @@
 from .core.container import DependencyContainer, get_global_container, reset_global_container
 
 from .bindings.storage_bindings import StorageServiceBindings
-from .bindings.thread_checkpoint_bindings import ThreadCheckpointServiceBindings
 from .bindings.history_bindings import HistoryServiceBindings
 from .bindings.session_bindings import SessionServiceBindings
 from .bindings.thread_bindings import ThreadServiceBindings
@@ -17,7 +16,6 @@ from .bindings.config_bindings import ConfigServiceBindings
 __all__ = [
     # 核心容器
     "DependencyContainer",
-    "DependencyContainer",
     "get_global_container",
     "reset_global_container",
     
@@ -27,9 +25,6 @@ __all__ = [
     
     # 存储服务绑定
     "StorageServiceBindings",
-    
-    # Thread检查点服务绑定
-    "ThreadCheckpointServiceBindings",
     
     # History服务绑定
     "HistoryServiceBindings",

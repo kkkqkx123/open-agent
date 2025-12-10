@@ -8,16 +8,15 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Type, TypeVar
 
 import logging
-from src.infrastructure.config import ConfigLoader
-from .processor import ConfigProcessorChain, InheritanceProcessor, EnvironmentProcessor, ReferenceProcessor
-from .validation import BaseConfigValidator
+from src.interfaces.config.interfaces import IConfigLoader, IConfigProcessor, IConfigValidator, IUnifiedConfigManager
 from src.interfaces.common_domain import ValidationResult
 from src.interfaces.configuration import (
     ConfigError,
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationValidationError as ConfigValidationError
 )
-from src.interfaces.config.interfaces import IConfigValidator, IUnifiedConfigManager
+from .processor import ConfigProcessorChain
+from .validation import BaseConfigValidator
 
 logger = logging.getLogger(__name__)
 
@@ -27,22 +26,24 @@ T = TypeVar('T', bound=Any)
 class ConfigManager(IUnifiedConfigManager):
     """配置管理器 - 提供基础的配置管理功能"""
     
-    def __init__(self, base_path: Optional[Path] = None):
+    def __init__(self, config_loader: IConfigLoader, processor_chain: Optional[ConfigProcessorChain] = None, base_path: Optional[Path] = None):
         """初始化配置管理器
         
         Args:
-            base_path: 配置文件基础路径
+            config_loader: 配置加载器（通过依赖注入）
+            processor_chain: 配置处理器链（可选）
+            base_path: 配置文件基础路径（可选）
         """
         self.base_path = base_path or Path("configs")
         
-        # 初始化基础设施层的配置加载器
-        self.loader = ConfigLoader(self.base_path)
+        # 通过依赖注入使用配置加载器
+        self.loader = config_loader
         
-        # 初始化处理器链
-        self.processor_chain = ConfigProcessorChain()
-        self.processor_chain.add_processor(InheritanceProcessor())
-        self.processor_chain.add_processor(EnvironmentProcessor())
-        self.processor_chain.add_processor(ReferenceProcessor())
+        # 初始化处理器链（如果未提供则创建默认的）
+        if processor_chain is None:
+            self.processor_chain = ConfigProcessorChain()
+        else:
+            self.processor_chain = processor_chain
         
         # 模块特定验证器注册表
         self._module_validators: Dict[str, IConfigValidator] = {}
@@ -233,13 +234,30 @@ _default_manager: Optional[ConfigManager] = None
 
 
 def get_default_manager() -> ConfigManager:
-    """获取默认配置管理器"""
+    """获取默认配置管理器（向后兼容）
+    
+    注意：此函数已弃用，建议通过依赖注入获取配置管理器实例
+    """
     global _default_manager
     if _default_manager is None:
-        _default_manager = ConfigManager()
+        # 为了向后兼容，临时创建默认实例
+        # 在生产环境中应该通过依赖注入获取
+        from src.infrastructure.config import ConfigLoader
+        from src.infrastructure.config.processor import InheritanceProcessor, EnvironmentProcessor, ReferenceProcessor
+        
+        config_loader = ConfigLoader()
+        processor_chain = ConfigProcessorChain()
+        processor_chain.add_processor(InheritanceProcessor(config_loader))
+        processor_chain.add_processor(EnvironmentProcessor())
+        processor_chain.add_processor(ReferenceProcessor())
+        
+        _default_manager = ConfigManager(config_loader, processor_chain)
     return _default_manager
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
-    """便捷函数：加载配置"""
+    """便捷函数：加载配置（向后兼容）
+    
+    注意：此函数已弃用，建议通过依赖注入获取配置管理器实例
+    """
     return get_default_manager().load_config(config_path)

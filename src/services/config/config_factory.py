@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ...core.config.config_manager import ConfigManager
 from .discovery import ConfigDiscoverer
+from .injection import get_config_loader
 
 
 class ConfigServiceFactory:
@@ -36,12 +37,10 @@ class ConfigServiceFactory:
         Returns:
             配置管理器实例
         """
+        config_loader = get_config_loader()
         return ConfigManager(
-            base_path=Path(base_path),
-            use_cache=use_cache,
-            auto_reload=auto_reload,
-            enable_error_recovery=enable_error_recovery,
-            enable_callback_manager=enable_callback_manager
+            config_loader=config_loader,
+            base_path=Path(base_path)
         )
     
     @staticmethod

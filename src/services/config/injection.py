@@ -3,33 +3,37 @@
 使用通用依赖注入框架提供简洁的Config服务获取方式。
 """
 
+from typing import Any, Optional, Callable, TYPE_CHECKING
+from pathlib import Path
+
 from src.core.config.config_manager import ConfigManager
 from src.core.config.config_manager_factory import ConfigManagerFactory
-from src.core.config.processor.config_processor_chain import (
-    ConfigProcessorChain,
+from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+from src.infrastructure.config.processor import (
     InheritanceProcessor,
-    EnvironmentVariableProcessor,
+    EnvironmentProcessor,
     ReferenceProcessor,
 )
 from src.core.config.adapter_factory import AdapterFactory
-from src.interfaces.config.interfaces import IConfigValidator
-from src.interfaces.configuration import ValidationResult
+from src.infrastructure.common.utils.validator import ValidationResult
 from src.services.container.injection.injection_base import get_global_injection_registry
 from src.services.container.injection.injection_decorators import injectable
+from src.infrastructure.config.config_loader import ConfigLoader
+from src.core.config.processor.validator import ConfigValidator
 
 
 class _StubConfigManager(ConfigManager):
     """临时 ConfigManager 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         """获取配置值"""
         return default
     
-    def set(self, key: str, value):
+    def set(self, key: str, value: Any) -> None:
         """设置配置值"""
         pass
     
@@ -41,7 +45,7 @@ class _StubConfigManager(ConfigManager):
 class _StubConfigManagerFactory(ConfigManagerFactory):
     """临时 ConfigManagerFactory 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
@@ -50,12 +54,65 @@ class _StubConfigManagerFactory(ConfigManagerFactory):
         return _StubConfigManager()
 
 
-class _StubConfigValidator(IConfigValidator):
+class _StubConfigLoader(ConfigLoader):
+    """临时 ConfigLoader 实现（用于极端情况）"""
+    
+    def __init__(self) -> None:
+        # 不调用父类初始化，避免依赖问题
+        pass
+    
+    @property
+    def base_path(self) -> Path:
+        """获取配置基础路径"""
+        return Path("configs")
+    
+    def load_config(self, config_path: str, config_type: Optional[str] = None) -> dict:
+        """加载配置文件"""
+        return {}
+    
+    def load(self, config_path: str) -> dict:
+        """加载配置文件（简化接口）"""
+        return {}
+    
+    def reload(self) -> None:
+        """重新加载所有配置"""
+        pass
+    
+    def watch_for_changes(self, callback: Callable[[str, dict[str, Any]], None]) -> None:
+        """监听配置变化"""
+        pass
+    
+    def stop_watching(self) -> None:
+        """停止监听配置变化"""
+        pass
+    
+    def resolve_env_vars(self, config: dict) -> dict:
+        """解析环境变量"""
+        return config
+    
+    def get_config(self, config_path: str) -> Optional[dict]:
+        """获取缓存中的配置"""
+        return None
+    
+    def save_config(self, config: dict, config_path: str, config_type: Optional[str] = None) -> None:
+        """保存配置"""
+        pass
+    
+    def list_configs(self, config_type: Optional[str] = None) -> list:
+        """列出配置文件"""
+        return []
+    
+    def validate_config_path(self, config_path: str) -> bool:
+        """验证配置路径"""
+        return True
+
+
+class _StubConfigValidator(ConfigValidator):
     """临时 ConfigValidator 实现（用于极端情况）"""
     
-    def validate(self, config: dict) -> ValidationResult:
+    def validate(self, data: dict[str, Any], model: type) -> ValidationResult:
         """验证配置"""
-        return ValidationResult(is_valid=True)
+        return ValidationResult(is_valid=True, errors=[], warnings=[])
     
     def supports_module_type(self, module_type: str) -> bool:
         """检查是否支持指定模块类型"""
@@ -65,7 +122,7 @@ class _StubConfigValidator(IConfigValidator):
 class _StubConfigProcessorChain(ConfigProcessorChain):
     """临时 ConfigProcessorChain 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
@@ -77,7 +134,7 @@ class _StubConfigProcessorChain(ConfigProcessorChain):
 class _StubInheritanceProcessor(InheritanceProcessor):
     """临时 InheritanceProcessor 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
@@ -86,10 +143,10 @@ class _StubInheritanceProcessor(InheritanceProcessor):
         return config
 
 
-class _StubEnvironmentVariableProcessor(EnvironmentVariableProcessor):
+class _StubEnvironmentVariableProcessor(EnvironmentProcessor):
     """临时 EnvironmentVariableProcessor 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
@@ -101,7 +158,7 @@ class _StubEnvironmentVariableProcessor(EnvironmentVariableProcessor):
 class _StubReferenceProcessor(ReferenceProcessor):
     """临时 ReferenceProcessor 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
@@ -113,20 +170,20 @@ class _StubReferenceProcessor(ReferenceProcessor):
 class _StubAdapterFactory(AdapterFactory):
     """临时 AdapterFactory 实现（用于极端情况）"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         # 不调用父类初始化，避免依赖问题
         pass
     
-    def create_adapter(self, module_type: str):
+    def create_adapter(self, module_type: str) -> Any:
         """创建适配器"""
         # 返回一个虚拟的适配器对象
         from src.core.config.adapters import BaseConfigAdapter
         
         class _StubAdapter(BaseConfigAdapter):
-            def __init__(self, base_manager=None):
+            def __init__(self, base_manager: Optional[Any] = None) -> None:
                 self.base_manager = base_manager
             
-            def load_config(self, config_path: str, **kwargs) -> dict:
+            def load_config(self, config_path: str, **kwargs: Any) -> dict:
                 """加载配置"""
                 return {}
             
@@ -147,7 +204,12 @@ def _create_fallback_config_manager_factory() -> ConfigManagerFactory:
     return _StubConfigManagerFactory()
 
 
-def _create_fallback_config_validator() -> IConfigValidator:
+def _create_fallback_config_loader() -> ConfigLoader:
+    """创建fallback config loader"""
+    return _StubConfigLoader()
+
+
+def _create_fallback_config_validator() -> ConfigValidator:
     """创建fallback config validator"""
     return _StubConfigValidator()
 
@@ -162,7 +224,7 @@ def _create_fallback_inheritance_processor() -> InheritanceProcessor:
     return _StubInheritanceProcessor()
 
 
-def _create_fallback_environment_variable_processor() -> EnvironmentVariableProcessor:
+def _create_fallback_environment_variable_processor() -> EnvironmentProcessor:
     """创建fallback environment variable processor"""
     return _StubEnvironmentVariableProcessor()
 
@@ -185,7 +247,7 @@ _config_manager_factory_injection = get_global_injection_registry().register(
     ConfigManagerFactory, _create_fallback_config_manager_factory
 )
 _config_validator_injection = get_global_injection_registry().register(
-    IConfigValidator, _create_fallback_config_validator
+    ConfigValidator, _create_fallback_config_validator
 )
 _config_processor_chain_injection = get_global_injection_registry().register(
     ConfigProcessorChain, _create_fallback_config_processor_chain
@@ -194,7 +256,7 @@ _inheritance_processor_injection = get_global_injection_registry().register(
     InheritanceProcessor, _create_fallback_inheritance_processor
 )
 _environment_variable_processor_injection = get_global_injection_registry().register(
-    EnvironmentVariableProcessor, _create_fallback_environment_variable_processor
+    EnvironmentProcessor, _create_fallback_environment_variable_processor
 )
 _reference_processor_injection = get_global_injection_registry().register(
     ReferenceProcessor, _create_fallback_reference_processor
@@ -202,9 +264,24 @@ _reference_processor_injection = get_global_injection_registry().register(
 _adapter_factory_injection = get_global_injection_registry().register(
     AdapterFactory, _create_fallback_adapter_factory
 )
+_config_loader_injection = get_global_injection_registry().register(
+    ConfigLoader, _create_fallback_config_loader
+)
 
 
-@injectable(ConfigManager, _create_fallback_config_manager)
+from typing import cast
+
+@injectable(ConfigLoader, _create_fallback_config_loader)  # type: ignore
+def get_config_loader() -> ConfigLoader:
+    """获取配置加载器实例
+    
+    Returns:
+        ConfigLoader: 配置加载器实例
+    """
+    return _config_loader_injection.get_instance()
+
+
+@injectable(ConfigManager, _create_fallback_config_manager)  # type: ignore
 def get_config_manager() -> ConfigManager:
     """获取配置管理器实例
     
@@ -214,7 +291,7 @@ def get_config_manager() -> ConfigManager:
     return _config_manager_injection.get_instance()
 
 
-@injectable(ConfigManagerFactory, _create_fallback_config_manager_factory)
+@injectable(ConfigManagerFactory, _create_fallback_config_manager_factory)  # type: ignore
 def get_config_manager_factory() -> ConfigManagerFactory:
     """获取配置管理器工厂实例
     
@@ -224,17 +301,17 @@ def get_config_manager_factory() -> ConfigManagerFactory:
     return _config_manager_factory_injection.get_instance()
 
 
-@injectable(IConfigValidator, _create_fallback_config_validator)
-def get_config_validator() -> IConfigValidator:
+@injectable(ConfigValidator, _create_fallback_config_validator)  # type: ignore
+def get_config_validator() -> ConfigValidator:
     """获取配置验证器实例
     
     Returns:
-        IConfigValidator: 配置验证器实例
+        ConfigValidator: 配置验证器实例
     """
     return _config_validator_injection.get_instance()
 
 
-@injectable(ConfigProcessorChain, _create_fallback_config_processor_chain)
+@injectable(ConfigProcessorChain, _create_fallback_config_processor_chain)  # type: ignore
 def get_config_processor_chain() -> ConfigProcessorChain:
     """获取配置处理器链实例
     
@@ -244,7 +321,7 @@ def get_config_processor_chain() -> ConfigProcessorChain:
     return _config_processor_chain_injection.get_instance()
 
 
-@injectable(InheritanceProcessor, _create_fallback_inheritance_processor)
+@injectable(InheritanceProcessor, _create_fallback_inheritance_processor)  # type: ignore
 def get_inheritance_processor() -> InheritanceProcessor:
     """获取继承处理器实例
     
@@ -254,8 +331,8 @@ def get_inheritance_processor() -> InheritanceProcessor:
     return _inheritance_processor_injection.get_instance()
 
 
-@injectable(EnvironmentVariableProcessor, _create_fallback_environment_variable_processor)
-def get_environment_variable_processor() -> EnvironmentVariableProcessor:
+@injectable(EnvironmentProcessor, _create_fallback_environment_variable_processor)  # type: ignore
+def get_environment_variable_processor() -> EnvironmentProcessor:
     """获取环境变量处理器实例
     
     Returns:
@@ -264,7 +341,7 @@ def get_environment_variable_processor() -> EnvironmentVariableProcessor:
     return _environment_variable_processor_injection.get_instance()
 
 
-@injectable(ReferenceProcessor, _create_fallback_reference_processor)
+@injectable(ReferenceProcessor, _create_fallback_reference_processor)  # type: ignore
 def get_reference_processor() -> ReferenceProcessor:
     """获取引用处理器实例
     
@@ -274,7 +351,7 @@ def get_reference_processor() -> ReferenceProcessor:
     return _reference_processor_injection.get_instance()
 
 
-@injectable(AdapterFactory, _create_fallback_adapter_factory)
+@injectable(AdapterFactory, _create_fallback_adapter_factory)  # type: ignore
 def get_adapter_factory() -> AdapterFactory:
     """获取适配器工厂实例
     
@@ -285,6 +362,15 @@ def get_adapter_factory() -> AdapterFactory:
 
 
 # 设置实例的函数
+def set_config_loader_instance(config_loader: ConfigLoader) -> None:
+    """在应用启动时设置全局 ConfigLoader 实例
+    
+    Args:
+        config_loader: ConfigLoader 实例
+    """
+    _config_loader_injection.set_instance(config_loader)
+
+
 def set_config_manager_instance(config_manager: ConfigManager) -> None:
     """在应用启动时设置全局 ConfigManager 实例
     
@@ -303,11 +389,11 @@ def set_config_manager_factory_instance(config_manager_factory: ConfigManagerFac
     _config_manager_factory_injection.set_instance(config_manager_factory)
 
 
-def set_config_validator_instance(config_validator: IConfigValidator) -> None:
+def set_config_validator_instance(config_validator: ConfigValidator) -> None:
     """在应用启动时设置全局 ConfigValidator 实例
     
     Args:
-        config_validator: IConfigValidator 实例
+        config_validator: ConfigValidator 实例
     """
     _config_validator_injection.set_instance(config_validator)
 
@@ -330,7 +416,7 @@ def set_inheritance_processor_instance(inheritance_processor: InheritanceProcess
     _inheritance_processor_injection.set_instance(inheritance_processor)
 
 
-def set_environment_variable_processor_instance(environment_variable_processor: EnvironmentVariableProcessor) -> None:
+def set_environment_variable_processor_instance(environment_variable_processor: EnvironmentProcessor) -> None:
     """在应用启动时设置全局 EnvironmentVariableProcessor 实例
     
     Args:
@@ -358,6 +444,11 @@ def set_adapter_factory_instance(adapter_factory: AdapterFactory) -> None:
 
 
 # 清除实例的函数
+def clear_config_loader_instance() -> None:
+    """清除全局 ConfigLoader 实例"""
+    _config_loader_injection.clear_instance()
+
+
 def clear_config_manager_instance() -> None:
     """清除全局 ConfigManager 实例"""
     _config_manager_injection.clear_instance()
@@ -399,6 +490,11 @@ def clear_adapter_factory_instance() -> None:
 
 
 # 获取状态的函数
+def get_config_loader_status() -> dict:
+    """获取配置加载器注入状态"""
+    return _config_loader_injection.get_status()
+
+
 def get_config_manager_status() -> dict:
     """获取配置管理器注入状态"""
     return _config_manager_injection.get_status()
@@ -441,6 +537,7 @@ def get_adapter_factory_status() -> dict:
 
 # 导出的公共接口
 __all__ = [
+    "get_config_loader",
     "get_config_manager",
     "get_config_manager_factory",
     "get_config_validator",
@@ -449,6 +546,7 @@ __all__ = [
     "get_environment_variable_processor",
     "get_reference_processor",
     "get_adapter_factory",
+    "set_config_loader_instance",
     "set_config_manager_instance",
     "set_config_manager_factory_instance",
     "set_config_validator_instance",
@@ -457,6 +555,7 @@ __all__ = [
     "set_environment_variable_processor_instance",
     "set_reference_processor_instance",
     "set_adapter_factory_instance",
+    "clear_config_loader_instance",
     "clear_config_manager_instance",
     "clear_config_manager_factory_instance",
     "clear_config_validator_instance",
@@ -465,6 +564,7 @@ __all__ = [
     "clear_environment_variable_processor_instance",
     "clear_reference_processor_instance",
     "clear_adapter_factory_instance",
+    "get_config_loader_status",
     "get_config_manager_status",
     "get_config_manager_factory_status",
     "get_config_validator_status",
