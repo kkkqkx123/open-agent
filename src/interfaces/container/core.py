@@ -9,7 +9,7 @@ from typing import List, Type, TypeVar, Dict, Any, Optional, Set, Callable
 from enum import Enum
 from dataclasses import dataclass
 
-from ..configuration import ValidationResult
+from ..config import ValidationResult
 
 # 泛型类型变量
 _ServiceT = TypeVar("_ServiceT")

@@ -8,9 +8,8 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 import logging
 
-from src.interfaces.config import IConfigLoader, IConfigProcessor
-from src.interfaces.common_domain import ValidationResult
-from ..interfaces import IConfigSchema, IConfigProcessorChain
+from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationResult
+from src.interfaces.common_domain import ValidationResult as CommonValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class IConfigImpl(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> CommonValidationResult:
         """验证配置数据
         
         Args:
@@ -55,6 +54,34 @@ class IConfigImpl(ABC):
         pass
 
 
+class IConfigSchema(ABC):
+    """配置模式接口"""
+    
+    @abstractmethod
+    def validate(self, config: Dict[str, Any]) -> CommonValidationResult:
+        """验证配置"""
+        pass
+
+
+class IConfigProcessorChain(ABC):
+    """配置处理器链接口"""
+    
+    @abstractmethod
+    def add_processor(self, processor: IConfigProcessor) -> None:
+        """添加处理器"""
+        pass
+    
+    @abstractmethod
+    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
+        """应用处理器链"""
+        pass
+    
+    @abstractmethod
+    def get_processors(self) -> list[IConfigProcessor]:
+        """获取处理器列表"""
+        pass
+
+
 class BaseConfigImpl(IConfigImpl):
     """配置实现基类
     
@@ -64,8 +91,8 @@ class BaseConfigImpl(IConfigImpl):
     def __init__(self,
                  module_type: str,
                  config_loader: IConfigLoader,
-                 processor_chain: IConfigProcessorChain,
-                 schema: IConfigSchema):
+                 processor_chain: 'IConfigProcessorChain',
+                 schema: 'IConfigSchema'):
         """初始化配置实现
         
         Args:
@@ -122,7 +149,7 @@ class BaseConfigImpl(IConfigImpl):
             logger.error(f"加载{self.module_type}模块配置失败: {e}")
             raise
     
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> CommonValidationResult:
         """验证配置
         
         Args:
@@ -135,7 +162,7 @@ class BaseConfigImpl(IConfigImpl):
             return self.schema.validate(config)
         
         # 如果没有模式，返回成功
-        return ValidationResult(is_valid=True, errors=[])
+        return CommonValidationResult(is_valid=True, errors=[], warnings=[])
     
     def transform_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """转换为模块特定格式
@@ -158,8 +185,8 @@ class BaseConfigImpl(IConfigImpl):
             base_path: 基础路径
         """
         self._base_path = base_path
-        if hasattr(self.config_loader, 'base_path'):
-            self.config_loader.base_path = base_path
+        # Note: base_path is a read-only property on IConfigLoader, cannot be set directly
+        # The config_loader must handle base_path internally or through initialization
     
     def get_config_path(self, config_name: str) -> str:
         """获取配置文件完整路径
@@ -189,6 +216,17 @@ class BaseConfigImpl(IConfigImpl):
             重新加载的配置数据
         """
         logger.info(f"重新加载{self.module_type}模块配置: {config_path}")
+        return self.load_config(config_path)
+    
+    def get_config(self) -> Dict[str, Any]:
+        """获取当前配置
+        
+        Returns:
+            当前配置数据
+        """
+        # 获取默认配置路径
+        config_name = f"{self.module_type}"
+        config_path = self.get_config_path(config_name)
         return self.load_config(config_path)
 
 
@@ -244,7 +282,7 @@ class ConfigSchema(IConfigSchema):
         """
         self.schema_definition = schema_definition or {}
     
-    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate(self, config: Dict[str, Any]) -> CommonValidationResult:
         """验证配置
         
         Args:
@@ -272,7 +310,7 @@ class ConfigSchema(IConfigSchema):
                 if expected_type and not self._check_type(field_value, expected_type):
                     errors.append(f"字段 {field_name} 类型错误，期望 {expected_type}")
         
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        return CommonValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=[])
     
     def _check_type(self, value: Any, expected_type: str) -> bool:
         """检查值类型

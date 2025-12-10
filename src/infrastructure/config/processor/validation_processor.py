@@ -4,12 +4,15 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, Callable
+from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 import logging
 from pathlib import Path
 
 from .base_processor import BaseConfigProcessor
-from ..interfaces import IConfigSchema, ISchemaRegistry, ValidationResult
+from src.interfaces.config import ValidationResult, IConfigSchema, ISchemaRegistry
+
+if TYPE_CHECKING:
+    from src.interfaces.config import IConfigSchema, ISchemaRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,7 @@ class ValidationProcessor(BaseConfigProcessor):
     提供基于模式的配置验证功能。
     """
     
-    def __init__(self, schema_registry: Optional['SchemaRegistry'] = None):
+    def __init__(self, schema_registry: Optional[ISchemaRegistry] = None):
         """初始化验证处理器
         
         Args:
@@ -213,9 +216,9 @@ class ValidationProcessor(BaseConfigProcessor):
 
 
 class SchemaRegistry(ISchemaRegistry):
-    """模式注册表
+    """模式注册表实现
     
-    管理所有配置模式定义。
+    管理所有配置模式定义的具体实现。
     """
     
     def __init__(self):

@@ -1,30 +1,43 @@
-"""LLM客户端工厂实现 - 重构版本
+"""LLM客户端工厂实现 - 新配置系统版本
 
-使用基础设施层的HTTP客户端工厂，专注于业务逻辑包装。
+使用新的集中配置系统，专注于业务逻辑包装。
 """
 
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, Optional, Type, cast
 from threading import RLock
 
 from src.interfaces.llm import ILLMClient, ILLMClientFactory
-from .config import LLMClientConfig, LLMModuleConfig
 from src.interfaces.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
+from src.infrastructure.config import get_global_registry
+from src.infrastructure.config.provider.llm_config_provider import LLMConfigProvider
 
 
-class LLMFactory(ILLMClientFactory):
-    """LLM客户端工厂实现 - 重构版本
+class LLMFactoryNew(ILLMClientFactory):
+    """LLM客户端工厂实现 - 新配置系统版本
     
-    使用基础设施层的HTTP客户端工厂，专注于业务逻辑包装。
+    使用新的集中配置系统，专注于业务逻辑包装。
     """
 
-    def __init__(self, config: Optional[LLMModuleConfig] = None) -> None:
+    def __init__(self, config_provider_name: str = "llm") -> None:
         """
         初始化工厂
 
         Args:
-            config: 模块配置
+            config_provider_name: 配置提供者名称
         """
-        self.config = config or LLMModuleConfig()
+        # 获取配置提供者
+        self.config_registry = get_global_registry()
+        provider = self.config_registry.get_provider(config_provider_name)
+        
+        if not provider:
+            raise ValueError(f"配置提供者 '{config_provider_name}' 未找到")
+        
+        # 确保是LLMConfigProvider实例
+        if not isinstance(provider, LLMConfigProvider):
+            raise TypeError(f"配置提供者必须是LLMConfigProvider实例，但得到 {type(provider)}")
+        
+        self.config_provider: LLMConfigProvider = provider
+        
         self._client_cache: Dict[str, ILLMClient] = {}
         self._client_types: Dict[str, Type[ILLMClient]] = {}
         self._lock = RLock()
@@ -105,24 +118,22 @@ class LLMFactory(ILLMClientFactory):
             LLMClientCreationError: 客户端创建失败
             UnsupportedModelTypeError: 不支持的模型类型
         """
-        # 转换配置
-        if isinstance(config, dict):
-            # 验证基本配置字段
-            if not config.get("model_type"):
-                raise LLMClientCreationError("配置中缺少model_type字段")
-            if not config.get("model_name"):
-                raise LLMClientCreationError("配置中缺少model_name字段")
-
-            try:
-                client_config = LLMClientConfig.from_dict(config)
-            except Exception as e:
-                raise LLMClientCreationError(f"配置转换失败: {e}")
-        else:
-            # 如果已经是LLMClientConfig实例，直接使用
-            client_config = config
+        # 如果配置只包含model_name，从配置提供者获取完整配置
+        if isinstance(config, dict) and "model_name" in config and "model_type" not in config:
+            model_name = config["model_name"]
+            client_config = self.config_provider.get_client_config(model_name)
+            if not client_config:
+                raise LLMClientCreationError(f"未找到模型 {model_name} 的配置")
+            config = client_config
+        
+        # 验证基本配置字段
+        if not config.get("model_type"):
+            raise LLMClientCreationError("配置中缺少model_type字段")
+        if not config.get("model_name"):
+            raise LLMClientCreationError("配置中缺少model_name字段")
 
         # 检查模型类型是否支持
-        model_type = client_config.model_type
+        model_type = config["model_type"]
         if model_type not in self._client_types:
             raise UnsupportedModelTypeError(f"不支持的模型类型: {model_type}")
 
@@ -131,17 +142,18 @@ class LLMFactory(ILLMClientFactory):
             client_class = self._client_types[model_type]
             
             # 为客户端注入基础设施层的HTTP客户端
-            client = self._create_client_with_http_infrastructure(client_class, client_config)
+            client = self._create_client_with_http_infrastructure(client_class, config)
 
             # 自动缓存客户端
-            if self.config.cache_enabled:
-                self.cache_client(client_config.model_name, client)
+            module_config = self.config_provider.get_module_config()
+            if module_config.get("cache_enabled", True):
+                self.cache_client(config["model_name"], client)
 
             return client
         except Exception as e:
             raise LLMClientCreationError(f"创建LLM客户端失败: {e}")
     
-    def _create_client_with_http_infrastructure(self, client_class: Type[ILLMClient], client_config: LLMClientConfig) -> ILLMClient:
+    def _create_client_with_http_infrastructure(self, client_class: Type[ILLMClient], client_config: Dict[str, Any]) -> ILLMClient:
         """创建客户端实例并注入基础设施层的HTTP客户端
         
         Args:
@@ -153,13 +165,13 @@ class LLMFactory(ILLMClientFactory):
         """
         # 创建基础设施层的HTTP客户端
         http_client = self._http_factory.create_client(
-            provider=client_config.model_type,
-            model=client_config.model_name,
-            api_key=client_config.api_key,
-            base_url=client_config.base_url,
-            timeout=client_config.timeout,
-            max_retries=client_config.max_retries,
-            headers=client_config.headers
+            provider=client_config["model_type"],
+            model=client_config["model_name"],
+            api_key=client_config.get("api_key"),
+            base_url=client_config.get("base_url"),
+            timeout=client_config.get("timeout", 30),
+            max_retries=client_config.get("max_retries", 3),
+            headers=client_config.get("headers", {})
         )
         
         # 创建核心层客户端并注入HTTP客户端
@@ -173,12 +185,12 @@ class LLMFactory(ILLMClientFactory):
         
         return client
 
-    def create_client_from_config(self, client_config: LLMClientConfig) -> ILLMClient:
+    def create_client_from_model_name(self, model_name: str) -> ILLMClient:
         """
-        从LLMClientConfig创建客户端实例
+        根据模型名称创建客户端实例
 
         Args:
-            client_config: 客户端配置
+            model_name: 模型名称
 
         Returns:
             ILLMClient: 客户端实例
@@ -187,18 +199,12 @@ class LLMFactory(ILLMClientFactory):
             LLMClientCreationError: 客户端创建失败
             UnsupportedModelTypeError: 不支持的模型类型
         """
-        # 检查模型类型是否支持
-        model_type = client_config.model_type
-        if model_type not in self._client_types:
-            raise UnsupportedModelTypeError(f"不支持的模型类型: {model_type}")
-
-        # 创建客户端实例
-        try:
-            client_class = self._client_types[model_type]
-            client = client_class(client_config)
-            return client
-        except Exception as e:
-            raise LLMClientCreationError(f"创建LLM客户端失败: {e}")
+        # 从配置提供者获取客户端配置
+        client_config = self.config_provider.get_client_config(model_name)
+        if not client_config:
+            raise LLMClientCreationError(f"未找到模型 {model_name} 的配置")
+        
+        return self.create_client(client_config)
 
     def get_cached_client(self, model_name: str) -> Optional[ILLMClient]:
         """
@@ -223,7 +229,10 @@ class LLMFactory(ILLMClientFactory):
         """
         with self._lock:
             # 检查缓存大小限制
-            if len(self._client_cache) >= self.config.cache_max_size:
+            module_config = self.config_provider.get_module_config()
+            max_cache_size = module_config.get("cache_max_size", 100)
+            
+            if len(self._client_cache) >= max_cache_size:
                 # 移除最旧的缓存项（简单的LRU实现）
                 oldest_key = next(iter(self._client_cache))
                 del self._client_cache[oldest_key]
@@ -237,16 +246,16 @@ class LLMFactory(ILLMClientFactory):
         
         # 同时清除基础设施层的HTTP客户端缓存
         self._http_factory.clear_cache()
+        
+        # 清除配置提供者缓存
+        self.config_provider.clear_cache()
 
-    def get_or_create_client(
-        self, model_name: str, config: Dict[str, Any]
-    ) -> ILLMClient:
+    def get_or_create_client(self, model_name: str) -> ILLMClient:
         """
         获取或创建客户端实例
 
         Args:
             model_name: 模型名称
-            config: 客户端配置
 
         Returns:
             ILLMClient: 客户端实例
@@ -257,10 +266,11 @@ class LLMFactory(ILLMClientFactory):
             return client
 
         # 创建新客户端
-        client = self.create_client(config)
+        client = self.create_client_from_model_name(model_name)
 
         # 缓存客户端
-        if self.config.cache_enabled:
+        module_config = self.config_provider.get_module_config()
+        if module_config.get("cache_enabled", True):
             self.cache_client(model_name, client)
 
         return client
@@ -275,6 +285,15 @@ class LLMFactory(ILLMClientFactory):
         with self._lock:
             return list(self._client_types.keys())
 
+    def list_available_models(self) -> list[str]:
+        """
+        列出可用的模型
+
+        Returns:
+            list[str]: 可用模型列表
+        """
+        return self.config_provider.list_available_models()
+
     def get_cache_info(self) -> Dict[str, Any]:
         """
         获取缓存信息
@@ -283,11 +302,12 @@ class LLMFactory(ILLMClientFactory):
             Dict[str, Any]: 缓存信息
         """
         with self._lock:
+            module_config = self.config_provider.get_module_config()
             core_cache_info = {
                 "cache_size": len(self._client_cache),
-                "max_cache_size": self.config.cache_max_size,
+                "max_cache_size": module_config.get("cache_max_size", 100),
                 "cached_models": list(self._client_cache.keys()),
-                "cache_enabled": self.config.cache_enabled,
+                "cache_enabled": module_config.get("cache_enabled", True),
             }
         
         # 获取基础设施层的缓存信息
@@ -300,6 +320,13 @@ class LLMFactory(ILLMClientFactory):
             core_cache_info["infrastructure_cache"] = infra_cache_info
         except Exception:
             # 如果获取基础设施层缓存信息失败，忽略错误
+            pass
+        
+        # 获取配置提供者缓存信息
+        try:
+            config_cache_info = self.config_provider.get_cache_stats()
+            core_cache_info["config_cache"] = config_cache_info
+        except Exception:
             pass
         
         return core_cache_info
@@ -315,26 +342,35 @@ class LLMFactory(ILLMClientFactory):
     def reload_configs(self) -> None:
         """重新加载配置"""
         self._http_factory.reload_configs()
+        self.config_provider.refresh_config()
+    
+    def get_config_summary(self) -> Dict[str, Any]:
+        """获取配置摘要
+        
+        Returns:
+            Dict[str, Any]: 配置摘要信息
+        """
+        return self.config_provider.get_config_summary()
 
 
 # 全局工厂实例
-_global_factory: Optional[LLMFactory] = None
+_global_factory: Optional[LLMFactoryNew] = None
 
 
-def get_global_factory() -> LLMFactory:
+def get_global_factory_new() -> LLMFactoryNew:
     """
     获取全局工厂实例
 
     Returns:
-        LLMFactory: 全局工厂实例
+        LLMFactoryNew: 全局工厂实例
     """
     global _global_factory
     if _global_factory is None:
-        _global_factory = LLMFactory()
+        _global_factory = LLMFactoryNew()
     return _global_factory
 
 
-def set_global_factory(factory: LLMFactory) -> None:
+def set_global_factory(factory: LLMFactoryNew) -> None:
     """
     设置全局工厂实例
 
@@ -345,17 +381,17 @@ def set_global_factory(factory: LLMFactory) -> None:
     _global_factory = factory
 
 
-def create_client(config: Dict[str, Any]) -> ILLMClient:
+def create_client(model_name: str) -> ILLMClient:
     """
     使用全局工厂创建客户端
 
     Args:
-        config: 客户端配置
+        model_name: 模型名称
 
     Returns:
         ILLMClient: 客户端实例
     """
-    return get_global_factory().create_client(config)
+    return get_global_factory_new().create_client_from_model_name(model_name)
 
 
 def get_cached_client(model_name: str) -> Optional[ILLMClient]:
@@ -368,4 +404,4 @@ def get_cached_client(model_name: str) -> Optional[ILLMClient]:
     Returns:
         Optional[ILLMClient]: 缓存的客户端实例
     """
-    return get_global_factory().get_cached_client(model_name)
+    return get_global_factory_new().get_cached_client(model_name)
