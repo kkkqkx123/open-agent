@@ -5,13 +5,13 @@
 
 from typing import Dict, Any, Optional, Set
 
-from src.interfaces.config import IConfigProcessor
+from .base_processor import BaseConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class ReferenceProcessor(IConfigProcessor):
+class ReferenceProcessor(BaseConfigProcessor):
     """引用处理器
     
     处理配置中的引用（如 $ref: path.to.value）。
@@ -19,9 +19,10 @@ class ReferenceProcessor(IConfigProcessor):
     
     def __init__(self):
         """初始化引用处理器"""
+        super().__init__("reference")
         logger.debug("引用处理器初始化完成")
     
-    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
+    def _process_internal(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """处理配置引用
         
         Args:

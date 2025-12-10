@@ -10,6 +10,7 @@ import logging
 
 from src.interfaces.config import IConfigLoader, IConfigProcessor
 from src.interfaces.common_domain import ValidationResult
+from ..interfaces import IConfigSchema, IConfigProcessorChain
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +61,11 @@ class BaseConfigImpl(IConfigImpl):
     提供配置加载、处理和转换的通用流程。
     """
     
-    def __init__(self, 
+    def __init__(self,
                  module_type: str,
                  config_loader: IConfigLoader,
-                 processor_chain: 'ConfigProcessorChain',
-                 schema: 'ConfigSchema'):
+                 processor_chain: IConfigProcessorChain,
+                 schema: IConfigSchema):
         """初始化配置实现
         
         Args:
@@ -191,8 +192,8 @@ class BaseConfigImpl(IConfigImpl):
         return self.load_config(config_path)
 
 
-class ConfigProcessorChain:
-    """配置处理器链"""
+class ConfigProcessorChain(IConfigProcessorChain):
+    """配置处理器链实现"""
     
     def __init__(self):
         self._processors: list[IConfigProcessor] = []
@@ -204,20 +205,6 @@ class ConfigProcessorChain:
             processor: 配置处理器
         """
         self._processors.append(processor)
-    
-    def remove_processor(self, processor: IConfigProcessor) -> bool:
-        """移除处理器
-        
-        Args:
-            processor: 配置处理器
-            
-        Returns:
-            是否成功移除
-        """
-        if processor in self._processors:
-            self._processors.remove(processor)
-            return True
-        return False
     
     def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """应用处理器链
@@ -237,10 +224,6 @@ class ConfigProcessorChain:
         
         return result
     
-    def clear(self) -> None:
-        """清空处理器链"""
-        self._processors.clear()
-    
     def get_processors(self) -> list[IConfigProcessor]:
         """获取处理器列表
         
@@ -250,8 +233,8 @@ class ConfigProcessorChain:
         return self._processors.copy()
 
 
-class ConfigSchema:
-    """配置模式基类"""
+class ConfigSchema(IConfigSchema):
+    """配置模式基类实现"""
     
     def __init__(self, schema_definition: Optional[Dict[str, Any]] = None):
         """初始化配置模式

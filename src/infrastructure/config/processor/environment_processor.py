@@ -7,13 +7,13 @@ import os
 import re
 from typing import Dict, Any
 
-from src.interfaces.config import IConfigProcessor
+from .base_processor import BaseConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class EnvironmentProcessor(IConfigProcessor):
+class EnvironmentProcessor(BaseConfigProcessor):
     """环境变量处理器
     
     处理配置中的环境变量替换。
@@ -21,10 +21,11 @@ class EnvironmentProcessor(IConfigProcessor):
     
     def __init__(self):
         """初始化环境变量处理器"""
+        super().__init__("environment")
         self._env_var_pattern = re.compile(r"\$\{([^}]+)\}")
         logger.debug("环境变量处理器初始化完成")
     
-    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
+    def _process_internal(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """处理环境变量替换
         
         Args:

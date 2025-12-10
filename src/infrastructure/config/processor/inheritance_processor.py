@@ -10,13 +10,14 @@ from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
 from src.interfaces.config import ConfigError as ConfigurationError
-from src.interfaces.config import IConfigInheritanceHandler, IConfigProcessor, IConfigLoader
+from src.interfaces.config import IConfigInheritanceHandler, IConfigLoader
+from .base_processor import BaseConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class InheritanceProcessor(IConfigInheritanceHandler, IConfigProcessor):
+class InheritanceProcessor(IConfigInheritanceHandler, BaseConfigProcessor):
     """配置继承处理器实现"""
     
     def __init__(self, config_loader: Optional[IConfigLoader] = None):
@@ -25,12 +26,13 @@ class InheritanceProcessor(IConfigInheritanceHandler, IConfigProcessor):
         Args:
             config_loader: 配置加载器（可选）
         """
+        super().__init__("inheritance")
         self.config_loader = config_loader
         self._env_var_pattern = re.compile(r"\$\{([^}]+)\}")
         self._loading_stack: List[str] = []
         logger.debug("继承处理器初始化完成")
     
-    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
+    def _process_internal(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """处理配置继承
         
         Args:

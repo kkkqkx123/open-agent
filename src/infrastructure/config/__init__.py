@@ -16,7 +16,7 @@ from .config_factory import ConfigFactory
 from .impl import BaseConfigImpl, IConfigImpl
 
 # 配置处理器层
-from .processor.base_processor import BaseConfigProcessor, IConfigProcessor, ProcessorContext, ProcessorResult
+from .processor.base_processor import BaseConfigProcessor, IConfigProcessor
 from .processor.validation_processor import ValidationProcessor, SchemaRegistry
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProcessor
@@ -41,8 +41,6 @@ __all__ = [
     # 配置处理器层
     "BaseConfigProcessor",
     "IConfigProcessor",
-    "ProcessorContext",
-    "ProcessorResult",
     "ValidationProcessor",
     "SchemaRegistry",
     "TransformationProcessor",

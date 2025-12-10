@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 from .base_processor import BaseConfigProcessor
-from src.interfaces.common_domain import ValidationResult
+from ..interfaces import IConfigSchema, ISchemaRegistry, ValidationResult
 
 logger = logging.getLogger(__name__)
 
@@ -208,25 +208,6 @@ class ValidationProcessor(BaseConfigProcessor):
             return "general"
 
 
-class ISchemaRegistry(ABC):
-    """模式注册表接口"""
-    
-    @abstractmethod
-    def register_schema(self, config_type: str, schema: Any) -> None:
-        """注册模式"""
-        pass
-    
-    @abstractmethod
-    def get_schema(self, config_type: str) -> Optional[Any]:
-        """获取模式"""
-        pass
-    
-    @abstractmethod
-    def has_schema(self, config_type: str) -> bool:
-        """检查是否存在模式"""
-        pass
-
-
 class SchemaRegistry(ISchemaRegistry):
     """模式注册表
     
@@ -235,10 +216,10 @@ class SchemaRegistry(ISchemaRegistry):
     
     def __init__(self):
         """初始化模式注册表"""
-        self._schemas: Dict[str, Any] = {}
+        self._schemas: Dict[str, IConfigSchema] = {}
         logger.debug("初始化模式注册表")
     
-    def register_schema(self, config_type: str, schema: Any) -> None:
+    def register_schema(self, config_type: str, schema: IConfigSchema) -> None:
         """注册模式
         
         Args:
@@ -248,7 +229,7 @@ class SchemaRegistry(ISchemaRegistry):
         self._schemas[config_type] = schema
         logger.debug(f"注册{config_type}配置模式")
     
-    def get_schema(self, config_type: str) -> Optional[Any]:
+    def get_schema(self, config_type: str) -> Optional[IConfigSchema]:
         """获取模式
         
         Args:

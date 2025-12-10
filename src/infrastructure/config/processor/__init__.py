@@ -5,7 +5,7 @@
 """
 
 # 基础处理器
-from .base_processor import BaseConfigProcessor, IConfigProcessor, ProcessorContext, ProcessorResult
+from .base_processor import BaseConfigProcessor, IConfigProcessor
 
 # 具体处理器实现
 from .environment_processor import EnvironmentProcessor
@@ -18,8 +18,6 @@ __all__ = [
     # 基础处理器
     "BaseConfigProcessor",
     "IConfigProcessor",
-    "ProcessorContext",
-    "ProcessorResult",
     
     # 具体处理器实现
     "EnvironmentProcessor",
