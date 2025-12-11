@@ -6,8 +6,8 @@
 from typing import Any, Optional
 
 from src.interfaces.logger import ILogger
-from .logger.injection import get_logger as get_service_logger
-from .history.injection import get_token_calculation_service
+from .logger.logger_service import create_logger_service
+from .llm.token_calculation_service import TokenCalculationService
 
 
 def initialize_core_dependencies() -> None:
@@ -19,14 +19,16 @@ def initialize_core_dependencies() -> None:
     
     # 设置日志提供者
     def logger_provider(name: Optional[str] = None) -> ILogger:
-        return get_service_logger(name)
+        # 创建简单的日志服务实例
+        return create_logger_service(name or "default")
     
     set_logger_provider(logger_provider)
     
     # 设置Token计算器
     def token_calculator(messages: Any, model_type: str, model_name: str) -> int:
         try:
-            token_service = get_token_calculation_service()
+            # 创建Token计算服务实例
+            token_service = TokenCalculationService()
             # TokenCalculationService使用calculate_messages_tokens方法
             if hasattr(token_service, 'calculate_messages_tokens'):
                 # 如果是消息列表，使用calculate_messages_tokens方法

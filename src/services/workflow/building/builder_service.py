@@ -9,7 +9,7 @@ import asyncio
 
 if TYPE_CHECKING:
     from src.interfaces.workflow.core import IWorkflow
-    from src.core.workflow.config.config import GraphConfig
+    from src.core.workflow.graph_entities import GraphConfig
 
 from src.interfaces.workflow.services import IWorkflowBuilderService
 from src.services.workflow.graph_cache import GraphCache, create_graph_cache, calculate_config_hash
@@ -120,7 +120,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
                 graph = cached_graph
             else:
                 # 使用基础设施层图引擎创建图
-                from src.core.workflow.config.config import GraphConfig
+                from src.core.workflow.graph_entities import GraphConfig
                 graph_config = GraphConfig.from_dict(config)
                 
                 # 创建状态模式
@@ -186,7 +186,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         """
         try:
             # 延迟导入避免循环依赖
-            from src.core.workflow.config.config import GraphConfig
+            from src.core.workflow.graph_entities import GraphConfig
             
             # 使用核心层的配置验证
             config_obj = GraphConfig.from_dict(config)
@@ -278,7 +278,7 @@ class WorkflowBuilderService(IWorkflowBuilderService):
         """
         # 延迟导入避免循环依赖
         from src.core.workflow.workflow import Workflow
-        from src.core.workflow.config.config import GraphConfig
+        from src.core.workflow.graph_entities import GraphConfig
         
         # 创建基础配置
         config = GraphConfig(

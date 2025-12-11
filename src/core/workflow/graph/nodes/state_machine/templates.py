@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from src.interfaces.dependency_injection import get_logger
 from copy import deepcopy
 
-from src.core.workflow.config.config import WorkflowConfig
+from .workflow_config import WorkflowConfig
 from typing import Any
 
 logger = get_logger(__name__)

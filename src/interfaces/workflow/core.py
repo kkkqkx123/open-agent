@@ -10,7 +10,7 @@ from typing import Dict, Any, List, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
-    from ...core.workflow.config.config import GraphConfig
+    from ...core.workflow.graph_entities import GraphConfig
 
 from ..common_domain import ValidationResult, WorkflowExecutionContext
 

@@ -10,7 +10,7 @@ from src.interfaces.dependency_injection import get_logger
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from .state_machine_workflow_factory import StateMachineWorkflowFactory
-from src.core.workflow.config.config import WorkflowConfig
+from .workflow_config import WorkflowConfig
 from src.core.config.config_manager import get_default_manager, ConfigManager
 
 logger = get_logger(__name__)

@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ...core.config.config_manager import ConfigManager
 from .discovery import ConfigDiscoverer
-from .injection import get_config_loader
+from src.interfaces.dependency_injection import get_config_loader
 
 
 class ConfigServiceFactory:

@@ -10,7 +10,7 @@ import math
 import random
 import json
 
-from src.core.workflow.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 from src.interfaces.workflow.exceptions import WorkflowError
 from src.interfaces.workflow.visualization import IWorkflowVisualizer
 

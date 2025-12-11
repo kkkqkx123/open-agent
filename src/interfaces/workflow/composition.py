@@ -10,7 +10,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from .core import IWorkflow
-    from ...core.workflow.config.config import GraphConfig
+    from ...core.workflow.graph_entities import GraphConfig
 
 from ..common_domain import ValidationResult
 

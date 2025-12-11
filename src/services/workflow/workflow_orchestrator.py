@@ -9,7 +9,7 @@ from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state.workflow import IWorkflowState
 from src.interfaces.logger import ILogger
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 from src.core.workflow.workflow import Workflow
 
 

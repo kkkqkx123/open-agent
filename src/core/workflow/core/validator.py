@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from enum import Enum
 from src.interfaces.dependency_injection import get_logger
 
-from src.core.workflow.config.config import GraphConfig, EdgeConfig, EdgeType
+from src.core.workflow.graph_entities import GraphConfig, EdgeConfig, EdgeType
 
 logger = get_logger(__name__)
 

@@ -14,7 +14,7 @@ from src.interfaces.workflow.composition import (
 from src.interfaces.workflow.core import IWorkflow
 from src.interfaces.state.workflow import IWorkflowState
 from src.core.workflow.workflow import Workflow
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 
 logger = get_logger(__name__)
 

@@ -11,7 +11,7 @@ from src.interfaces.workflow.services import IWorkflowFactory
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.templates import get_global_template_registry
 from src.interfaces.workflow.core import IWorkflowRegistry
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 
 
 class WorkflowFactory(IWorkflowFactory):

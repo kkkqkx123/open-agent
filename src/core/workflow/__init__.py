@@ -53,7 +53,6 @@ from .config.config import (
     GraphConfig,
     NodeConfig,
     EdgeConfig,
-    WorkflowConfig,
     StateFieldConfig,
     GraphStateConfig,
     EdgeType
@@ -229,7 +228,6 @@ __all__ = [
     "GraphConfig",
     "NodeConfig",
     "EdgeConfig",
-    "WorkflowConfig",
     "StateFieldConfig",
     "GraphStateConfig",
     "EdgeType",

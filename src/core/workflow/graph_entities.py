@@ -1,100 +1,64 @@
-"""图配置领域实体
+"""图领域实体
 
-定义工作流图配置的领域实体，只包含业务逻辑和数据结构，
-不包含配置处理、验证等基础设施功能。
+定义工作流图的领域实体，包含业务逻辑和行为，
+不包含配置数据处理等基础设施功能。
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Type
+from typing import Dict, Any, List, Optional, Set
 from enum import Enum
+from datetime import datetime
 
-from src.interfaces.workflow.config import (
-    EdgeType as InterfaceEdgeType,
-    INodeConfig,
-    IEdgeConfig,
-    IStateFieldConfig,
-    IGraphStateConfig,
-    IGraphConfig
-)
+from src.interfaces.common_domain import ValidationResult
 
 
-# 直接使用接口层的 EdgeType，不继承（Enum final 类）
-EdgeType = InterfaceEdgeType
+class EdgeType(Enum):
+    """边类型枚举"""
+    SIMPLE = "simple"
+    CONDITIONAL = "conditional"
 
 
 @dataclass
-class StateFieldConfig(IStateFieldConfig):
-    """状态字段配置领域实体"""
-    _name: str
-    _type: str
-    default: Any = None
-    _reducer: Optional[str] = None
-    _description: Optional[str] = None
-
-    @property
-    def name(self) -> str:
-        return self._name
-    
-    @property
-    def type(self) -> str:
-        return self._type
-    
-    @property
-    def reducer(self) -> Optional[str]:
-        return self._reducer
-    
-    @property
-    def description(self) -> Optional[str]:
-        return self._description
+class StateField:
+    """状态字段领域实体"""
+    name: str
+    field_type: str
+    default_value: Any = None
+    reducer_function: Optional[str] = None
+    description: Optional[str] = None
 
     # 业务方法
-    def has_default(self) -> bool:
+    def has_default_value(self) -> bool:
         """检查是否有默认值"""
-        return self.default is not None
+        return self.default_value is not None
 
     def has_reducer(self) -> bool:
-        """检查是否有reducer"""
-        return self.reducer is not None
+        """检查是否有reducer函数"""
+        return self.reducer_function is not None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        result: Dict[str, Any] = {
-            "name": self.name,
-            "type": self.type,
-        }
-        if self.default is not None:
-            result["default"] = self.default
-        if self.reducer:
-            result["reducer"] = self.reducer
-        if self.description:
-            result["description"] = self.description
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "StateFieldConfig":
-        """从字典创建状态字段配置"""
-        return cls(
-            _name=data.get("name", ""),
-            _type=data.get("type", "str"),
-            default=data.get("default"),
-            _reducer=data.get("reducer"),
-            _description=data.get("description")
-        )
+    def validate_value(self, value: Any) -> bool:
+        """验证值是否符合字段类型"""
+        # 简单的类型验证，实际实现可能更复杂
+        if self.field_type == "str":
+            return isinstance(value, str)
+        elif self.field_type == "int":
+            return isinstance(value, int)
+        elif self.field_type == "float":
+            return isinstance(value, (int, float))
+        elif self.field_type == "bool":
+            return isinstance(value, bool)
+        elif self.field_type == "dict":
+            return isinstance(value, dict)
+        elif self.field_type == "list":
+            return isinstance(value, list)
+        return True
 
 
 @dataclass
-class GraphStateConfig(IGraphStateConfig):
-    """图状态配置领域实体"""
-    _name: str
-    _fields: Dict[str, StateFieldConfig] = field(default_factory=dict)
-
-    @property
-    def name(self) -> str:
-        return self._name
-    
-    @property
-    def fields(self) -> Dict[str, StateFieldConfig]:
-        return self._fields
+class GraphState:
+    """图状态领域实体"""
+    name: str
+    fields: Dict[str, StateField] = field(default_factory=dict)
 
     # 业务方法
     def get_field_count(self) -> int:
@@ -109,103 +73,85 @@ class GraphStateConfig(IGraphStateConfig):
         """检查是否包含指定字段"""
         return field_name in self.fields
 
-    def get_field(self, field_name: str) -> Optional[StateFieldConfig]:
-        """获取指定字段配置"""
+    def get_field(self, field_name: str) -> Optional[StateField]:
+        """获取指定字段"""
         return self.fields.get(field_name)
 
-    def add_field(self, field: StateFieldConfig) -> None:
+    def add_field(self, field: StateField) -> None:
         """添加字段"""
-        self._fields[field.name] = field
+        self.fields[field.name] = field
 
     def remove_field(self, field_name: str) -> bool:
         """移除字段"""
-        if field_name in self._fields:
-            del self._fields[field_name]
+        if field_name in self.fields:
+            del self.fields[field_name]
             return True
         return False
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        return {
-            "name": self.name,
-            "fields": {
-                name: config.to_dict()
-                for name, config in self._fields.items()
-            }
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GraphStateConfig":
-        """从字典创建图状态配置"""
-        fields = {}
-        for field_name, field_config in data.get("fields", {}).items():
-            if isinstance(field_config, StateFieldConfig):
-                fields[field_name] = field_config
-            else:
-                fields[field_name] = StateFieldConfig.from_dict(field_config)
+    def validate_state_data(self, state_data: Dict[str, Any]) -> ValidationResult:
+        """验证状态数据"""
+        errors = []
         
-        return cls(
-            _name=data.get("name", "GraphState"),
-            _fields=fields
-        )
+        for field_name, field in self.fields.items():
+            if field_name in state_data:
+                if not field.validate_value(state_data[field_name]):
+                    errors.append(f"字段 {field_name} 的值类型不匹配")
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
 
 @dataclass
-class NodeConfig(INodeConfig):
-    """节点配置领域实体"""
-    _name: str
-    _function_name: str
-    _description: Optional[str] = None
-    _config: Dict[str, Any] = field(default_factory=dict)
+class Node:
+    """节点领域实体"""
+    node_id: str
+    name: str
+    function_name: str
+    description: Optional[str] = None
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    node_type: str = "default"
     
-    # 新增：支持节点内部函数组合
-    _composition_name: Optional[str] = None  # 节点内部函数组合名称
-    _function_sequence: List[str] = field(default_factory=list)  # 函数执行序列
-
-    @property
-    def name(self) -> str:
-        return self._name
-    
-    @property
-    def function_name(self) -> str:
-        return self._function_name
-    
-    @property
-    def description(self) -> Optional[str]:
-        return self._description
-    
-    @property
-    def config(self) -> Dict[str, Any]:
-        return self._config
-    
-    @property
-    def composition_name(self) -> Optional[str]:
-        return self._composition_name
-    
-    @property
-    def function_sequence(self) -> List[str]:
-        return self._function_sequence
+    # 运行时状态
+    status: str = "inactive"
+    execution_count: int = 0
+    last_execution_time: Optional[datetime] = None
+    execution_history: List[Dict[str, Any]] = field(default_factory=list)
 
     # 业务方法
-    def has_composition(self) -> bool:
-        """检查是否有函数组合"""
-        return self.composition_name is not None
+    def execute(self, input_data: Any, context: Dict[str, Any]) -> Dict[str, Any]:
+        """执行节点逻辑"""
+        # 记录执行
+        self.execution_count += 1
+        self.last_execution_time = datetime.now()
+        
+        execution_record = {
+            "execution_id": f"{self.node_id}_{self.execution_count}",
+            "timestamp": self.last_execution_time,
+            "input_data": input_data,
+            "context": context
+        }
+        self.execution_history.append(execution_record)
+        
+        # 这里应该调用实际的函数执行逻辑
+        # 暂时返回基本结果
+        return {
+            "node_id": self.node_id,
+            "status": "completed",
+            "result": f"Node {self.name} executed successfully"
+        }
 
-    def get_function_count(self) -> int:
-        """获取函数序列数量"""
-        return len(self.function_sequence)
+    def can_execute(self) -> bool:
+        """检查节点是否可以执行"""
+        return self.status != "disabled"
 
-    def has_config(self, key: str) -> bool:
-        """检查是否包含指定配置"""
-        return key in self.config
+    def get_execution_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """获取执行历史"""
+        return self.execution_history[-limit:]
 
-    def get_config_value(self, key: str, default: Any = None) -> Any:
-        """获取配置值"""
-        return self.config.get(key, default)
-
-    def set_config_value(self, key: str, value: Any) -> None:
-        """设置配置值"""
-        self.config[key] = value
+    def reset_execution_history(self) -> None:
+        """重置执行历史"""
+        self.execution_history.clear()
+        self.execution_count = 0
+        self.last_execution_time = None
 
     def is_llm_node(self) -> bool:
         """检查是否为LLM节点"""
@@ -219,94 +165,45 @@ class NodeConfig(INodeConfig):
         """检查是否为条件节点"""
         return "condition" in self.name.lower() or "decide" in self.name.lower()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        result: Dict[str, Any] = {
-            "name": self.name,
-            "function_name": self.function_name,
-        }
-        if self.description:
-            result["description"] = self.description
-        if self.config:
-            result["config"] = self.config
-        if self.composition_name:
-            result["composition_name"] = self.composition_name
-        if self.function_sequence:
-            result["function_sequence"] = self.function_sequence
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "NodeConfig":
-        """从字典创建节点配置"""
-        return cls(
-            _name=data["name"],
-            _function_name=data["function_name"],
-            _description=data.get("description"),
-            _config=data.get("config", {}),
-            _composition_name=data.get("composition_name"),
-            _function_sequence=data.get("function_sequence", [])
-        )
+    def validate_parameters(self) -> ValidationResult:
+        """验证节点参数"""
+        errors = []
+        
+        if not self.function_name:
+            errors.append("节点必须指定函数名称")
+        
+        if not self.node_id:
+            errors.append("节点必须指定ID")
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
 
 @dataclass
-class EdgeConfig(IEdgeConfig):
-    """边配置领域实体"""
-    _from_node: str
-    _to_node: str
-    _type: InterfaceEdgeType
-    _condition: Optional[str] = None  # 条件函数名（兼容旧格式）
-    _description: Optional[str] = None
-    _path_map: Optional[Dict[str, Any]] = None  # 条件边的路径映射
-    
-    # 新增灵活条件边支持
-    _route_function: Optional[str] = None  # 路由函数名称
-    _route_parameters: Optional[Dict[str, Any]] = None  # 路由函数参数
-
-    @property
-    def from_node(self) -> str:
-        return self._from_node
-    
-    @property
-    def to_node(self) -> str:
-        return self._to_node
-    
-    @property
-    def type(self) -> InterfaceEdgeType:
-        return self._type
-    
-    @property
-    def condition(self) -> Optional[str]:
-        return self._condition
-    
-    @property
-    def description(self) -> Optional[str]:
-        return self._description
-    
-    @property
-    def path_map(self) -> Optional[Dict[str, Any]]:
-        return self._path_map
-    
-    @property
-    def route_function(self) -> Optional[str]:
-        return self._route_function
-    
-    @property
-    def route_parameters(self) -> Optional[Dict[str, Any]]:
-        return self._route_parameters
+class Edge:
+    """边领域实体"""
+    edge_id: str
+    from_node_id: str
+    to_node_id: str
+    edge_type: EdgeType
+    condition: Optional[str] = None
+    description: Optional[str] = None
+    path_map: Optional[Dict[str, Any]] = None
+    route_function: Optional[str] = None
+    route_parameters: Dict[str, Any] = field(default_factory=dict)
 
     # 业务方法
     def is_simple_edge(self) -> bool:
         """检查是否为简单边"""
-        return self.type == EdgeType.SIMPLE
+        return self.edge_type == EdgeType.SIMPLE
 
     def is_conditional_edge(self) -> bool:
         """检查是否为条件边"""
-        return self.type == EdgeType.CONDITIONAL
+        return self.edge_type == EdgeType.CONDITIONAL
 
     def is_flexible_conditional(self) -> bool:
         """检查是否为灵活条件边"""
         return (
-            self.type == EdgeType.CONDITIONAL and 
+            self.edge_type == EdgeType.CONDITIONAL and
             self.route_function is not None
         )
 
@@ -325,7 +222,7 @@ class EdgeConfig(IEdgeConfig):
     def get_target_nodes(self) -> List[str]:
         """获取目标节点列表"""
         if self.is_simple_edge():
-            return [self.to_node] if self.to_node else []
+            return [self.to_node_id] if self.to_node_id else []
         elif self.has_path_map() and isinstance(self.path_map, dict):
             return list(self.path_map.values())
         elif self.has_path_map() and isinstance(self.path_map, list):
@@ -333,135 +230,68 @@ class EdgeConfig(IEdgeConfig):
         else:
             return []
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        result: Dict[str, Any] = {
-            "from": self.from_node,
-            "to": self.to_node,
-            "type": self.type.value,
-        }
-        if self.condition:
-            result["condition"] = self.condition
-        if self.description:
-            result["description"] = self.description
-        if self.path_map:
-            result["path_map"] = self.path_map
-        if self.route_function:
-            result["route_function"] = self.route_function
-        if self.route_parameters:
-            result["route_parameters"] = self.route_parameters
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EdgeConfig":
-        """从字典创建边配置"""
-        edge_type = EdgeType(data["type"])
-        return cls(
-            _from_node=data["from"],
-            _to_node=data["to"],
-            _type=edge_type,
-            _condition=data.get("condition"),
-            _description=data.get("description"),
-            _path_map=data.get("path_map"),
-            _route_function=data.get("route_function"),
-            _route_parameters=data.get("route_parameters", {})
-        )
-
-    def validate(self) -> List[str]:
-        """验证边配置（基础业务验证）
+    def can_traverse(self, context: Dict[str, Any]) -> bool:
+        """检查是否可以遍历这条边"""
+        if self.is_simple_edge():
+            return True
         
-        Returns:
-            List[str]: 验证错误列表
-        """
+        if self.is_conditional_edge():
+            # 这里应该评估条件表达式
+            # 暂时返回True
+            return True
+        
+        return False
+
+    def evaluate_condition(self, context: Dict[str, Any]) -> Optional[str]:
+        """评估条件，返回目标节点ID"""
+        if self.is_simple_edge():
+            return self.to_node_id
+        
+        if self.has_path_map():
+            # 根据条件评估结果选择路径
+            # 这里应该实现实际的逻辑
+            return self.to_node_id
+        
+        return None
+
+    def validate(self) -> ValidationResult:
+        """验证边配置"""
         errors = []
         
-        if not self.from_node:
-            errors.append("起始节点不能为空")
+        if not self.from_node_id:
+            errors.append("起始节点ID不能为空")
         
-        if not self.to_node and self.type == EdgeType.SIMPLE:
-            errors.append("简单边必须指定目标节点")
+        if not self.to_node_id and self.is_simple_edge():
+            errors.append("简单边必须指定目标节点ID")
         
-        if self.type == EdgeType.CONDITIONAL:
-            # 检查是否为灵活条件边
+        if self.is_conditional_edge():
             if self.is_flexible_conditional():
                 if not self.route_function:
                     errors.append("灵活条件边必须指定路由函数")
             else:
-                # 传统条件边
                 if not self.condition:
                     errors.append("条件边必须指定条件表达式")
         
-        return errors
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
 
 @dataclass
-class GraphConfig(IGraphConfig):
-    """图配置领域实体"""
-    _name: str
-    _id: str = ""  # 添加 id 属性
-    _description: str = ""
-    _version: str = "1.0"
-    _state_schema: GraphStateConfig = field(default_factory=lambda: GraphStateConfig(_name="GraphState"))
-    _nodes: Dict[str, NodeConfig] = field(default_factory=dict)
-    _edges: List[EdgeConfig] = field(default_factory=list)
-    _entry_point: Optional[str] = None
-    _checkpointer: Optional[str] = None  # 检查点配置
-    _interrupt_before: Optional[List[str]] = None  # 中断配置
-    _interrupt_after: Optional[List[str]] = None   # 中断配置
-    _state_overrides: Dict[str, Any] = field(default_factory=dict)  # 状态覆盖
-    _additional_config: Dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def name(self) -> str:
-        return self._name
+class Graph:
+    """图领域实体"""
+    graph_id: str
+    name: str
+    description: str = ""
+    version: str = "1.0"
+    state: GraphState = field(default_factory=lambda: GraphState(name="GraphState"))
+    nodes: Dict[str, Node] = field(default_factory=dict)
+    edges: List[Edge] = field(default_factory=list)
+    entry_point: Optional[str] = None
     
-    @property
-    def id(self) -> str:
-        return self._id
-    
-    @property
-    def description(self) -> str:
-        return self._description
-    
-    @property
-    def version(self) -> str:
-        return self._version
-    
-    @property
-    def state_schema(self) -> GraphStateConfig:
-        return self._state_schema
-    
-    @property
-    def nodes(self) -> Dict[str, NodeConfig]:
-        return self._nodes
-    
-    @property
-    def entry_point(self) -> Optional[str]:
-        return self._entry_point
-    
-    @property
-    def checkpointer(self) -> Optional[str]:
-        return self._checkpointer
-    
-    @property
-    def interrupt_before(self) -> Optional[List[str]]:
-        return self._interrupt_before
-    
-    @property
-    def interrupt_after(self) -> Optional[List[str]]:
-        return self._interrupt_after
-    
-    @property
-    def state_overrides(self) -> Dict[str, Any]:
-        return self._state_overrides
-    
-    @property
-    def additional_config(self) -> Dict[str, Any]:
-        return self._additional_config
-    
-    @property
-    def edges(self) -> List[EdgeConfig]:
-        return self._edges
+    # 运行时状态
+    status: str = "initialized"
+    created_at: datetime = field(default_factory=datetime.now)
+    execution_count: int = 0
+    last_execution_time: Optional[datetime] = None
 
     # 业务方法
     def get_node_count(self) -> int:
@@ -476,226 +306,174 @@ class GraphConfig(IGraphConfig):
         """获取节点名称列表"""
         return list(self.nodes.keys())
 
-    def has_node(self, node_name: str) -> bool:
+    def has_node(self, node_id: str) -> bool:
         """检查是否包含指定节点"""
-        return node_name in self.nodes
+        return node_id in self.nodes
 
-    def get_node(self, node_name: str) -> Optional[NodeConfig]:
-        """获取指定节点配置"""
-        return self.nodes.get(node_name)
+    def get_node(self, node_id: str) -> Optional[Node]:
+        """获取指定节点"""
+        return self.nodes.get(node_id)
 
-    def add_node(self, node: NodeConfig) -> None:
+    def add_node(self, node: Node) -> None:
         """添加节点"""
-        self._nodes[node.name] = node
+        self.nodes[node.node_id] = node
 
-    def remove_node(self, node_name: str) -> bool:
+    def remove_node(self, node_id: str) -> bool:
         """移除节点"""
-        if node_name in self._nodes:
-            del self._nodes[node_name]
+        if node_id in self.nodes:
+            del self.nodes[node_id]
             # 同时移除相关的边
-            self._edges = [edge for edge in self._edges 
-                        if edge.from_node != node_name and edge.to_node != node_name]
+            self.edges = [
+                edge for edge in self.edges
+                if edge.from_node_id != node_id and edge.to_node_id != node_id
+            ]
             return True
         return False
 
-    def get_edges_from_node(self, node_name: str) -> List[EdgeConfig]:
+    def get_edges_from_node(self, node_id: str) -> List[Edge]:
         """获取从指定节点出发的边"""
-        return [edge for edge in self.edges if edge.from_node == node_name]
+        return [edge for edge in self.edges if edge.from_node_id == node_id]
 
-    def get_edges_to_node(self, node_name: str) -> List[EdgeConfig]:
+    def get_edges_to_node(self, node_id: str) -> List[Edge]:
         """获取指向指定节点的边"""
-        return [edge for edge in self.edges if edge.to_node == node_name]
+        return [edge for edge in self.edges if edge.to_node_id == node_id]
 
-    def get_connected_nodes(self, node_name: str) -> List[str]:
+    def get_connected_nodes(self, node_id: str) -> Set[str]:
         """获取与指定节点相连的节点"""
         connected = set()
         for edge in self.edges:
-            if edge.from_node == node_name and edge.to_node:
-                connected.add(edge.to_node)
-            elif edge.to_node == node_name:
-                connected.add(edge.from_node)
-        return list(connected)
+            if edge.from_node_id == node_id and edge.to_node_id:
+                connected.add(edge.to_node_id)
+            elif edge.to_node_id == node_id:
+                connected.add(edge.from_node_id)
+        return connected
 
     def has_entry_point(self) -> bool:
         """检查是否有入口点"""
         return self.entry_point is not None
 
-    def is_entry_point(self, node_name: str) -> bool:
+    def is_entry_point(self, node_id: str) -> bool:
         """检查指定节点是否为入口点"""
-        return self.entry_point == node_name
+        return self.entry_point == node_id
 
-    def get_state_field_count(self) -> int:
-        """获取状态字段数量"""
-        return self.state_schema.get_field_count()
-
-    def has_checkpointer(self) -> bool:
-        """检查是否有检查点配置"""
-        return self.checkpointer is not None
-
-    def has_interrupts(self) -> bool:
-        """检查是否有中断配置"""
-        return (self.interrupt_before is not None and len(self.interrupt_before) > 0) or \
-               (self.interrupt_after is not None and len(self.interrupt_after) > 0)
-
-    def get_additional_config(self, key: str, default: Any = None) -> Any:
-        """获取额外配置值"""
-        return self.additional_config.get(key, default)
-
-    def set_additional_config(self, key: str, value: Any) -> None:
-        """设置额外配置值"""
-        self.additional_config[key] = value
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        result: Dict[str, Any] = {
-            "name": self.name,
-            "id": self.id or self.name,  # 如果id为空，使用name
-            "description": self.description,
-            "version": self.version,
-        }
+    def get_next_nodes(self, current_node_id: str, context: Dict[str, Any]) -> List[str]:
+        """获取下一个可执行的节点"""
+        next_nodes = []
         
-        # 状态模式
-        if self.state_schema:
-            result["state_schema"] = self.state_schema.to_dict()
+        for edge in self.get_edges_from_node(current_node_id):
+            if edge.can_traverse(context):
+                target_node = edge.evaluate_condition(context)
+                if target_node:
+                    next_nodes.append(target_node)
         
-        # 节点
-        if self.nodes:
-            result["nodes"] = {
-                name: config.to_dict()
-                for name, config in self.nodes.items()
-            }
-        
-        # 边
-        if self.edges:
-            result["edges"] = [edge.to_dict() for edge in self.edges]
-        
-        # 其他配置
-        if self.entry_point:
-            result["entry_point"] = self.entry_point
-        if self.checkpointer:
-            result["checkpointer"] = self.checkpointer
-        if self.interrupt_before:
-            result["interrupt_before"] = self.interrupt_before
-        if self.interrupt_after:
-            result["interrupt_after"] = self.interrupt_after
-        if self.state_overrides:
-            result["state_overrides"] = self.state_overrides
-        if self.additional_config:
-            result["additional_config"] = self.additional_config
-        
-        return result
+        return next_nodes
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "GraphConfig":
-        """从字典创建图配置"""
-        # 处理状态模式配置
-        state_schema_data = data.get("state_schema", {})
-        state_schema = GraphStateConfig.from_dict(state_schema_data)
-
-        # 处理节点配置
-        nodes = {}
-        for node_name, node_data in data.get("nodes", {}).items():
-            node_data["name"] = node_name  # 确保节点名称正确
-            nodes[node_name] = NodeConfig.from_dict(node_data)
-
-        # 处理边配置
-        edges = []
-        for edge_data in data.get("edges", []):
-            edges.append(EdgeConfig.from_dict(edge_data))
-
-        return cls(
-            _name=data["name"],
-            _id=data.get("id", data.get("name", "")),  # 使用name作为默认id
-            _description=data.get("description", ""),
-            _version=data.get("version", "1.0"),
-            _state_schema=state_schema,
-            _nodes=nodes,
-            _edges=edges,
-            _entry_point=data.get("entry_point"),
-            _checkpointer=data.get("checkpointer"),
-            _interrupt_before=data.get("interrupt_before"),
-            _interrupt_after=data.get("interrupt_after"),
-            _state_overrides=data.get("state_overrides", {}),
-            _additional_config=data.get("additional_config", {})
-        )
-
-    def validate(self) -> List[str]:
-        """验证图配置（基础业务验证）
-        
-        Returns:
-            List[str]: 验证错误列表
-        """
+    def validate_structure(self) -> ValidationResult:
+        """验证图结构"""
         errors = []
         
         # 验证基本字段
         if not self.name:
             errors.append("图名称不能为空")
         
+        if not self.graph_id:
+            errors.append("图ID不能为空")
+        
         # 验证节点
-        node_names = set(self.nodes.keys())
-        for node_name, node_config in self.nodes.items():
-            if not node_config.function_name:
-                errors.append(f"节点 {node_name} 缺少函数名称")
+        node_ids = set(self.nodes.keys())
+        for node_id, node in self.nodes.items():
+            node_validation = node.validate_parameters()
+            if not node_validation.is_valid:
+                errors.extend([f"节点 {node_id}: {error}" for error in node_validation.errors])
         
         # 验证边
         for edge in self.edges:
-            edge_errors = edge.validate()
-            for error in edge_errors:
-                errors.append(f"边 {edge.from_node} -> {edge.to_node}: {error}")
+            edge_validation = edge.validate()
+            if not edge_validation.is_valid:
+                errors.extend([f"边 {edge.edge_id}: {error}" for error in edge_validation.errors])
             
             # 验证节点存在性
-            if edge.from_node not in node_names and edge.from_node not in ["__start__"]:
-                errors.append(f"边起始节点不存在: {edge.from_node}")
+            if edge.from_node_id not in node_ids:
+                errors.append(f"边起始节点不存在: {edge.from_node_id}")
             
-            if edge.to_node not in node_names and edge.to_node not in ["__end__"] and edge.type == EdgeType.SIMPLE:
-                errors.append(f"边目标节点不存在: {edge.to_node}")
+            if edge.to_node_id not in node_ids and edge.is_simple_edge():
+                errors.append(f"边目标节点不存在: {edge.to_node_id}")
         
         # 验证入口点
-        if self.entry_point and self.entry_point not in node_names:
+        if self.entry_point and self.entry_point not in node_ids:
             errors.append(f"入口点节点不存在: {self.entry_point}")
         
-        return errors
-
-    def get_state_class(self) -> Type[Dict[str, Any]]:
-        """获取状态类"""
-        # TODO: 实现状态工厂或使用接口
-        # from ..states.factory import WorkflowStateFactory
-        # return WorkflowStateFactory.create_state_class_from_config(self.state_schema)
+        # 验证连通性
+        if self.entry_point and node_ids:
+            reachable_nodes = self._get_reachable_nodes(self.entry_point)
+            unreachable_nodes = node_ids - reachable_nodes
+            if unreachable_nodes:
+                errors.append(f"以下节点无法从入口点到达: {', '.join(unreachable_nodes)}")
         
-        # 临时返回基本字典类型
-        return Dict[str, Any]
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
 
+    def _get_reachable_nodes(self, start_node_id: str) -> Set[str]:
+        """获取从指定节点可达的所有节点"""
+        reachable = set()
+        to_visit = [start_node_id]
+        
+        while to_visit:
+            current = to_visit.pop()
+            if current not in reachable:
+                reachable.add(current)
+                # 获取所有相连的节点
+                for edge in self.get_edges_from_node(current):
+                    if edge.to_node_id:
+                        to_visit.append(edge.to_node_id)
+        
+        return reachable
 
-@dataclass
-class WorkflowConfig:
-    """工作流配置领域实体 - 用于状态机工作流"""
-    name: str
-    description: str = ""
-    additional_config: Dict[str, Any] = field(default_factory=dict)
-    
-    # 业务方法
-    def has_additional_config(self, key: str) -> bool:
-        """检查是否有额外配置"""
-        return key in self.additional_config
-    
-    def get_additional_config(self, key: str, default: Any = None) -> Any:
-        """获取额外配置值"""
-        return self.additional_config.get(key, default)
-    
-    def set_additional_config(self, key: str, value: Any) -> None:
-        """设置额外配置值"""
-        self.additional_config[key] = value
+    def execute(self, initial_context: Dict[str, Any]) -> Dict[str, Any]:
+        """执行图"""
+        if not self.entry_point:
+            raise ValueError("图没有设置入口点")
+        
+        self.status = "running"
+        self.execution_count += 1
+        self.last_execution_time = datetime.now()
+        
+        current_node_id = self.entry_point
+        execution_context = initial_context.copy()
+        execution_path = [current_node_id]
+        
+        while current_node_id:
+            current_node = self.get_node(current_node_id)
+            if not current_node:
+                break
+            
+            # 执行当前节点
+            node_result = current_node.execute(execution_context, execution_path)
+            execution_context.update(node_result)
+            
+            # 获取下一个节点
+            next_nodes = self.get_next_nodes(current_node_id, execution_context)
+            
+            if not next_nodes:
+                break
+            
+            # 简单选择第一个下一个节点（实际可能需要更复杂的路由逻辑）
+            current_node_id = next_nodes[0]
+            execution_path.append(current_node_id)
+        
+        self.status = "completed"
+        
+        return {
+            "status": self.status,
+            "execution_path": execution_path,
+            "final_context": execution_context,
+            "execution_count": self.execution_count
+        }
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
-        from dataclasses import asdict
-        return asdict(self)
+    def reset(self) -> None:
+        """重置图状态"""
+        self.status = "initialized"
+        for node in self.nodes.values():
+            node.reset_execution_history()
+        self.execution_count = 0
+        self.last_execution_time = None
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowConfig":
-        """从字典创建工作流配置"""
-        return cls(
-            name=data.get("name", "unnamed"),
-            description=data.get("description", ""),
-            additional_config=data.get("additional_config", {})
-        )

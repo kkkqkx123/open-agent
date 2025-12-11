@@ -9,8 +9,7 @@ from .config import (
     EdgeConfig,
     EdgeType,
     StateFieldConfig,
-    GraphStateConfig,
-    WorkflowConfig
+    GraphStateConfig
 )
 # TODO: 修复 node_config_loader 模块缺失问题
 # from .node_config_loader import NodeConfigLoader
@@ -24,7 +23,6 @@ __all__ = [
     "EdgeType",
     "StateFieldConfig",
     "GraphStateConfig",
-    "WorkflowConfig",
     # "NodeConfigLoader",
     # "IWorkflowConfigManager",
     # "WorkflowConfigManager"

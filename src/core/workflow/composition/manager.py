@@ -12,7 +12,7 @@ from src.interfaces.workflow.composition import (
     CompositionStrategyType,
 )
 from src.interfaces.workflow.core import IWorkflow
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
 from src.interfaces.common_domain import ValidationResult
 

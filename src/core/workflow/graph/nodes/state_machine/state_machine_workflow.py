@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from src.interfaces.dependency_injection import get_logger
 
-from src.core.workflow.config.config import WorkflowConfig
+from .workflow_config import WorkflowConfig
 from src.core.state import WorkflowState
 
 logger = get_logger(__name__)

@@ -204,7 +204,7 @@ def _register_workflow_lifecycle_manager(container: Any, config: Dict[str, Any],
     # 创建生命周期管理器工厂函数
     def workflow_lifecycle_manager_factory() -> WorkflowLifecycleManager:
         from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
-        from src.core.workflow.config.config import GraphConfig
+        from src.core.workflow.graph_entities import GraphConfig
         
         # 创建默认配置
         default_config = GraphConfig(
@@ -289,7 +289,7 @@ def _register_workflow_instances(container: Any, config: Dict[str, Any], environ
         try:
             # 创建工作流工厂函数
             def workflow_factory(wc=workflow_config, wid=workflow_id) -> IWorkflow:
-                from src.core.workflow.config.config import GraphConfig
+                from src.core.workflow.graph_entities import GraphConfig
                 from src.core.workflow.workflow import Workflow
                 
                 # 创建图配置

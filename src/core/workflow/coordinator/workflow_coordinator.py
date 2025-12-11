@@ -12,7 +12,7 @@ from src.interfaces.workflow.execution import IWorkflowExecutor
 from src.core.workflow.core.builder import IWorkflowBuilder
 from src.interfaces.workflow.core import IWorkflowValidator
 from src.interfaces.state.workflow import IWorkflowState
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 from src.core.workflow.workflow import Workflow
 from src.core.workflow.management.lifecycle import WorkflowLifecycleManager
 

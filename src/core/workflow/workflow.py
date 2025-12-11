@@ -7,7 +7,7 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from src.core.workflow.config.config import GraphConfig
+from src.core.workflow.graph_entities import GraphConfig
 from src.interfaces.workflow.core import IWorkflow
 
 
