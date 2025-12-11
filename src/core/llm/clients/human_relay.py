@@ -12,7 +12,7 @@ from src.interfaces.llm.exceptions import LLMTimeoutError, LLMInvalidRequestErro
 from src.interfaces.llm import LLMResponse
 
 
-class HumanRelayClient(BaseLLMClient):
+class HumanRelayClient(BaseLLMClient[HumanRelayConfig]):
     """HumanRelay LLM客户端实现 - 通过前端与Web LLM交互"""
     
     def __init__(self, config: HumanRelayConfig) -> None:
@@ -24,7 +24,6 @@ class HumanRelayClient(BaseLLMClient):
         """
         super().__init__(config)
         self.mode = config.mode  # "single" 或 "multi"
-
         self.conversation_history: List[IBaseMessage] = []
         self.max_history_length = config.max_history_length
         self.prompt_template = config.prompt_template
@@ -100,7 +99,9 @@ class HumanRelayClient(BaseLLMClient):
         formatted_messages = self._format_messages(messages)
         
         # 使用模板
-        return self.prompt_template.format(prompt=formatted_messages)
+        if self.prompt_template:
+            return self.prompt_template.format(prompt=formatted_messages)
+        return formatted_messages
     
     def _build_incremental_prompt(self, messages: Sequence[IBaseMessage]) -> str:
         """构建增量提示词"""
@@ -114,10 +115,12 @@ class HumanRelayClient(BaseLLMClient):
         formatted_history = "\n".join([f"{msg.type}: {msg.content}" for msg in self.conversation_history])
         
         # 使用模板
-        return self.incremental_prompt_template.format(
-            incremental_prompt=formatted_messages,
-            conversation_history=formatted_history
-        )
+        if self.incremental_prompt_template:
+            return self.incremental_prompt_template.format(
+                incremental_prompt=formatted_messages,
+                conversation_history=formatted_history
+            )
+        return formatted_messages
     
     def _format_messages(self, messages: Sequence[IBaseMessage]) -> str:
         """格式化消息为文本"""

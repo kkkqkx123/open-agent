@@ -39,6 +39,24 @@ class ResponsesClient(BaseLLMClient):
             api_format="responses"
         )
     
+    async def _do_generate_async(
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
+    ) -> LLMResponse:
+        """执行异步生成操作"""
+        merged_params = parameters.copy()
+        merged_params.update(kwargs)
+        return await self.generate_async(messages, **merged_params)
+    
+    def _do_stream_generate_async(
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
+    ) -> AsyncGenerator[str, None]:
+        """执行异步流式生成操作"""
+        return self.stream_generate(messages, parameters, **kwargs)
+    
+    def supports_function_calling(self) -> bool:
+        """检查是否支持函数调用"""
+        return getattr(self.config, 'function_calling_supported', False)
+    
     def _get_infrastructure_components(self) -> tuple[Any, Any, Any, Any, Any]:
         """获取基础设施层组件（延迟初始化）"""
         if self._message_converter is None:
@@ -131,20 +149,22 @@ class ResponsesClient(BaseLLMClient):
             # 使用基础设施层的错误处理器
             raise self._handle_error_with_infrastructure(e)
     
-    def stream_generate(
-        self, messages: Sequence[IBaseMessage], **kwargs: Any
+    async def stream_generate(  # type: ignore[override]
+        self, messages: Sequence[IBaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         流式生成文本响应（异步）
         
         Args:
             messages: 消息列表
+            parameters: 生成参数
             **kwargs: 其他参数
             
         Yields:
             str: 流式响应块
         """
-        return self.stream_generate_async(messages, **kwargs)
+        async for chunk in self.stream_generate_async(messages, **kwargs):
+            yield chunk
     
     async def stream_generate_async(  # type: ignore[override]
         self, messages: Sequence[IBaseMessage], **kwargs: Any

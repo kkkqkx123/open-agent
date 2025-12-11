@@ -22,6 +22,11 @@ from .models import (
     LLMConfig,
     GlobalConfig,
 )
+from .mappers import (
+    LLMConfigMapper,
+    ToolConfigMapper,
+    GlobalConfigMapper,
+)
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.processor import (
     InheritanceProcessor,
@@ -61,6 +66,11 @@ __all__ = [
     "BaseConfig",
     "LLMConfig",
     "GlobalConfig",
+    
+    # 配置转换器
+    "LLMConfigMapper",
+    "ToolConfigMapper",
+    "GlobalConfigMapper",
     
     # 基础设施组件
     "ConfigProcessorChain",

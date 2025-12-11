@@ -70,6 +70,20 @@ class ChatClient(BaseLLMClient):
         """
         self._http_client = http_client
     
+    async def _do_generate_async(
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
+    ) -> LLMResponse:
+        """执行异步生成操作"""
+        merged_params = parameters.copy()
+        merged_params.update(kwargs)
+        return await self.generate_async(messages, **merged_params)
+    
+    def _do_stream_generate_async(
+        self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
+    ) -> AsyncGenerator[str, None]:
+        """执行异步流式生成操作"""
+        return self.stream_generate(messages, parameters, **kwargs)
+    
     async def generate_async(
         self, messages: Sequence[IBaseMessage], **kwargs: Any
     ) -> LLMResponse:
@@ -180,8 +194,8 @@ class ChatClient(BaseLLMClient):
         
         return params
     
-    async def stream_generate(
-        self, messages: Sequence[IBaseMessage], **kwargs: Any
+    async def stream_generate(  # type: ignore[override]
+        self, messages: Sequence[IBaseMessage], parameters: Optional[Dict[str, Any]] = None, **kwargs: Any
     ) -> AsyncGenerator[str, None]:
         """
         流式生成（异步）
@@ -207,7 +221,9 @@ class ChatClient(BaseLLMClient):
                 openai_messages.append(openai_msg)
             
             # 准备请求参数
-            request_params = self._prepare_request_params(**kwargs)
+            merged_params = parameters or {}
+            request_params = self._prepare_request_params(**merged_params)
+            request_params.update(kwargs)
             request_params["stream"] = True
             
             # 调用基础设施层HTTP客户端流式接口

@@ -22,7 +22,7 @@ from src.interfaces.llm.exceptions import (
     LLMInvalidRequestError,
 )
 
-class GeminiClient(BaseLLMClient):
+class GeminiClient(BaseLLMClient[GeminiConfig]):
     """Gemini客户端实现"""
 
     def __init__(self, config: GeminiConfig) -> None:
@@ -166,40 +166,39 @@ class GeminiClient(BaseLLMClient):
         }
         
         # 从配置中获取Gemini特定参数
-        if hasattr(self.config, 'max_output_tokens') and self.config.max_output_tokens:
+        if self.config.max_output_tokens:
             params["max_output_tokens"] = self.config.max_output_tokens
         
-        if hasattr(self.config, 'top_p') and self.config.top_p:
+        if self.config.top_p != 1.0:
             params["top_p"] = self.config.top_p
         
-        if hasattr(self.config, 'top_k') and self.config.top_k:
+        if self.config.top_k:
             params["top_k"] = self.config.top_k
         
-        if hasattr(self.config, 'stop_sequences') and self.config.stop_sequences:
+        if self.config.stop_sequences:
             params["stop_sequences"] = self.config.stop_sequences
         
-        if hasattr(self.config, 'candidate_count') and self.config.candidate_count:
+        if self.config.candidate_count:
             params["candidate_count"] = self.config.candidate_count
         
-        if hasattr(self.config, 'response_mime_type') and self.config.response_mime_type:
+        if self.config.response_mime_type:
             params["response_mime_type"] = self.config.response_mime_type
         
-        if hasattr(self.config, 'thinking_config') and self.config.thinking_config:
+        if self.config.thinking_config:
             params["thinking_config"] = self.config.thinking_config
         
-        if hasattr(self.config, 'safety_settings') and self.config.safety_settings:
+        if self.config.safety_settings:
             params["safety_settings"] = self.config.safety_settings
         
         # 工具调用参数
-        if hasattr(self.config, 'tools') and self.config.tools:
+        if self.config.tools:
             params["tools"] = self.config.tools
-            if hasattr(self.config, 'tool_choice') and self.config.tool_choice:
+            if self.config.tool_choice:
                 params["tool_choice"] = self.config.tool_choice
         
         # 缓存参数
-        if hasattr(self.config, 'content_cache_enabled') and self.config.content_cache_enabled:
-            if hasattr(self.config, 'content_cache_display_name') and self.config.content_cache_display_name:
-                params["cached_content"] = self.config.content_cache_display_name
+        if self.config.content_cache_enabled and self.config.content_cache_display_name:
+            params["cached_content"] = self.config.content_cache_display_name
         
         # 添加传入的参数
         params.update(parameters)

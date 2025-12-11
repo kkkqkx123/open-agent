@@ -1,6 +1,5 @@
 """连接池配置模型"""
 
-from typing import Optional
 from pydantic import Field
 from .base import BaseConfig
 

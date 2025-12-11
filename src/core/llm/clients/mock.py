@@ -20,7 +20,7 @@ from src.interfaces.llm.exceptions import (
 )
 
 
-class MockLLMClient(BaseLLMClient):
+class MockLLMClient(BaseLLMClient[MockConfig]):
     """Mock LLM客户端实现，用于测试"""
 
     def __init__(self, config: Union[MockConfig, LLMClientConfig]) -> None:
@@ -30,7 +30,7 @@ class MockLLMClient(BaseLLMClient):
         Args:
             config: Mock配置或LLM客户端配置
         """
-        super().__init__(config)
+        super().__init__(config)  # type: ignore
 
         # 处理不同类型的配置
         if isinstance(config, MockConfig):

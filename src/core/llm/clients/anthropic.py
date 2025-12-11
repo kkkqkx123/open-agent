@@ -22,7 +22,7 @@ from src.interfaces.llm.exceptions import (
     LLMInvalidRequestError,
 )
 
-class AnthropicClient(BaseLLMClient):
+class AnthropicClient(BaseLLMClient[AnthropicConfig]):
     """Anthropic客户端实现"""
 
     def __init__(self, config: AnthropicConfig) -> None:
@@ -192,28 +192,28 @@ class AnthropicClient(BaseLLMClient):
         }
         
         # 从配置中获取Anthropic特定参数
-        if hasattr(self.config, 'top_p') and self.config.top_p != 1.0:
+        if self.config.top_p != 1.0:
             params["top_p"] = self.config.top_p
         
-        if hasattr(self.config, 'stop_sequences') and self.config.stop_sequences:
+        if self.config.stop_sequences:
             params["stop_sequences"] = self.config.stop_sequences
         
-        if hasattr(self.config, 'thinking_config') and self.config.thinking_config:
+        if self.config.thinking_config:
             params["thinking_config"] = self.config.thinking_config
         
-        if hasattr(self.config, 'response_format') and self.config.response_format:
+        if self.config.response_format:
             params["response_format"] = self.config.response_format
         
-        if hasattr(self.config, 'metadata') and self.config.metadata:
+        if self.config.metadata:
             params["metadata"] = self.config.metadata
         
-        if hasattr(self.config, 'user') and self.config.user:
+        if self.config.user:
             params["user"] = self.config.user
         
         # 工具调用参数
-        if hasattr(self.config, 'tools') and self.config.tools:
+        if self.config.tools:
             params["tools"] = self.config.tools
-            if hasattr(self.config, 'tool_choice') and self.config.tool_choice:
+            if self.config.tool_choice:
                 params["tool_choice"] = self.config.tool_choice
         
         # 添加传入的参数

@@ -12,7 +12,7 @@ from .chat_client import ChatClient
 from .responses_client import ResponsesClient
 
 
-class OpenAIClient(BaseLLMClient):
+class OpenAIClient(BaseLLMClient[OpenAIConfig]):
     """OpenAI 统一客户端 - 简化版本"""
     
     def __init__(self, config: OpenAIConfig) -> None:
@@ -23,22 +23,22 @@ class OpenAIClient(BaseLLMClient):
             config: OpenAI 配置
         """
         super().__init__(config)
-        self._config: OpenAIConfig = config  # 明确指定类型
-        self._client: Optional[BaseOpenAIClient] = None
+        self._client: Optional[BaseLLMClient] = None
         self._initialize_client()
     
     def _initialize_client(self) -> None:
         """根据配置初始化客户端"""
-        if self._config.is_chat_completion():
-            # 使用 LangChain Chat 客户端
-            self._client = ChatClient(self._config)
-        elif self._config.is_responses_api():
+        api_format = getattr(self.config, 'api_format', 'chat_completion')
+        if api_format == 'chat_completion':
+            # 使用 Chat 客户端
+            self._client = ChatClient(self.config)
+        elif api_format == 'responses':
             # 使用轻量级 Responses 客户端
-            self._client = ResponsesClient(self._config)
+            self._client = ResponsesClient(self.config)
         else:
-            raise ValueError(f"不支持的 API 格式: {self._config.api_format}")
+            raise ValueError(f"不支持的 API 格式: {api_format}")
     
-    def _get_client(self) -> BaseOpenAIClient:
+    def _get_client(self) -> BaseLLMClient:
         """获取客户端实例，确保不为 None"""
         if self._client is None:
             raise RuntimeError("客户端未初始化")
@@ -49,7 +49,7 @@ class OpenAIClient(BaseLLMClient):
     ) -> LLMResponse:
         """执行异步生成操作"""
         client = self._get_client()
-        return await client.generate_async(messages, **parameters, **kwargs)
+        return await client.generate(messages, parameters, **kwargs)
     
     def _do_stream_generate_async(
         self, messages: Sequence[IBaseMessage], parameters: Dict[str, Any], **kwargs: Any
@@ -57,11 +57,7 @@ class OpenAIClient(BaseLLMClient):
         """执行异步流式生成操作"""
         async def _async_generator() -> AsyncGenerator[str, None]:
             client = self._get_client()
-            async_gen_coroutine = client.stream_generate_async(
-                messages, **parameters, **kwargs
-            )
-            async_gen = await async_gen_coroutine
-            async for chunk in async_gen:
+            async for chunk in client.stream_generate(messages, parameters, **kwargs):
                 yield chunk
 
         return _async_generator()
@@ -85,7 +81,7 @@ class OpenAIClient(BaseLLMClient):
             raise ValueError(f"不支持的 API 格式: {api_format}")
         
         # 更新配置
-        self._config.api_format = api_format
+        self.config.api_format = api_format
         
         # 重新初始化客户端
         self._initialize_client()
@@ -97,7 +93,7 @@ class OpenAIClient(BaseLLMClient):
         Returns:
             str: 当前 API 格式
         """
-        return self._config.api_format
+        return getattr(self.config, 'api_format', 'chat_completion')
     
     def get_supported_api_formats(self) -> List[str]:
         """
@@ -165,8 +161,8 @@ class OpenAIClient(BaseLLMClient):
         """
         return {
             "api_format": self.get_current_api_format(),
-            "model_name": self._config.model_name,
-            "base_url": self._config.base_url,
+            "model_name": self.config.model_name,
+            "base_url": self.config.base_url,
             "supports_function_calling": self.supports_function_calling(),
             "client_type": type(self._client).__name__ if self._client else None,
         }
@@ -175,7 +171,7 @@ class OpenAIClient(BaseLLMClient):
         """
         重置对话历史（仅对 Responses API 有效）
         """
-        if self._config.is_responses_api() and isinstance(self._client, ResponsesClient):
+        if self.config and hasattr(self.config, 'api_format') and self.config.api_format == 'responses' and isinstance(self._client, ResponsesClient):
             self._client._conversation_history.clear()
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
@@ -185,7 +181,7 @@ class OpenAIClient(BaseLLMClient):
         Returns:
             List[Dict[str, Any]]: 对话历史
         """
-        if self._config.is_responses_api() and isinstance(self._client, ResponsesClient):
+        if self.config and hasattr(self.config, 'api_format') and self.config.api_format == 'responses' and isinstance(self._client, ResponsesClient):
             return self._client._conversation_history.copy()
         return []
     
@@ -198,21 +194,22 @@ class OpenAIClient(BaseLLMClient):
         """
         try:
             # 检查必需的配置项
-            if not self._config.model_name:
+            if not self.config.model_name:
                 return False
             
-            if not self._config.api_key:
+            if not self.config.api_key:
                 return False
             
             # 检查 API 格式
-            if self._config.api_format not in self.get_supported_api_formats():
+            api_format = getattr(self.config, 'api_format', 'chat_completion')
+            if api_format not in self.get_supported_api_formats():
                 return False
             
             # 检查参数范围
-            if not 0.0 <= self._config.temperature <= 2.0:
+            if not 0.0 <= self.config.temperature <= 2.0:
                 return False
             
-            if self._config.max_tokens is not None and self._config.max_tokens <= 0:
+            if self.config.max_tokens is not None and self.config.max_tokens <= 0:
                 return False
             
             return True

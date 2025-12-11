@@ -2,7 +2,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence
+from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, TypeVar, Generic
 from datetime import datetime
 
 from src.interfaces.messages import IBaseMessage
@@ -20,18 +20,21 @@ from src.interfaces.llm.exceptions import (
     LLMTokenLimitError,
 )
 
+# 定义配置类型变量(服务于范型)
+ConfigType = TypeVar('ConfigType', bound=LLMClientConfig)
 
-class BaseLLMClient(ILLMClient):
+
+class BaseLLMClient(ILLMClient, Generic[ConfigType]):
     """LLM客户端基类"""
 
-    def __init__(self, config: LLMClientConfig) -> None:
+    def __init__(self, config: ConfigType) -> None:
         """
         初始化客户端
 
         Args:
             config: 客户端配置
         """
-        self.config = config
+        self.config: ConfigType = config
         self._hooks: List[ILLMCallHook] = []
         self._model_info: Optional[ModelInfo] = None
 

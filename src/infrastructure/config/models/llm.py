@@ -1,17 +1,18 @@
 """LLM配置模型
 
-提供LLM客户端所需的配置模型，位于基础设施层。
+提供LLM客户端所需的基础配置数据结构，位于基础设施层。
+不包含业务逻辑，仅作为数据容器。
 """
 
-from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Union
 from pydantic import BaseModel, Field
 
 
 class LLMClientConfig(BaseModel):
-    """LLM客户端配置模型
+    """LLM客户端配置数据模型
     
-    包含LLM客户端所需的所有配置属性。
+    包含LLM客户端所需的所有配置属性的基础数据结构。
+    不包含业务逻辑，仅作为数据容器。
     """
     
     # 基础配置
@@ -54,7 +55,7 @@ class LLMClientConfig(BaseModel):
 
 
 class OpenAIConfig(LLMClientConfig):
-    """OpenAI客户端配置"""
+    """OpenAI客户端配置数据模型"""
     
     # API 格式选择
     api_format: str = Field("chat_completion", description="API格式: chat_completion | responses")
@@ -74,18 +75,10 @@ class OpenAIConfig(LLMClientConfig):
     max_output_tokens: Optional[int] = Field(None, description="最大输出Token数")
     reasoning: Optional[Dict[str, Any]] = Field(None, description="推理配置")
     store: bool = Field(False, description="是否存储")
-    
-    def is_chat_completion(self) -> bool:
-        """检查是否使用 Chat Completions API"""
-        return self.api_format == "chat_completion"
-    
-    def is_responses_api(self) -> bool:
-        """检查是否使用 Responses API"""
-        return self.api_format == "responses"
 
 
 class MockConfig(LLMClientConfig):
-    """Mock模型配置"""
+    """Mock模型配置数据模型"""
     
     response_delay: float = Field(0.1, description="响应延迟")
     response_text: str = Field("This is a mock response.", description="响应文本")
@@ -95,7 +88,7 @@ class MockConfig(LLMClientConfig):
 
 
 class GeminiConfig(LLMClientConfig):
-    """Gemini客户端配置"""
+    """Gemini客户端配置数据模型"""
     
     # Gemini特定参数
     candidate_count: int = Field(1, description="候选数量")
@@ -112,7 +105,7 @@ class GeminiConfig(LLMClientConfig):
 
 
 class AnthropicConfig(LLMClientConfig):
-    """Anthropic客户端配置"""
+    """Anthropic客户端配置数据模型"""
     
     # Anthropic特定参数
     anthropic_max_tokens: int = Field(1000, description="最大Token数")
@@ -124,20 +117,15 @@ class AnthropicConfig(LLMClientConfig):
     tool_choice: Optional[Dict[str, Any]] = Field(None, description="工具选择")
 
 
-@dataclass
 class HumanRelayConfig(LLMClientConfig):
-    """Human Relay客户端配置"""
+    """Human Relay客户端配置数据模型"""
     
     # Human Relay特定参数
-    relay_mode: str = "interactive"  # interactive | batch
-    timeout_seconds: int = 300
-    prompt_template: Optional[str] = None
-    
-    def __post_init__(self) -> None:
-        """初始化后处理"""
-        # 设置默认值
-        if self.model_type == "":
-            self.model_type = "human_relay"
+    mode: str = Field("single", description="模式：single | multi")
+    max_history_length: int = Field(10, description="最大历史长度")
+    prompt_template: Optional[str] = Field(None, description="提示词模板")
+    incremental_prompt_template: Optional[str] = Field(None, description="增量提示词模板")
+    metadata_config: Dict[str, Any] = Field(default_factory=dict, description="元数据配置")
 
 
 __all__ = [

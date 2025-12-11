@@ -1,6 +1,6 @@
 """重试和超时配置模型"""
 
-from typing import List, Optional
+from typing import List
 from pydantic import Field, field_validator
 from dataclasses import dataclass, field as dataclass_field
 
