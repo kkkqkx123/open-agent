@@ -10,7 +10,19 @@ from .loader import IConfigLoader, IConfigInheritanceHandler, IHotReloadManager
 from .processor import IConfigProcessor
 
 # 导入验证器相关接口
-from .validator import IConfigValidator, ConfigValidationResult, ValidationSeverity
+from .validator import (
+    IConfigValidator,
+    IEnhancedConfigValidator,
+    IConfigValidationService,
+    IValidationRule,
+    IValidationRuleRegistry,
+    IBusinessValidator,
+    IValidationReport,
+    ConfigValidationResult,
+    ValidationSeverity,
+    ValidationLevel,
+    ValidationContext
+)
 
 # 导入模式相关接口
 from .schema import IConfigSchema, ISchemaRegistry, ISchemaGenerator
@@ -67,8 +79,16 @@ __all__ = [
     
     # 验证器接口
     "IConfigValidator",
+    "IEnhancedConfigValidator",
+    "IConfigValidationService",
+    "IValidationRule",
+    "IValidationRuleRegistry",
+    "IBusinessValidator",
+    "IValidationReport",
     "ConfigValidationResult",
     "ValidationSeverity",
+    "ValidationLevel",
+    "ValidationContext",
     
     # 模式接口
     "IConfigSchema",

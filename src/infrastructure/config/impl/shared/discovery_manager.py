@@ -91,14 +91,18 @@ class DiscoveryManager:
             
             config_files = []
             
-            # 搜索模块特定的YAML文件
-            for file_path in module_path.glob(f"{pattern}.yaml"):
-                if file_path.is_file():
-                    config_files.append(str(file_path))
-            
-            for file_path in module_path.glob(f"{pattern}.yml"):
-                if file_path.is_file():
-                    config_files.append(str(file_path))
+            # 对于LLM模块，需要特殊处理provider目录结构
+            if module_type == "llm":
+                config_files.extend(self._discover_llm_configs(module_path, pattern))
+            else:
+                # 搜索模块特定的YAML文件
+                for file_path in module_path.glob(f"{pattern}.yaml"):
+                    if file_path.is_file():
+                        config_files.append(str(file_path))
+                
+                for file_path in module_path.glob(f"{pattern}.yml"):
+                    if file_path.is_file():
+                        config_files.append(str(file_path))
             
             # 排序并返回
             config_files.sort()
@@ -109,6 +113,49 @@ class DiscoveryManager:
         except Exception as e:
             logger.error(f"发现模块配置文件失败 {module_type}: {e}")
             return []
+    
+    def _discover_llm_configs(self, llm_path: Path, pattern: str) -> List[str]:
+        """发现LLM特定配置文件
+        
+        Args:
+            llm_path: LLM模块路径
+            pattern: 文件模式
+            
+        Returns:
+            配置文件路径列表
+        """
+        config_files = []
+        
+        # 搜索全局配置文件
+        for file_path in llm_path.glob(f"{pattern}.yaml"):
+            if file_path.is_file() and file_path.stem.startswith("global"):
+                config_files.append(str(file_path))
+        
+        for file_path in llm_path.glob(f"{pattern}.yml"):
+            if file_path.is_file() and file_path.stem.startswith("global"):
+                config_files.append(str(file_path))
+        
+        # 搜索provider目录下的配置文件
+        provider_dir = llm_path / "provider"
+        if provider_dir.exists():
+            for provider_path in provider_dir.iterdir():
+                if provider_path.is_dir():
+                    # 搜索common配置文件
+                    for ext in ['.yaml', '.yml']:
+                        common_file = provider_path / f"common{ext}"
+                        if common_file.is_file():
+                            config_files.append(str(common_file))
+                    
+                    # 搜索模型特定配置文件
+                    for file_path in provider_path.glob(f"{pattern}.yaml"):
+                        if file_path.is_file() and file_path.stem != "common":
+                            config_files.append(str(file_path))
+                    
+                    for file_path in provider_path.glob(f"{pattern}.yml"):
+                        if file_path.is_file() and file_path.stem != "common":
+                            config_files.append(str(file_path))
+        
+        return config_files
     
     def get_config_info(self, config_path: str) -> Dict[str, Any]:
         """获取配置文件信息

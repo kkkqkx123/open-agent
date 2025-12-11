@@ -12,10 +12,14 @@ from .dependency_injection.core import (
     clear_providers,
 )
 
+# 导出验证相关接口
+from .common_domain import IValidationResult
+
 __all__ = [
     "set_logger_provider",
     "set_token_calculator",
     "get_logger",
     "calculate_messages_tokens",
     "clear_providers",
+    "IValidationResult",
 ]

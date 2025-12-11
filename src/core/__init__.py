@@ -1,0 +1,6 @@
+"""核心层模块
+
+提供核心业务逻辑和实体实现。
+"""
+
+from . import validation

@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import re
 
-from .framework import ValidationLevel, ValidationSeverity, EnhancedValidationResult
+from .framework import ValidationLevel, ValidationSeverity, FrameworkValidationResult
 
 
 class ValidationRule(ABC):
@@ -19,7 +19,7 @@ class ValidationRule(ABC):
         self.description = description
     
     @abstractmethod
-    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> EnhancedValidationResult:
+    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> FrameworkValidationResult:
         """执行验证"""
         pass
 
@@ -34,14 +34,14 @@ class RequiredFieldRule(ValidationRule):
         self.field_path = field_path
         self.field_type = field_type
     
-    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> EnhancedValidationResult:
+    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> FrameworkValidationResult:
         """验证字段是否存在"""
         keys = self.field_path.split('.')
         current = config
         
         for key in keys:
             if not isinstance(current, dict) or key not in current:
-                result = EnhancedValidationResult(
+                result = FrameworkValidationResult(
                     self.rule_id,
                     self.level,
                     False,
@@ -53,7 +53,7 @@ class RequiredFieldRule(ValidationRule):
         
         # 如果指定了字段类型，验证类型
         if self.field_type and not isinstance(current, self.field_type):
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -62,7 +62,7 @@ class RequiredFieldRule(ValidationRule):
             result.severity = ValidationSeverity.ERROR
             return result
         
-        result = EnhancedValidationResult(
+        result = FrameworkValidationResult(
             self.rule_id,
             self.level,
             True,
@@ -82,14 +82,14 @@ class ValueRangeRule(ValidationRule):
         self.min_value = min_value
         self.max_value = max_value
     
-    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> EnhancedValidationResult:
+    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> FrameworkValidationResult:
         """验证值范围"""
         keys = self.field_path.split('.')
         current = config
         
         for key in keys:
             if not isinstance(current, dict) or key not in current:
-                result = EnhancedValidationResult(
+                result = FrameworkValidationResult(
                     self.rule_id,
                     self.level,
                     False,
@@ -101,7 +101,7 @@ class ValueRangeRule(ValidationRule):
         
         # 验证是否为数值类型
         if not isinstance(current, (int, float)):
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -112,7 +112,7 @@ class ValueRangeRule(ValidationRule):
         
         # 验证范围
         if self.min_value is not None and current < self.min_value:
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -122,7 +122,7 @@ class ValueRangeRule(ValidationRule):
             return result
         
         if self.max_value is not None and current > self.max_value:
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -131,7 +131,7 @@ class ValueRangeRule(ValidationRule):
             result.severity = ValidationSeverity.ERROR
             return result
         
-        result = EnhancedValidationResult(
+        result = FrameworkValidationResult(
             self.rule_id,
             self.level,
             True,
@@ -150,14 +150,14 @@ class RegexPatternRule(ValidationRule):
         self.field_path = field_path
         self.pattern = pattern
     
-    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> EnhancedValidationResult:
+    def validate(self, config: Dict[str, Any], context: Dict[str, Any]) -> FrameworkValidationResult:
         """验证正则表达式"""
         keys = self.field_path.split('.')
         current = config
         
         for key in keys:
             if not isinstance(current, dict) or key not in current:
-                result = EnhancedValidationResult(
+                result = FrameworkValidationResult(
                     self.rule_id,
                     self.level,
                     False,
@@ -169,7 +169,7 @@ class RegexPatternRule(ValidationRule):
         
         # 验证是否为字符串类型
         if not isinstance(current, str):
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -180,7 +180,7 @@ class RegexPatternRule(ValidationRule):
         
         # 验证正则表达式
         if not re.match(self.pattern, current):
-            result = EnhancedValidationResult(
+            result = FrameworkValidationResult(
                 self.rule_id,
                 self.level,
                 False,
@@ -189,7 +189,7 @@ class RegexPatternRule(ValidationRule):
             result.severity = ValidationSeverity.ERROR
             return result
         
-        result = EnhancedValidationResult(
+        result = FrameworkValidationResult(
             self.rule_id,
             self.level,
             True,

@@ -183,9 +183,9 @@ class ToolsConfigImpl(BaseConfigImpl):
         Raises:
             ConfigError: 配置加载失败
         """
+        # 检查缓存
+        cache_key = "tool_registry_config"
         try:
-            # 检查缓存
-            cache_key = "tool_registry_config"
             if use_cache:
                 cached_config = self.cache_manager.get(cache_key)
                 if cached_config is not None:
@@ -291,13 +291,14 @@ class ToolsConfigImpl(BaseConfigImpl):
         """
         return self.discovery_manager.discover_module_configs("tools", pattern)
     
-    def invalidate_cache(self, cache_key: Optional[str] = None) -> None:
+    def invalidate_cache(self, config_path: Optional[str] = None) -> None:
         """清除缓存
         
         Args:
-            cache_key: 缓存键，如果为None则清除所有相关缓存
+            config_path: 配置文件路径，如果为None则清除所有相关缓存
         """
-        if cache_key:
+        if config_path:
+            cache_key = f"tool_config:{config_path}"
             self.cache_manager.delete(cache_key)
         else:
             # 清除工具相关的所有缓存
@@ -312,8 +313,8 @@ class ToolsConfigImpl(BaseConfigImpl):
             # 清除特定工具配置缓存（需要发现所有工具）
             try:
                 all_configs = self.discover_tool_configs("**/*")
-                for config_path in all_configs:
-                    cache_keys.append(f"tool_config:{config_path}")
+                for config in all_configs:
+                    cache_keys.append(f"tool_config:{config}")
             except Exception:
                 pass  # 忽略发现错误
             

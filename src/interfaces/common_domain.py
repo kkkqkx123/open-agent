@@ -4,7 +4,7 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Protocol
 from datetime import datetime
 from enum import Enum
 from dataclasses import dataclass, field
@@ -141,35 +141,37 @@ class ISerializable(ABC):
 通用数据传输对象
 '''
 
-@dataclass
-class ValidationResult:
-    """统一的验证结果数据类"""
+class IValidationResult(Protocol):
+    """验证结果接口
+    
+    定义验证结果的标准契约，支持多种实现。
+    """
+    
     is_valid: bool
     errors: List[str]
     warnings: List[str]
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    info: List[str] = field(default_factory=list)
+    info: List[str]
+    metadata: Dict[str, Any]
     
     def add_error(self, message: str) -> None:
         """添加错误信息"""
-        self.errors.append(message)
-        self.is_valid = False
+        ...
     
     def add_warning(self, message: str) -> None:
         """添加警告信息"""
-        self.warnings.append(message)
+        ...
     
     def add_info(self, message: str) -> None:
         """添加信息"""
-        self.info.append(message)
+        ...
     
     def has_errors(self) -> bool:
         """检查是否有错误"""
-        return len(self.errors) > 0
+        ...
     
     def has_warnings(self) -> bool:
         """检查是否有警告"""
-        return len(self.warnings) > 0
+        ...
 
 
 @dataclass

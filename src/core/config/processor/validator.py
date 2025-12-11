@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from src.infrastructure.common.utils.validator import Validator as UtilsValidator
 from src.infrastructure.common.utils.validator import ValidationResult as UtilsValidationResult
+from src.interfaces.common_domain import IValidationResult
 
 from ..models.global_config import GlobalConfig
 from ..models.llm_config import LLMConfig
@@ -19,7 +20,7 @@ from src.infrastructure.config.validation import (
     ValidationSeverity,
     generate_cache_key,
     ValidationReport,
-    EnhancedValidationResult,
+    IValidationResult,
     ConfigFixer,
     FixSuggestion
 )
@@ -275,23 +276,28 @@ class ConfigValidator(UtilsValidator, IConfigValidator):
         # 基础验证
         basic_result = validation_method(config)
         
-        # 创建增强验证结果
-        enhanced_result = EnhancedValidationResult(
+        # 直接创建FrameworkValidationResult
+        from src.infrastructure.config.validation.framework import FrameworkValidationResult
+        
+        # 确定消息和严重性
+        message = "基础验证结果"
+        severity = ValidationSeverity.INFO
+        
+        if not basic_result.is_valid:
+            message = "; ".join(basic_result.errors)
+            severity = ValidationSeverity.ERROR
+        elif basic_result.has_warnings():
+            message = "; ".join(basic_result.warnings)
+            severity = ValidationSeverity.WARNING
+        
+        # 创建FrameworkValidationResult
+        framework_result = FrameworkValidationResult(
             rule_id=f"{config_type}_config_basic",
             level=ValidationLevel.SCHEMA,
             passed=basic_result.is_valid,
-            message="基础验证结果"
+            message="Enhanced validation result"
         )
-                
-        # 将基础验证结果转换为增强验证结果
-        if not basic_result.is_valid:
-            enhanced_result.message = "; ".join(basic_result.errors)
-            enhanced_result.severity = ValidationSeverity.ERROR
-        elif basic_result.has_warnings():
-            enhanced_result.message = "; ".join(basic_result.warnings)
-            enhanced_result.severity = ValidationSeverity.WARNING
-                
-        report.add_level_results(ValidationLevel.SCHEMA, [enhanced_result])
+        report.add_level_results(ValidationLevel.SCHEMA, [framework_result])
         return report
 
     def validate_global_config_with_report(self, config: Dict[str, Any]) -> ValidationReport:
