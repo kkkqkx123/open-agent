@@ -1,7 +1,7 @@
 """Workflow services module following the new architecture.
 
 This module provides service implementations for workflow management,
-including builders, executors, and utilities.
+including builders, executors, configuration services, and utilities.
 """
 
 from .building.builder_service import WorkflowBuilderService
@@ -13,6 +13,10 @@ from .workflow_service_factory import (
 from .workflow_orchestrator import (
     WorkflowOrchestrator,
     create_workflow_orchestrator
+)
+from .config_service import (
+    WorkflowConfigService,
+    get_workflow_config_service
 )
 
 from .function_registry import (
@@ -46,6 +50,10 @@ __all__ = [
     # Orchestrator
     "WorkflowOrchestrator",
     "create_workflow_orchestrator",
+    
+    # Configuration service
+    "WorkflowConfigService",
+    "get_workflow_config_service",
     
     # Newly migrated services
     "FunctionRegistry",

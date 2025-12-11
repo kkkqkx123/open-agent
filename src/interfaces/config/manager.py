@@ -68,7 +68,7 @@ class IConfigManager(ABC):
         pass
 
 
-class IUnifiedConfigManager:
+class IConfigManager:
     """统一配置管理器接口"""
     
     @abstractmethod
@@ -199,7 +199,7 @@ class IConfigManagerFactory(ABC):
     """配置管理器工厂接口"""
     
     @abstractmethod
-    def get_manager(self, module_type: str) -> IUnifiedConfigManager:
+    def get_manager(self, module_type: str) -> IConfigManager:
         """获取模块特定的配置管理器
         
         Args:

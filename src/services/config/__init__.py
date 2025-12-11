@@ -3,6 +3,11 @@
 提供配置系统相关的服务组件。
 """
 
+from .config_service import (
+    ConfigService,
+    get_config_service,
+    create_config_service
+)
 from .config_factory import (
     ConfigServiceFactory,
     ConfigFactory,
@@ -12,6 +17,9 @@ from .config_factory import (
 )
 
 __all__ = [
+    "ConfigService",
+    "get_config_service",
+    "create_config_service",
     "ConfigServiceFactory",
     "ConfigFactory",
     "create_config_manager",

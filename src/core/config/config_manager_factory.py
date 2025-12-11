@@ -9,7 +9,7 @@ import logging
 
 from src.interfaces.config import (
     IConfigLoader, IConfigProcessor, IConfigValidator, IConfigInheritanceHandler,
-    IUnifiedConfigManager, IConfigManagerFactory
+    IConfigManager, IConfigManagerFactory
 )
 from src.interfaces.common_domain import ValidationResult
 from .config_manager import ConfigManager
@@ -41,7 +41,7 @@ class CoreConfigManagerFactory(IConfigManagerFactory):
         self.base_path = base_path or Path("configs")
         
         # 缓存已创建的配置管理器
-        self._manager_cache: Dict[str, IUnifiedConfigManager] = {}
+        self._manager_cache: Dict[str, IConfigManager] = {}
         
         # 模块特定配置
         self._module_configs: Dict[str, Dict[str, Any]] = {
@@ -73,7 +73,7 @@ class CoreConfigManagerFactory(IConfigManagerFactory):
         
         logger.info("Core层配置管理器工厂初始化完成")
     
-    def get_manager(self, module_type: str) -> IUnifiedConfigManager:
+    def get_manager(self, module_type: str) -> IConfigManager:
         """获取模块特定的配置管理器
         
         Args:
@@ -89,7 +89,7 @@ class CoreConfigManagerFactory(IConfigManagerFactory):
         self._manager_cache[module_type] = manager
         return manager
     
-    def _create_manager(self, module_type: str) -> IUnifiedConfigManager:
+    def _create_manager(self, module_type: str) -> IConfigManager:
         """创建模块特定的配置管理器
         
         Args:
@@ -309,7 +309,7 @@ def get_global_factory() -> Optional[CoreConfigManagerFactory]:
     return _global_factory
 
 
-def get_module_manager(module_type: str) -> Optional[IUnifiedConfigManager]:
+def get_module_manager(module_type: str) -> Optional[IConfigManager]:
     """获取模块配置管理器（便捷函数）
     
     Args:

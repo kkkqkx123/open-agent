@@ -1,6 +1,6 @@
 """配置相关接口统一导出
 
-提供完整的配置系统接口定义，包括加载器、处理器、验证器、管理器和异常定义。
+提供完整的配置系统接口定义，包括加载器、处理器、验证器、管理器、映射器和异常定义。
 """
 
 # 导入加载器相关接口
@@ -19,7 +19,27 @@ from .schema import IConfigSchema, ISchemaRegistry, ISchemaGenerator
 from .provider import IConfigProvider
 
 # 导入管理器相关接口
-from .manager import IConfigManager, IUnifiedConfigManager, IConfigManagerFactory
+from .manager import IConfigManager, IConfigManager, IConfigManagerFactory
+
+# 导入映射器相关接口
+from .mapper import (
+    IConfigMapper,
+    IModuleConfigService,
+    IModuleConfigRegistry,
+    IConfigMapperRegistry,
+    ICrossModuleResolver,
+    IModuleConfigLoader,
+    IUnifiedConfigService,
+    IConfigChangeListener,
+    IConfigWatcher,
+    IConfigMonitor,
+    IConfigVersionManager,
+    IConfigStorage,
+    ModuleConfig,
+    ModuleDependency,
+    ConfigChangeEvent,
+    ConfigVersion
+)
 
 # 导入异常定义
 from .exceptions import (
@@ -39,7 +59,7 @@ from ..common_domain import ValidationResult
 __all__ = [
     # 加载器接口
     "IConfigLoader",
-    "IConfigInheritanceHandler", 
+    "IConfigInheritanceHandler",
     "IHotReloadManager",
     
     # 处理器接口
@@ -60,8 +80,28 @@ __all__ = [
     
     # 管理器接口
     "IConfigManager",
-    "IUnifiedConfigManager",
+    "IConfigManager",
     "IConfigManagerFactory",
+    
+    # 映射器接口
+    "IConfigMapper",
+    "IModuleConfigService",
+    "IModuleConfigRegistry",
+    "IConfigMapperRegistry",
+    "ICrossModuleResolver",
+    "IModuleConfigLoader",
+    "IUnifiedConfigService",
+    "IConfigChangeListener",
+    "IConfigWatcher",
+    "IConfigMonitor",
+    "IConfigVersionManager",
+    "IConfigStorage",
+    
+    # 数据类
+    "ModuleConfig",
+    "ModuleDependency",
+    "ConfigChangeEvent",
+    "ConfigVersion",
     
     # 异常定义
     "ConfigError",

@@ -1,480 +1,384 @@
-"""配置服务
+"""配置服务 - 所有模块配置的统一入口
 
-提供高级配置管理功能，包括配置缓存、变更通知、错误恢复等。
+提供模块化、可扩展的配置管理服务，支持跨模块引用和依赖管理。
 """
 
-import logging
-import threading
-from typing import Dict, Any, Optional, List, Callable, Set
+from typing import Dict, Any, Optional, List
 from pathlib import Path
-from datetime import datetime
-from dataclasses import dataclass, field
-from enum import Enum
+import logging
 
-from src.interfaces.config import IConfigManager, IConfigValidator, ConfigError
-from src.interfaces.common_domain import ValidationResult
-from src.core.config.config_manager import ConfigManager, get_default_manager
+from src.interfaces.config import (
+    IConfigManager,
+    IModuleConfigService,
+    IConfigMapperRegistry,
+    IConfigChangeListener,
+    IConfigMonitor,
+    IConfigVersionManager,
+    IConfigStorage,
+    ConfigChangeEvent,
+    ValidationResult,
+    ModuleConfig,
+    ModuleDependency,
+    ConfigVersion
+)
+from src.interfaces.dependency_injection import get_logger
 
-
-class ConfigChangeType(Enum):
-    """配置变更类型"""
-    ADDED = "added"
-    MODIFIED = "modified"
-    DELETED = "deleted"
-    RELOADED = "reloaded"
-
-
-@dataclass
-class ConfigChangeEvent:
-    """配置变更事件"""
-    config_path: str
-    change_type: ConfigChangeType
-    key_path: Optional[str] = None  # 变更的键路径，如 "database.host"
-    old_value: Any = None
-    new_value: Any = None
-    timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+logger = get_logger(__name__)
 
 
 class ConfigService:
-    """高级配置管理服务
+    """配置服务 - 所有模块配置的统一入口"""
     
-    提供配置缓存、变更通知、错误恢复等高级功能。
-    """
-    
-    def __init__(self, config_manager: Optional[IConfigManager] = None):
+    def __init__(self, 
+                 config_manager: IConfigManager,
+                 module_services: Optional[Dict[str, IModuleConfigService]] = None,
+                 mapper_registry: Optional[IConfigMapperRegistry] = None,
+                 config_monitor: Optional[IConfigMonitor] = None,
+                 version_manager: Optional[IConfigVersionManager] = None):
         """初始化配置服务
         
         Args:
-            config_manager: 配置管理器实例，如果为None则使用默认的ConfigManager
+            config_manager: 配置管理器
+            module_services: 模块特定服务字典
+            mapper_registry: 配置映射器注册表
+            config_monitor: 配置监控器
+            version_manager: 版本管理器
         """
-        self.config_manager = config_manager or get_default_manager()
-        self.logger = logging.getLogger(__name__)
+        self.config_manager = config_manager
+        self.module_services = module_services or {}
+        self.mapper_registry = mapper_registry
+        self.config_monitor = config_monitor
+        self.version_manager = version_manager
         
-        # 配置缓存
-        self._config_cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_timestamps: Dict[str, datetime] = {}
-        self._cache_lock = threading.RLock()
+        # 配置变更监听器
+        self._change_listeners: List[IConfigChangeListener] = []
         
-        # 变更回调
-        self._change_callbacks: List[Callable[..., None]] = []
-        self._callback_lock = threading.RLock()
+        # 模块依赖管理
+        self._module_dependencies: Dict[str, List[ModuleDependency]] = {}
         
-        # 错误恢复
-        self._error_recovery_enabled = True
-        self._backup_configs: Dict[str, List[Dict[str, Any]]] = {}
-        self._max_backups = 5
-        
-        # 监控配置
-        self._watched_paths: Set[str] = set()
-        self._watch_interval = 60  # 秒
-        self._watch_thread: Optional[threading.Thread] = None
-        self._watch_stop_event = threading.Event()
+        logger.info("配置服务初始化完成")
     
-    def load_config(self, config_path: str, use_cache: bool = True, force_reload: bool = False) -> Dict[str, Any]:
-        """加载配置
+    def load_module_config(self, module_type: str, config_path: str) -> Any:
+        """加载模块配置
         
         Args:
+            module_type: 模块类型
             config_path: 配置文件路径
-            use_cache: 是否使用缓存
-            force_reload: 是否强制重新加载
             
         Returns:
-            配置字典
-            
-        Raises:
-            ConfigError: 配置加载失败
+            Any: 配置实体
         """
-        config_path = str(Path(config_path).resolve())
-        
-        # 检查缓存
-        if use_cache and not force_reload:
-            with self._cache_lock:
-                if config_path in self._config_cache:
-                    self.logger.debug(f"从缓存加载配置: {config_path}")
-                    return self._config_cache[config_path].copy()
-        
         try:
-            # 加载配置
-            config = self.config_manager.load_config(config_path)
+            logger.debug(f"加载模块配置: {module_type}:{config_path}")
             
-            # 创建备份
-            if self._error_recovery_enabled:
-                self._create_backup(config_path, config)
+            # 检查是否有模块特定服务
+            if module_type in self.module_services:
+                service = self.module_services[module_type]
+                config = service.load_config(config_path)
+            else:
+                # 使用通用配置管理器加载
+                config_data = self.config_manager.load_config(config_path, module_type)
+                
+                # 如果有映射器，转换为业务实体
+                if self.mapper_registry:
+                    try:
+                        config = self.mapper_registry.dict_to_entity(module_type, config_data)
+                    except ValueError:
+                        # 如果没有映射器，直接返回配置数据
+                        config = config_data
+                else:
+                    config = config_data
             
-            # 更新缓存
-            with self._cache_lock:
-                self._config_cache[config_path] = config.copy()
-                self._cache_timestamps[config_path] = datetime.now()
-            
-            # 触发变更事件
-            if force_reload or config_path not in self._config_cache:
-                self._notify_change(ConfigChangeEvent(
-                    config_path=config_path,
-                    change_type=ConfigChangeType.RELOADED,
-                    new_value=config
-                ))
-            
-            self.logger.info(f"配置加载成功: {config_path}")
+            logger.info(f"模块配置加载成功: {module_type}:{config_path}")
             return config
             
         except Exception as e:
-            self.logger.error(f"配置加载失败: {config_path}, 错误: {e}")
-            
-            # 尝试错误恢复
-            if self._error_recovery_enabled:
-                backup_config = self._get_backup_config(config_path)
-                if backup_config:
-                    self.logger.warning(f"使用备份配置: {config_path}")
-                    return backup_config
-            
-            raise ConfigError(f"配置加载失败: {config_path}") from e
+            logger.error(f"加载模块配置失败: {module_type}:{config_path}, 错误: {e}")
+            raise
     
-    def save_config(self, config_path: str, config: Dict[str, Any], create_backup: bool = True) -> None:
-        """保存配置
+    def save_module_config(self, module_type: str, config: Any, config_path: str) -> None:
+        """保存模块配置
         
         Args:
+            module_type: 模块类型
+            config: 配置实体
             config_path: 配置文件路径
-            config: 配置字典
-            create_backup: 是否创建备份
-            
-        Raises:
-            ConfigError: 配置保存失败
         """
-        config_path = str(Path(config_path).resolve())
-        
         try:
-            # 获取旧配置用于比较
-            old_config = None
-            if config_path in self._config_cache:
-                old_config = self._config_cache[config_path]
+            logger.debug(f"保存模块配置: {module_type}:{config_path}")
             
-            # 创建备份
-            if create_backup and self._error_recovery_enabled:
-                self._create_backup(config_path, config)
-            
-            # 保存配置
-            self.config_manager.save_config(config, config_path)
-            
-            # 更新缓存
-            with self._cache_lock:
-                self._config_cache[config_path] = config.copy()
-                self._cache_timestamps[config_path] = datetime.now()
-            
-            # 触发变更事件
-            if old_config:
-                self._detect_and_notify_changes(config_path, old_config, config)
+            # 检查是否有模块特定服务
+            if module_type in self.module_services:
+                service = self.module_services[module_type]
+                service.save_config(config, config_path)
             else:
-                self._notify_change(ConfigChangeEvent(
-                    config_path=config_path,
-                    change_type=ConfigChangeType.ADDED,
-                    new_value=config
-                ))
+                # 如果有映射器，转换为配置字典
+                if self.mapper_registry:
+                    try:
+                        config_data = self.mapper_registry.entity_to_dict(module_type, config)
+                    except ValueError:
+                        # 如果没有映射器，直接使用配置数据
+                        config_data = config
+                else:
+                    config_data = config
+                
+                # 使用通用配置管理器保存
+                self.config_manager.save_config(config_data, config_path)
             
-            self.logger.info(f"配置保存成功: {config_path}")
+            logger.info(f"模块配置保存成功: {module_type}:{config_path}")
             
         except Exception as e:
-            self.logger.error(f"配置保存失败: {config_path}, 错误: {e}")
-            raise ConfigError(f"配置保存失败: {config_path}") from e
+            logger.error(f"保存模块配置失败: {module_type}:{config_path}, 错误: {e}")
+            raise
     
-    def validate_config(self, config: Dict[str, Any], validator: Optional[IConfigValidator] = None) -> ValidationResult:
-        """验证配置
+    def validate_module_config(self, module_type: str, config: Any) -> ValidationResult:
+        """验证模块配置
         
         Args:
-            config: 配置字典
-            validator: 验证器，如果为None则使用默认验证器
+            module_type: 模块类型
+            config: 配置实体
             
         Returns:
-            验证结果
+            ValidationResult: 验证结果
         """
-        if validator:
-            return validator.validate(config)
-        else:
-            # 使用默认验证器
-            from src.infrastructure.config.validation import BaseConfigValidator
-            default_validator = BaseConfigValidator()
-            return default_validator.validate(config)
-    
-    def get_config_value(self, config_path: str, key_path: str, default: Any = None) -> Any:
-        """获取配置值
-        
-        Args:
-            config_path: 配置文件路径
-            key_path: 键路径，如 "database.host"
-            default: 默认值
-            
-        Returns:
-            配置值
-        """
-        config = self.load_config(config_path)
-        
-        # 解析键路径
-        keys = key_path.split('.')
-        value = config
-        
         try:
-            for key in keys:
-                value = value[key]
-            return value
-        except (KeyError, TypeError):
-            return default
-    
-    def set_config_value(self, config_path: str, key_path: str, value: Any, save: bool = True) -> None:
-        """设置配置值
-        
-        Args:
-            config_path: 配置文件路径
-            key_path: 键路径，如 "database.host"
-            value: 配置值
-            save: 是否保存到文件
-        """
-        config = self.load_config(config_path)
-        
-        # 解析键路径
-        keys = key_path.split('.')
-        current = config
-        
-        # 导航到父级
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = {}
-            current = current[key]
-        
-        # 设置值
-        old_value = current.get(keys[-1])
-        current[keys[-1]] = value
-        
-        # 保存配置
-        if save:
-            self.save_config(config_path, config)
-        else:
-            # 只更新缓存
-            with self._cache_lock:
-                self._config_cache[config_path] = config.copy()
-                self._cache_timestamps[config_path] = datetime.now()
+            logger.debug(f"验证模块配置: {module_type}")
             
-            # 触发变更事件
-            self._notify_change(ConfigChangeEvent(
-                config_path=config_path,
-                change_type=ConfigChangeType.MODIFIED,
-                key_path=key_path,
-                old_value=old_value,
-                new_value=value
-            ))
-    
-    def add_change_callback(self, callback: Callable[..., None]) -> None:
-        """添加配置变更回调
-        
-        Args:
-            callback: 回调函数
-        """
-        with self._callback_lock:
-            self._change_callbacks.append(callback)
-    
-    def remove_change_callback(self, callback: Callable[..., None]) -> None:
-        """移除配置变更回调
-        
-        Args:
-            callback: 回调函数
-        """
-        with self._callback_lock:
-            if callback in self._change_callbacks:
-                self._change_callbacks.remove(callback)
-    
-    def clear_cache(self, config_path: Optional[str] = None) -> None:
-        """清除缓存
-        
-        Args:
-            config_path: 配置文件路径，如果为None则清除所有缓存
-        """
-        with self._cache_lock:
-            if config_path:
-                self._config_cache.pop(config_path, None)
-                self._cache_timestamps.pop(config_path, None)
+            # 检查是否有模块特定服务
+            if module_type in self.module_services:
+                service = self.module_services[module_type]
+                return service.validate_config(config)
             else:
-                self._config_cache.clear()
-                self._cache_timestamps.clear()
+                # 使用通用验证器
+                if isinstance(config, dict):
+                    return self.config_manager.validate_config(config)
+                else:
+                    # 如果是业务实体，先转换为字典再验证
+                    if self.mapper_registry:
+                        try:
+                            config_data = self.mapper_registry.entity_to_dict(module_type, config)
+                            return self.config_manager.validate_config(config_data)
+                        except ValueError:
+                            pass
+                    
+                    # 如果无法转换，返回成功
+                    return ValidationResult(is_valid=True, errors=[], warnings=[])
+            
+        except Exception as e:
+            logger.error(f"验证模块配置失败: {module_type}, 错误: {e}")
+            return ValidationResult(is_valid=False, errors=[str(e)], warnings=[])
     
-    def enable_error_recovery(self, enabled: bool = True) -> None:
-        """启用/禁用错误恢复
+    def register_module_service(self, module_type: str, service: IModuleConfigService) -> None:
+        """注册模块特定服务
         
         Args:
-            enabled: 是否启用
+            module_type: 模块类型
+            service: 模块配置服务
         """
-        self._error_recovery_enabled = enabled
+        self.module_services[module_type] = service
+        logger.info(f"已注册模块服务: {module_type}")
     
-    def start_watching(self, config_path: str) -> None:
-        """开始监控配置文件变更
+    def start_watching(self, module_type: str, config_path: str) -> None:
+        """开始监控配置文件
         
         Args:
+            module_type: 模块类型
             config_path: 配置文件路径
         """
-        config_path = str(Path(config_path).resolve())
-        self._watched_paths.add(config_path)
-        
-        # 启动监控线程
-        if not self._watch_thread or not self._watch_thread.is_alive():
-            self._watch_stop_event.clear()
-            self._watch_thread = threading.Thread(target=self._watch_configs, daemon=True)
-            self._watch_thread.start()
-    
-    def stop_watching(self, config_path: Optional[str] = None) -> None:
-        """停止监控配置文件变更
-        
-        Args:
-            config_path: 配置文件路径，如果为None则停止所有监控
-        """
-        if config_path:
-            self._watched_paths.discard(config_path)
+        if self.config_monitor:
+            self.config_monitor.start_watching(module_type, config_path)
+            logger.info(f"开始监控配置文件: {module_type}:{config_path}")
         else:
-            self._watched_paths.clear()
-        
-        # 停止监控线程
-        if not self._watched_paths:
-            self._watch_stop_event.set()
+            logger.warning("配置监控器未设置，无法开始监控")
     
-    def _create_backup(self, config_path: str, config: Dict[str, Any]) -> None:
-        """创建配置备份
+    def add_change_listener(self, listener: IConfigChangeListener) -> None:
+        """添加配置变更监听器
         
         Args:
-            config_path: 配置文件路径
-            config: 配置字典
+            listener: 配置变更监听器
         """
-        if config_path not in self._backup_configs:
-            self._backup_configs[config_path] = []
+        self._change_listeners.append(listener)
         
-        backups = self._backup_configs[config_path]
-        backups.append({
-            'config': config.copy(),
-            'timestamp': datetime.now()
-        })
+        # 如果有配置监控器，也添加到监控器
+        if self.config_monitor:
+            self.config_monitor.add_change_listener(listener)
         
-        # 限制备份数量
-        if len(backups) > self._max_backups:
-            backups.pop(0)
+        logger.info("已添加配置变更监听器")
     
-    def _get_backup_config(self, config_path: str) -> Optional[Dict[str, Any]]:
-        """获取备份配置
+    def save_config_version(self, module_type: str, config_path: str, config: Dict[str, Any], 
+                           version: str, comment: str = "") -> None:
+        """保存配置版本
         
         Args:
+            module_type: 模块类型
+            config_path: 配置文件路径
+            config: 配置数据
+            version: 版本号
+            comment: 版本注释
+        """
+        if self.version_manager:
+            self.version_manager.save_version(module_type, config_path, config, version, comment)
+            logger.info(f"已保存配置版本: {module_type}:{config_path}:{version}")
+        else:
+            logger.warning("版本管理器未设置，无法保存版本")
+    
+    def load_config_version(self, module_type: str, config_path: str, version: str) -> Dict[str, Any]:
+        """加载指定版本的配置
+        
+        Args:
+            module_type: 模块类型
+            config_path: 配置文件路径
+            version: 版本号
+            
+        Returns:
+            Dict[str, Any]: 配置数据
+        """
+        if self.version_manager:
+            config = self.version_manager.load_version(module_type, config_path, version)
+            logger.info(f"已加载配置版本: {module_type}:{config_path}:{version}")
+            return config
+        else:
+            logger.warning("版本管理器未设置，无法加载版本")
+            raise ValueError("版本管理器未设置")
+    
+    def rollback_config(self, module_type: str, config_path: str, version: str) -> None:
+        """回滚配置到指定版本
+        
+        Args:
+            module_type: 模块类型
+            config_path: 配置文件路径
+            version: 版本号
+        """
+        if self.version_manager:
+            self.version_manager.rollback(module_type, config_path, version)
+            logger.info(f"已回滚配置版本: {module_type}:{config_path}:{version}")
+        else:
+            logger.warning("版本管理器未设置，无法回滚")
+            raise ValueError("版本管理器未设置")
+    
+    def list_config_versions(self, module_type: str, config_path: str) -> List[ConfigVersion]:
+        """列出版本信息
+        
+        Args:
+            module_type: 模块类型
             config_path: 配置文件路径
             
         Returns:
-            备份配置字典，如果没有备份则返回None
+            List[ConfigVersion]: 版本列表
         """
-        backups = self._backup_configs.get(config_path, [])
-        if backups:
-            # 返回最新的备份
-            return backups[-1]['config'].copy()
-        return None
+        if self.version_manager:
+            versions = self.version_manager.list_versions(module_type, config_path)
+            logger.info(f"已获取版本列表: {module_type}:{config_path}, 共{len(versions)}个版本")
+            return versions
+        else:
+            logger.warning("版本管理器未设置，无法列出版本")
+            return []
     
-    def _notify_change(self, event: Any) -> None:
+    def register_module_dependency(self, module_type: str, dependency: ModuleDependency) -> None:
+        """注册模块依赖
+        
+        Args:
+            module_type: 模块类型
+            dependency: 模块依赖
+        """
+        if module_type not in self._module_dependencies:
+            self._module_dependencies[module_type] = []
+        self._module_dependencies[module_type].append(dependency)
+        logger.info(f"已注册模块依赖: {module_type} -> {dependency.module_type}")
+    
+    def resolve_module_dependencies(self, module_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析模块依赖
+        
+        Args:
+            module_type: 模块类型
+            config: 配置数据
+            
+        Returns:
+            Dict[str, Any]: 解析后的配置数据
+        """
+        resolved_config = config.copy()
+        
+        if module_type in self._module_dependencies:
+            for dependency in self._module_dependencies[module_type]:
+                try:
+                    # 加载依赖配置
+                    dep_config = self.load_module_config(dependency.module_type, dependency.config_path)
+                    
+                    # 合并依赖配置
+                    resolved_config = self._merge_dependency(resolved_config, dep_config, dependency)
+                    
+                except Exception as e:
+                    logger.error(f"解析模块依赖失败: {module_type} -> {dependency.module_type}, 错误: {e}")
+                    # 继续处理其他依赖
+        
+        return resolved_config
+    
+    def _merge_dependency(self, config: Dict[str, Any], dep_config: Any, dependency: ModuleDependency) -> Dict[str, Any]:
+        """合并依赖配置
+        
+        Args:
+            config: 当前配置
+            dep_config: 依赖配置
+            dependency: 依赖定义
+            
+        Returns:
+            Dict[str, Any]: 合并后的配置
+        """
+        # 简化实现，实际应该根据依赖定义进行更复杂的合并
+        if isinstance(dep_config, dict):
+            for field in dependency.required_fields:
+                if field in dep_config:
+                    config[field] = dep_config[field]
+            
+            for field in dependency.optional_fields:
+                if field in dep_config and field not in config:
+                    config[field] = dep_config[field]
+        
+        return config
+    
+    def _notify_config_changed(self, event: ConfigChangeEvent) -> None:
         """通知配置变更
         
         Args:
-            event: 变更事件
+            event: 配置变更事件
         """
-        with self._callback_lock:
-            for callback in self._change_callbacks:
-                try:
-                    callback(event)
-                except Exception as e:
-                    self.logger.error(f"配置变更回调执行失败: {e}")
-    
-    def _detect_and_notify_changes(self, config_path: str, old_config: Dict[str, Any], new_config: Dict[str, Any]) -> None:
-        """检测并通知配置变更
-        
-        Args:
-            config_path: 配置文件路径
-            old_config: 旧配置
-            new_config: 新配置
-        """
-        # 简单的变更检测，可以优化为更精确的算法
-        all_keys = set(self._flatten_dict(old_config).keys()) | set(self._flatten_dict(new_config).keys())
-        
-        for key in all_keys:
-            old_value = self._get_nested_value(old_config, key)
-            new_value = self._get_nested_value(new_config, key)
-            
-            if old_value != new_value:
-                if old_value is None:
-                    change_type = ConfigChangeType.ADDED
-                elif new_value is None:
-                    change_type = ConfigChangeType.DELETED
-                else:
-                    change_type = ConfigChangeType.MODIFIED
-                
-                self._notify_change(ConfigChangeEvent(
-                    config_path=config_path,
-                    change_type=change_type,
-                    key_path=key,
-                    old_value=old_value,
-                    new_value=new_value
-                ))
-    
-    def _flatten_dict(self, d: Dict[str, Any], parent_key: str = '', sep: str = '.') -> Dict[str, Any]:
-        """扁平化字典
-        
-        Args:
-            d: 字典
-            parent_key: 父键
-            sep: 分隔符
-            
-        Returns:
-            扁平化后的字典
-        """
-        items = []
-        for k, v in d.items():
-            new_key = f"{parent_key}{sep}{k}" if parent_key else k
-            if isinstance(v, dict):
-                items.extend(self._flatten_dict(v, new_key, sep=sep).items())
-            else:
-                items.append((new_key, v))
-        return dict(items)
-    
-    def _get_nested_value(self, d: Dict[str, Any], key_path: str, sep: str = '.') -> Any:
-        """获取嵌套值
-        
-        Args:
-            d: 字典
-            key_path: 键路径
-            sep: 分隔符
-            
-        Returns:
-            嵌套值
-        """
-        keys = key_path.split(sep)
-        value = d
-        
-        try:
-            for key in keys:
-                value = value[key]
-            return value
-        except (KeyError, TypeError):
-            return None
-    
-    def _watch_configs(self) -> None:
-        """监控配置文件变更"""
-        while not self._watch_stop_event.is_set():
+        for listener in self._change_listeners:
             try:
-                for config_path in list(self._watched_paths):
-                    if not self._watch_stop_event.is_set():
-                        # 检查文件修改时间
-                        path = Path(config_path)
-                        if path.exists():
-                            current_mtime = path.stat().st_mtime
-                            cached_time = self._cache_timestamps.get(config_path)
-                            
-                            if not cached_time or current_mtime > cached_time.timestamp():
-                                # 文件已修改，重新加载
-                                try:
-                                    self.load_config(config_path, force_reload=True)
-                                except Exception as e:
-                                    self.logger.error(f"监控重新加载配置失败: {config_path}, 错误: {e}")
-                
-                # 等待下次检查
-                self._watch_stop_event.wait(self._watch_interval)
-                
+                listener.on_config_changed(event)
             except Exception as e:
-                self.logger.error(f"配置监控线程异常: {e}")
-                self._watch_stop_event.wait(self._watch_interval)
+                logger.error(f"配置变更监听器执行失败: {e}")
+
+
+# 创建默认实例
+default_config_service: Optional[ConfigService] = None
+
+
+def get_config_service() -> ConfigService:
+    """获取默认配置服务实例
+    
+    Returns:
+        ConfigService: 配置服务实例
+    """
+    global default_config_service
+    if default_config_service is None:
+        raise ValueError("配置服务未初始化，请先调用 create_config_service")
+    return default_config_service
+
+
+def create_config_service(config_manager: IConfigManager,
+                         mapper_registry: Optional[IConfigMapperRegistry] = None) -> ConfigService:
+    """创建配置服务实例
+    
+    Args:
+        config_manager: 配置管理器
+        mapper_registry: 配置映射器注册表
+        
+    Returns:
+        ConfigService: 配置服务实例
+    """
+    global default_config_service
+    default_config_service = ConfigService(
+        config_manager=config_manager,
+        mapper_registry=mapper_registry
+    )
+    return default_config_service

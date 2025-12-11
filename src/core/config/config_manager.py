@@ -1,14 +1,18 @@
 """
-配置管理器 - 统一的配置管理入口
+统一配置管理器 - 支持所有模块的配置管理
 
-提供基础的配置管理功能，专注于配置加载和处理。
+基于统一配置系统设计，提供模块化、可扩展的配置管理解决方案。
 """
 
 from pathlib import Path
-from typing import Dict, Any, Optional, Type, TypeVar
+from typing import Dict, Any, Optional, Type, TypeVar, List
 
 import logging
-from src.interfaces.config import IConfigLoader, IConfigProcessor, IConfigValidator, IUnifiedConfigManager, IConfigInheritanceHandler
+from src.interfaces.config import (
+    IConfigLoader, IConfigProcessor, IConfigValidator, IConfigManager,
+    IConfigInheritanceHandler, IModuleConfigRegistry, IConfigMapperRegistry,
+    ICrossModuleResolver, IModuleConfigLoader, ModuleConfig
+)
 from src.interfaces.common_domain import ValidationResult
 from src.interfaces.config import (
     ConfigError,
@@ -23,15 +27,27 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=Any)
 
 
-class ConfigManager(IUnifiedConfigManager):
-    """配置管理器 - 提供基础的配置管理功能"""
+class ConfigManager(IConfigManager):
+    """统一配置管理器 - 支持所有模块的配置管理"""
     
-    def __init__(self, config_loader: IConfigLoader, processor_chain: Optional[ConfigProcessorChain] = None, base_path: Optional[Path] = None, inheritance_handler: Optional[IConfigInheritanceHandler] = None):
-        """初始化配置管理器
+    def __init__(self,
+                 config_loader: IConfigLoader,
+                 processor_chain: Optional[ConfigProcessorChain] = None,
+                 validator_registry: Optional[IConfigValidator] = None,
+                 module_registry: Optional[IModuleConfigRegistry] = None,
+                 mapper_registry: Optional[IConfigMapperRegistry] = None,
+                 cross_module_resolver: Optional[ICrossModuleResolver] = None,
+                 base_path: Optional[Path] = None,
+                 inheritance_handler: Optional[IConfigInheritanceHandler] = None):
+        """初始化统一配置管理器
         
         Args:
             config_loader: 配置加载器（通过依赖注入）
             processor_chain: 配置处理器链（可选）
+            validator_registry: 验证器注册表（可选）
+            module_registry: 模块配置注册表（可选）
+            mapper_registry: 配置映射器注册表（可选）
+            cross_module_resolver: 跨模块引用解析器（可选）
             base_path: 配置文件基础路径（可选）
             inheritance_handler: 继承处理器（可选）
         """
@@ -55,10 +71,19 @@ class ConfigManager(IUnifiedConfigManager):
         # 默认验证器
         self._default_validator = BaseConfigValidator("DefaultValidator")
         
-        logger.info("配置管理器初始化完成")
+        # 统一配置系统组件
+        self.validator_registry = validator_registry
+        self.module_registry = module_registry or ModuleConfigRegistry()
+        self.mapper_registry = mapper_registry or ConfigMapperRegistry()
+        self.cross_module_resolver = cross_module_resolver or CrossModuleResolver(self)
+        
+        # 模块特定加载器
+        self._module_loaders: Dict[str, IModuleConfigLoader] = {}
+        
+        logger.info("统一配置管理器初始化完成")
     
     def load_config(self, config_path: str, module_type: Optional[str] = None) -> Dict[str, Any]:
-        """加载并处理配置
+        """加载配置 - 支持模块特定处理
         
         Args:
             config_path: 配置文件路径
@@ -68,15 +93,26 @@ class ConfigManager(IUnifiedConfigManager):
             配置数据
         """
         try:
-            # 加载原始配置
+            # 1. 加载原始配置
             logger.debug(f"加载配置文件: {config_path}")
-            raw_config = self.loader.load(config_path)
+            if module_type and module_type in self._module_loaders:
+                raw_config = self._module_loaders[module_type].load(config_path)
+            else:
+                raw_config = self.loader.load(config_path)
             
-            # 处理配置（继承、环境变量、引用）
+            # 2. 获取模块特定的处理器链
+            processor_chain = self._get_processor_chain(module_type)
+            
+            # 3. 处理配置
             logger.debug(f"处理配置: {config_path}")
-            processed_config = self.processor_chain.process(raw_config, config_path)
+            processed_config = processor_chain.process(raw_config, config_path)
             
-            # 使用模块特定验证器验证配置
+            # 4. 解析跨模块引用
+            if module_type and self.cross_module_resolver:
+                logger.debug(f"解析跨模块引用: {config_path}")
+                processed_config = self.cross_module_resolver.resolve(module_type, processed_config)
+            
+            # 5. 获取模块特定的验证器
             validator = self._get_validator(module_type)
             logger.debug(f"验证配置: {config_path}")
             validation_result = validator.validate(processed_config)
@@ -85,6 +121,11 @@ class ConfigManager(IUnifiedConfigManager):
                 error_msg = f"配置验证失败 {config_path}: " + "; ".join(validation_result.errors)
                 logger.error(error_msg)
                 raise ConfigValidationError(error_msg)
+            
+            # 6. 应用模块特定的后处理
+            if module_type and self.module_registry:
+                logger.debug(f"应用模块后处理: {config_path}")
+                processed_config = self.module_registry.post_process(module_type, processed_config)
             
             logger.info(f"配置加载成功: {config_path}")
             return processed_config
@@ -169,6 +210,47 @@ class ConfigManager(IUnifiedConfigManager):
         self._module_validators[module_type] = validator
         logger.info(f"已注册模块验证器: {module_type}")
     
+    def register_module_config(self, module_type: str, config: ModuleConfig) -> None:
+        """注册模块配置
+        
+        Args:
+            module_type: 模块类型
+            config: 模块配置
+        """
+        if self.module_registry:
+            self.module_registry.register_module(module_type, config)
+            # 注册处理器
+            if hasattr(self.processor_chain, 'register_processors'):
+                self.processor_chain.register_processors(module_type, config.processors)
+            # 注册验证器
+            if config.validator:
+                # 这里需要根据validator名称获取实际的验证器实例
+                # 简化实现，实际应该通过工厂模式创建
+                pass
+        logger.info(f"已注册模块配置: {module_type}")
+    
+    def register_module_loader(self, module_type: str, loader: IModuleConfigLoader) -> None:
+        """注册模块特定加载器
+        
+        Args:
+            module_type: 模块类型
+            loader: 模块加载器
+        """
+        self._module_loaders[module_type] = loader
+        logger.info(f"已注册模块加载器: {module_type}")
+    
+    def _get_processor_chain(self, module_type: Optional[str]) -> ConfigProcessorChain:
+        """获取模块特定的处理器链
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            ConfigProcessorChain: 处理器链
+        """
+        # 简化实现，实际应该根据模块类型返回特定的处理器链
+        return self.processor_chain
+    
     def get_module_config(self, module_type: str) -> Dict[str, Any]:
         """获取模块配置
         
@@ -231,3 +313,90 @@ class ConfigManager(IUnifiedConfigManager):
         
         # 返回默认验证器
         return self._default_validator
+
+class ModuleConfigRegistry(IModuleConfigRegistry):
+    """模块配置注册表实现"""
+    
+    def __init__(self):
+        self._modules: Dict[str, ModuleConfig] = {}
+        self._cross_module_resolvers: List[ICrossModuleResolver] = []
+    
+    def register_module(self, module_type: str, config: ModuleConfig) -> None:
+        """注册模块配置"""
+        self._modules[module_type] = config
+    
+    def get_module_config(self, module_type: str) -> Optional[ModuleConfig]:
+        """获取模块配置"""
+        return self._modules.get(module_type)
+    
+    def post_process(self, module_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """模块特定后处理"""
+        module_config = self._modules.get(module_type)
+        if module_config and module_config.post_processor:
+            return module_config.post_processor(config)
+        return config
+
+
+class ConfigMapperRegistry(IConfigMapperRegistry):
+    """配置映射器注册表实现"""
+    
+    def __init__(self):
+        self._mappers: Dict[str, IConfigMapper] = {}
+    
+    def register_mapper(self, module_type: str, mapper: IConfigMapper) -> None:
+        """注册配置映射器"""
+        self._mappers[module_type] = mapper
+    
+    def get_mapper(self, module_type: str) -> Optional[IConfigMapper]:
+        """获取配置映射器"""
+        return self._mappers.get(module_type)
+    
+    def dict_to_entity(self, module_type: str, config_data: Dict[str, Any]) -> Any:
+        """将配置字典转换为业务实体"""
+        mapper = self.get_mapper(module_type)
+        if not mapper:
+            raise ValueError(f"未找到模块 {module_type} 的配置映射器")
+        return mapper.dict_to_entity(config_data)
+    
+    def entity_to_dict(self, module_type: str, entity: Any) -> Dict[str, Any]:
+        """将业务实体转换为配置字典"""
+        mapper = self.get_mapper(module_type)
+        if not mapper:
+            raise ValueError(f"未找到模块 {module_type} 的配置映射器")
+        return mapper.entity_to_dict(entity)
+
+
+class CrossModuleResolver(ICrossModuleResolver):
+    """跨模块引用解析器实现"""
+    
+    def __init__(self, config_manager: IConfigManager):
+        self.config_manager = config_manager
+    
+    def resolve(self, module_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """解析跨模块引用"""
+        import re
+        import json
+        
+        def replace_reference(match):
+            ref_module = match.group(1)
+            ref_path = match.group(2)
+            
+            # 加载引用的配置
+            ref_config = self.config_manager.load_config(ref_path, ref_module)
+            
+            # 获取引用值
+            keys = ref_path.split('.')
+            value = ref_config
+            for key in keys:
+                value = value.get(key, {})
+            
+            return str(value)
+        
+        # 递归解析所有引用
+        pattern = r'\$\{([^\.]+)\.([^}]+)\}'
+        config_str = json.dumps(config)
+        
+        while re.search(pattern, config_str):
+            config_str = re.sub(pattern, replace_reference, config_str)
+        
+        return json.loads(config_str)

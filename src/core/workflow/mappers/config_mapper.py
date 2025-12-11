@@ -1,41 +1,37 @@
-"""配置映射器
+"""工作流配置映射器
 
-负责在配置数据和业务实体之间进行转换。
-
-📍 位置决策：
-经过架构分析，此映射器应该位于 `src/core/workflow/mappers/` 目录。
-
-📋 决策理由：
-1. 职责分离：配置系统专注于配置处理，映射器专注于数据转换
-2. 架构清晰：避免配置层反向依赖业务层，符合分层架构原则
-3. 领域一致性：映射逻辑属于领域知识，与业务实体紧密相关
-4. 维护便利：修改实体结构影响范围小，模块自治性强
-
-🏗️ 架构原则：
-- 单一职责原则：映射器专注于数据转换
-- 依赖倒置原则：避免反向依赖
-- 领域驱动设计：映射逻辑属于领域层
-
-📚 相关文档：
-- docs/plan/workflow/refactor/config_mapper_location_decision.md
+负责在配置数据和业务实体之间进行转换，实现IConfigMapper接口。
 """
 
 from typing import Dict, Any, Optional
 from datetime import datetime
 import uuid
 
+from src.interfaces.config import IConfigMapper, ValidationResult
+from src.interfaces.common_domain import ValidationResult as CommonValidationResult
 from ..graph_entities import (
     Graph, Node, Edge, StateField, GraphState, EdgeType
 )
 
 
-class ConfigMapper:
-    """配置映射器
+class WorkflowConfigMapper(IConfigMapper):
+    """工作流配置映射器
     
     负责在配置数据和业务实体之间进行转换。
     """
 
-    def dict_to_graph(self, data: Dict[str, Any]) -> Graph:
+    def dict_to_entity(self, config_data: Dict[str, Any]) -> Graph:
+        """将配置字典转换为业务实体
+        
+        Args:
+            config_data: 配置字典数据
+            
+        Returns:
+            Graph: 图实体
+        """
+        return self._dict_to_graph(config_data)
+    
+    def _dict_to_graph(self, data: Dict[str, Any]) -> Graph:
         """将字典数据转换为图实体
         
         Args:
@@ -74,7 +70,18 @@ class ConfigMapper:
 
         return graph
 
-    def graph_to_dict(self, graph: Graph) -> Dict[str, Any]:
+    def entity_to_dict(self, entity: Graph) -> Dict[str, Any]:
+        """将业务实体转换为配置字典
+        
+        Args:
+            entity: 图实体
+            
+        Returns:
+            Dict[str, Any]: 图配置字典数据
+        """
+        return self._graph_to_dict(entity)
+    
+    def _graph_to_dict(self, graph: Graph) -> Dict[str, Any]:
         """将图实体转换为字典数据
         
         Args:
@@ -83,7 +90,7 @@ class ConfigMapper:
         Returns:
             Dict[str, Any]: 图配置字典数据
         """
-        result = {
+        result: Dict[str, Any] = {
             "name": graph.name,
             "id": graph.graph_id,
             "description": graph.description,
@@ -158,7 +165,7 @@ class ConfigMapper:
 
     def _node_to_dict(self, node: Node) -> Dict[str, Any]:
         """将节点实体转换为字典数据"""
-        result = {
+        result: Dict[str, Any] = {
             "id": node.node_id,
             "name": node.name,
             "function_name": node.function_name,
@@ -188,7 +195,7 @@ class ConfigMapper:
 
     def _edge_to_dict(self, edge: Edge) -> Dict[str, Any]:
         """将边实体转换为字典数据"""
-        result = {
+        result: Dict[str, Any] = {
             "id": edge.edge_id,
             "from": edge.from_node_id,
             "to": edge.to_node_id,
@@ -207,17 +214,70 @@ class ConfigMapper:
         return result
 
 
+    def validate_config(self, config_data: Dict[str, Any]) -> ValidationResult:
+        """验证配置数据
+        
+        Args:
+            config_data: 配置字典数据
+            
+        Returns:
+            ValidationResult: 验证结果
+        """
+        errors = []
+        warnings = []
+        
+        # 验证必需字段
+        if "name" not in config_data:
+            errors.append("缺少必需字段: name")
+        
+        # 验证节点
+        if "nodes" in config_data:
+            for node_name, node_data in config_data["nodes"].items():
+                if not node_data:
+                    errors.append(f"节点 '{node_name}' 配置不能为空")
+                    continue
+                
+                if "function_name" not in node_data:
+                    errors.append(f"节点 '{node_name}' 缺少function_name字段")
+        
+        # 验证边
+        if "edges" in config_data:
+            node_names = set(config_data.get("nodes", {}).keys())
+            for i, edge_data in enumerate(config_data["edges"]):
+                if not edge_data:
+                    errors.append(f"边 {i} 配置不能为空")
+                    continue
+                
+                from_node = edge_data.get("from")
+                to_node = edge_data.get("to")
+                
+                if from_node and from_node not in node_names:
+                    errors.append(f"边 {i} 的源节点 '{from_node}' 不存在")
+                
+                if to_node and to_node not in node_names:
+                    errors.append(f"边 {i} 的目标节点 '{to_node}' 不存在")
+        
+        # 验证入口点
+        if "entry_point" in config_data:
+            entry_point = config_data["entry_point"]
+            node_names = set(config_data.get("nodes", {}).keys())
+            if entry_point and entry_point not in node_names:
+                errors.append(f"入口点节点 '{entry_point}' 不存在")
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=warnings)
+
+
 # 全局映射器实例
-_config_mapper = ConfigMapper()
+_workflow_config_mapper = WorkflowConfigMapper()
 
 
-def get_config_mapper() -> ConfigMapper:
-    """获取配置映射器实例
+def get_workflow_config_mapper() -> WorkflowConfigMapper:
+    """获取工作流配置映射器实例
     
     Returns:
-        ConfigMapper: 配置映射器实例
+        WorkflowConfigMapper: 工作流配置映射器实例
     """
-    return _config_mapper
+    return _workflow_config_mapper
 
 
 def dict_to_graph(data: Dict[str, Any]) -> Graph:
@@ -229,7 +289,7 @@ def dict_to_graph(data: Dict[str, Any]) -> Graph:
     Returns:
         Graph: 图实体
     """
-    return _config_mapper.dict_to_graph(data)
+    return _workflow_config_mapper.dict_to_entity(data)
 
 
 def graph_to_dict(graph: Graph) -> Dict[str, Any]:
@@ -241,4 +301,4 @@ def graph_to_dict(graph: Graph) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 图配置字典数据
     """
-    return _config_mapper.graph_to_dict(graph)
+    return _workflow_config_mapper.entity_to_dict(graph)
