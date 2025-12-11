@@ -9,7 +9,7 @@ from src.interfaces.workflow.functions import (
     IFunction, INodeFunction, IConditionFunction, IRouteFunction, ITriggerFunction,
     FunctionType
 )
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 
 class FunctionRegistry:

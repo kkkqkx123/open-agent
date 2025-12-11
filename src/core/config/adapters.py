@@ -3,8 +3,22 @@
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
-from ..llm.config import LLMClientConfig, LLMModuleConfig
+from ...infrastructure.llm.config.models import LLMClientConfig
+
+# LLMModuleConfig 已移动，这里创建一个简单的替代
+@dataclass
+class LLMModuleConfig:
+    """LLM模块配置"""
+    enabled: bool = True
+    default_provider: str = "openai"
+    providers: Dict[str, Any] = field(default_factory=dict)
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LLMModuleConfig":
+        """从字典创建配置"""
+        return cls(**data)
 
 
 class BaseConfigAdapter(ABC):

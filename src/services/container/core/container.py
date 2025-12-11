@@ -33,7 +33,7 @@ from src.interfaces.container.core import ServiceLifetime
 # 延迟导入logger以避免循环依赖
 def _get_logger() -> Optional[Any]:
     try:
-        from src.services.logger.injection import get_logger
+        from src.interfaces.dependency_injection import get_logger
         return get_logger(__name__)
     except:
         # 如果logger不可用，返回None

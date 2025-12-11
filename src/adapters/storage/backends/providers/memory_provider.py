@@ -5,7 +5,7 @@
 
 import time
 from typing import Dict, Any, Optional, List
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from .base_provider import BaseStorageProvider
 from ..core.exceptions import ProviderError

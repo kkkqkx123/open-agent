@@ -254,7 +254,7 @@ class AnthropicClient(BaseLLMClient):
             
         except Exception as e:
             # 如果使用基础设施层解析器失败，回退到基本实现
-            from src.services.logger.injection import get_logger
+            from src.interfaces.dependency_injection import get_logger
             logger = get_logger(__name__)
             logger.warning(f"使用基础设施层Token解析器失败，回退到基本实现: {e}")
             return self._extract_token_usage_fallback(response)

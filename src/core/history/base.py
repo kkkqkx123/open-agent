@@ -3,7 +3,7 @@
 提供历史记录管理的基础实现和通用功能。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 from abc import ABC, abstractmethod

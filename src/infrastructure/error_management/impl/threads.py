@@ -29,7 +29,7 @@ logger = None
 def _get_logger():
     global logger
     if logger is None:
-        from src.services.logger.injection import get_logger
+        from src.interfaces.dependency_injection import get_logger
         logger = get_logger(__name__)
     return logger
 

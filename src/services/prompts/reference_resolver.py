@@ -8,7 +8,7 @@ import asyncio
 from typing import Dict, List, Set, Optional, Any, Tuple, Union
 from dataclasses import dataclass
 from pathlib import Path
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from ...interfaces import IPromptRegistry, PromptMeta, PromptConfig
 from src.interfaces.prompts.exceptions import (

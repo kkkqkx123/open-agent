@@ -1,7 +1,7 @@
 """Session事件管理器 - 简化实现"""
 
 import asyncio
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Callable, TYPE_CHECKING
 from datetime import datetime
 from enum import Enum

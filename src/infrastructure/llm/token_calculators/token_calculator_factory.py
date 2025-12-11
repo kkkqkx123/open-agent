@@ -7,7 +7,7 @@ Token计算器工厂
 from typing import Dict, Any, Optional, List, Type
 from threading import RLock
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .base_token_calculator import ITokenCalculator, BaseTokenCalculator
 from .openai_token_calculator import OpenAITokenCalculator
 from .gemini_token_calculator import GeminiTokenCalculator

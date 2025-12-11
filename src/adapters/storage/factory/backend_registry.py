@@ -7,7 +7,7 @@
 from typing import Dict, Type, List, Optional, Any, Union
 from src.interfaces.storage.base import IStorage
 from src.interfaces.storage import ISessionStorage, IThreadStorage, IStorageProvider
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 # 导入新的provider和impl
 from ..backends.providers.sqlite_provider import SQLiteProvider

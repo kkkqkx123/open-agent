@@ -8,7 +8,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.infrastructure.storage.base_storage import BaseStorage
 from src.infrastructure.common.serialization import Serializer

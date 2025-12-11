@@ -5,7 +5,7 @@ Anthropic Token计算器
 """
 
 from typing import Dict, Any, Optional, Sequence, List
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .local_token_calculator import LocalTokenCalculator, TiktokenConfig
 from ..models import TokenUsage
 from src.interfaces.messages import IBaseMessage

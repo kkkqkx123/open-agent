@@ -3,7 +3,7 @@
 提供创建各种状态对象的统一工厂类。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 from enum import Enum
 

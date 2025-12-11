@@ -6,7 +6,7 @@
 
 from typing import Dict, Any
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.checkpoint.interfaces import ICheckpointRepository
 from .config import CheckpointStorageConfig
 from .memory import MemoryCheckpointBackend

@@ -3,7 +3,7 @@
 提供工作流执行的重试策略实现。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 import asyncio
 from typing import Optional, List, Callable, Union

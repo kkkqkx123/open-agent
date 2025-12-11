@@ -3,7 +3,7 @@
 提供所有Repository实现的通用基类和功能。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from abc import ABC
 from typing import Dict, Any, Optional, Type
 

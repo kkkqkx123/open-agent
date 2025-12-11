@@ -8,7 +8,7 @@ import time
 from typing import Dict, Any, Optional, List
 from collections import defaultdict
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.threads.checkpoints.models import ThreadCheckpoint as Checkpoint, CheckpointStatus, CheckpointType
 from src.infrastructure.threads.checkpoint_repository import ThreadCheckpointRepository
 from .base import BaseCheckpointBackend

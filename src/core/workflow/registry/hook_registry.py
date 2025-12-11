@@ -6,7 +6,7 @@
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from src.interfaces.workflow.hooks import IHook, IHookRegistry, HookPoint
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .base_registry import BaseRegistry
 
 logger = get_logger(__name__)

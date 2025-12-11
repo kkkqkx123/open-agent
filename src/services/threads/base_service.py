@@ -1,6 +1,6 @@
 """线程服务基类"""
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from abc import ABC
 from typing import Optional
 

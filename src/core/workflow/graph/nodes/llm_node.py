@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from src.interfaces.messages import IBaseMessage
 
 from src.infrastructure.messages import AIMessage, SystemMessage, HumanMessage
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes import AsyncNode

@@ -8,7 +8,7 @@ import json
 from typing import Dict, Any, Optional, List, AsyncIterator
 from src.interfaces.storage.base import IStorage
 from src.interfaces.storage.exceptions import StorageError
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 
 logger = get_logger(__name__)

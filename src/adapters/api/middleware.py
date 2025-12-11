@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.types import ASGIApp
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 logger = get_logger(__name__)
 

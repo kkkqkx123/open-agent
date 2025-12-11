@@ -154,57 +154,6 @@ class HistoryServiceBindings(BaseServiceBindings):
             service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.history.injection import (
-                set_history_manager_instance,
-                set_cost_calculator_instance,
-                set_token_tracker_instance,
-                set_history_repository_instance,
-                set_statistics_service_instance,
-                set_history_hooks_instance,
-                set_token_calculation_service_instance,
-                set_token_calculation_decorator_instance
-            )
-            
-            # 延迟导入具体实现类进行类型检查
-            def get_concrete_types() -> tuple:
-                from src.services.history.statistics_service import HistoryStatisticsService
-                from src.services.history.hooks import HistoryRecordingHook
-                from src.services.llm.token_calculation_service import TokenCalculationService
-                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
-                return (
-                    HistoryStatisticsService,
-                    HistoryRecordingHook,
-                    TokenCalculationService,
-                    TokenCalculationDecorator
-                )
-            
-            HistoryStatisticsService, HistoryRecordingHook, TokenCalculationService, TokenCalculationDecorator = get_concrete_types()
-            
-            if container.has_service(IHistoryManager):
-                set_history_manager_instance(container.get(IHistoryManager))
-            
-            if container.has_service(ICostCalculator):
-                set_cost_calculator_instance(container.get(ICostCalculator))
-            
-            if container.has_service(ITokenTracker):
-                set_token_tracker_instance(container.get(ITokenTracker))
-            
-            if container.has_service(IHistoryRepository):
-                set_history_repository_instance(container.get(IHistoryRepository))
-            
-            if container.has_service(HistoryStatisticsService):
-                set_statistics_service_instance(container.get(HistoryStatisticsService))
-            
-            if container.has_service(HistoryRecordingHook):
-                set_history_hooks_instance(container.get(HistoryRecordingHook))
-            
-            if container.has_service(TokenCalculationService):
-                set_token_calculation_service_instance(container.get(TokenCalculationService))
-            
-            if container.has_service(TokenCalculationDecorator):
-                set_token_calculation_decorator_instance(container.get(TokenCalculationDecorator))
-            
             logger = self.safe_get_service(container, ILogger)
             if logger:
                 logger.debug(f"已设置History服务注入层 (environment: {environment})")

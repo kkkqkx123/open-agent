@@ -5,7 +5,7 @@
 """
 
 from typing import Dict, Any, Optional, AsyncGenerator
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from datetime import datetime
 
 from src.interfaces.workflow.core import IWorkflow, IWorkflowState

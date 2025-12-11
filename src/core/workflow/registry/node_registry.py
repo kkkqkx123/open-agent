@@ -94,10 +94,10 @@ class BaseNode:
         
         # 如果配置加载器不可用，直接返回运行时配置
         # if config_loader is None:
-            return runtime_config
+        return runtime_config
         
         # 获取默认配置并合并
-        return config_loader.merge_configs(self.node_type, runtime_config)
+        # return config_loader.merge_configs(self.node_type, runtime_config)
 
 
 class NodeRegistry(BaseRegistry):

@@ -9,7 +9,7 @@ import json
 import asyncio
 from abc import ABC, abstractmethod
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointStatistics, CheckpointStatus
 
 

@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional, List, Union
 from src.interfaces.storage.base import IStorage, IStorageFactory
 from src.interfaces.storage import ISessionStorage, IThreadStorage, IStorageProvider
 from src.interfaces.storage.exceptions import StorageError, StorageConfigurationError
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .backend_registry import BackendRegistry, get_global_registry
 
 

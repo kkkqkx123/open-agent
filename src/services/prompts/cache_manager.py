@@ -4,7 +4,7 @@
 支持状态级、线程级和会话级缓存。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Callable
 from datetime import datetime, timedelta
 from functools import wraps

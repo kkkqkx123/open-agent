@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Set
 from dataclasses import dataclass
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.infrastructure.common.utils.dict_merger import DictMerger
 
 

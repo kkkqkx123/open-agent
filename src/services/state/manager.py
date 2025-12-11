@@ -5,7 +5,7 @@
 
 import asyncio
 import time
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Callable, Tuple
 from datetime import datetime
 

@@ -2,7 +2,7 @@
 from typing import Optional, Dict, Any, List, Union
 from datetime import datetime, timedelta
 import json
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from ..data_access.history_dao import HistoryDAO
 from ..cache.memory_cache import MemoryCache

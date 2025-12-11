@@ -9,7 +9,7 @@ import inspect
 import time
 from typing import Any, Dict, Callable, Optional, Union, Coroutine
 from functools import wraps
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from ..base_stateful import StatefulBaseTool
 

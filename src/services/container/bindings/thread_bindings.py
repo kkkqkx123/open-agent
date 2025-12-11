@@ -94,46 +94,6 @@ class ThreadServiceBindings(BaseServiceBindings):
             
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.threads.injection import (
-                set_thread_repository_instance,
-                set_thread_service_instance,
-                set_basic_thread_service_instance,
-                set_workflow_thread_service_instance,
-                set_collaboration_thread_service_instance,
-                set_branch_thread_service_instance,
-                set_snapshot_thread_service_instance,
-                set_state_thread_service_instance,
-                set_history_thread_service_instance
-            )
-            
-            if container.has_service(IThreadRepository):
-                set_thread_repository_instance(container.get(IThreadRepository))
-            
-            if container.has_service(IThreadService):
-                set_thread_service_instance(container.get(IThreadService))
-            
-            if container.has_service(BasicThreadService):
-                set_basic_thread_service_instance(container.get(BasicThreadService))
-            
-            if container.has_service(WorkflowThreadService):
-                set_workflow_thread_service_instance(container.get(WorkflowThreadService))
-            
-            if container.has_service(ThreadCollaborationService):
-                set_collaboration_thread_service_instance(container.get(ThreadCollaborationService))
-            
-            if container.has_service(ThreadBranchService):
-                set_branch_thread_service_instance(container.get(ThreadBranchService))
-            
-            if container.has_service(ThreadSnapshotService):
-                set_snapshot_thread_service_instance(container.get(ThreadSnapshotService))
-            
-            if container.has_service(ThreadStateService):
-                set_state_thread_service_instance(container.get(ThreadStateService))
-            
-            if container.has_service(ThreadHistoryService):
-                set_history_thread_service_instance(container.get(ThreadHistoryService))
-            
             logger = self.safe_get_service(container, ILogger)
             if logger:
                 logger.debug(f"已设置Thread服务注入层 (environment: {environment})")

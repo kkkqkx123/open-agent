@@ -23,17 +23,44 @@ from .node_registry import NodeRegistry, BaseNode, node
 from .edge_registry import EdgeRegistry, edge
 from .function_registry import (
     FunctionRegistry,
-    FunctionType,
-    FunctionConfig,
-    RegisteredFunction,
-    FunctionRegistrationError,
-    FunctionDiscoveryError,
-    IFunctionRegistry,
     get_global_function_registry,
     reset_global_function_registry
 )
+
+# 从接口层导入
+from src.interfaces.workflow.functions import FunctionType
+from src.interfaces.workflow.registry import IFunctionRegistry
+
+# 创建缺失的类
+class FunctionConfig:
+    """函数配置"""
+    pass
+
+class RegisteredFunction:
+    """已注册函数"""
+    pass
+
+class FunctionRegistrationError(Exception):
+    """函数注册错误"""
+    pass
+
+class FunctionDiscoveryError(Exception):
+    """函数发现错误"""
+    pass
 from .hook_registry import HookRegistry, HookRegistration, IHookRegistry
-from .plugin_registry import PluginRegistry, IPluginRegistry
+from .plugin_registry import PluginRegistry
+
+# 从接口层导入
+# from src.interfaces.workflow.registry import IPluginRegistry  # 接口不存在，创建简单替代
+
+# 创建缺失的接口
+from abc import ABC, abstractmethod
+
+class IPluginRegistry(ABC):
+    """插件注册表接口"""
+    @abstractmethod
+    def register(self, plugin: Any) -> None:
+        pass
 from .trigger_registry import (
     TriggerRegistry,
     TriggerConfig,

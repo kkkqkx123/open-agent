@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, List, Set, Union
 from abc import ABC, abstractmethod
 from enum import Enum
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.core.workflow.config.config import WorkflowConfig
 from src.core.state import WorkflowState

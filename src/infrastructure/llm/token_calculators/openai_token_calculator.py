@@ -9,7 +9,7 @@ import time
 from typing import Dict, Any, Optional, Sequence, List, Tuple
 from dataclasses import dataclass
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .base_token_calculator import BaseTokenCalculator, TokenCalculationStats
 from .token_cache import TokenCache
 from ..models import TokenUsage

@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Callable, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.logger import ILogger
 from src.interfaces.tool.base import ITool, ToolCall, ToolResult

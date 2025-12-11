@@ -6,7 +6,7 @@
 
 import time
 import threading
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Callable, cast
 from dataclasses import dataclass
 from enum import Enum

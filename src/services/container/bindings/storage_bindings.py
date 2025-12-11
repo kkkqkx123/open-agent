@@ -65,28 +65,6 @@ class StorageServiceBindings(BaseServiceBindings):
             
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.sessions.injection import (
-                set_session_repository_instance,
-                set_session_service_instance
-            )
-            from src.services.threads.injection import (
-                set_thread_repository_instance,
-                set_thread_service_instance
-            )
-            
-            if container.has_service(ISessionRepository):
-                set_session_repository_instance(container.get(ISessionRepository))
-            
-            if container.has_service(ISessionService):
-                set_session_service_instance(container.get(ISessionService))
-            
-            if container.has_service(IThreadRepository):
-                set_thread_repository_instance(container.get(IThreadRepository))
-            
-            if container.has_service(IThreadService):
-                set_thread_service_instance(container.get(IThreadService))
-            
             logger = self.safe_get_service(container, ILogger)
             if logger:
                 logger.debug(f"已设置Storage服务注入层 (environment: {environment})")

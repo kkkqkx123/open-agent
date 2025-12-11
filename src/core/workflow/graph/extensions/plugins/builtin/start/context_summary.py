@@ -5,7 +5,7 @@
 
 import os
 import subprocess
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from pathlib import Path
 from typing import Dict, Any, List
 

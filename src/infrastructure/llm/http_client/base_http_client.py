@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, AsyncGenerator
 from datetime import datetime
 
 from src.interfaces.llm.http_client import IHttpClient
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.infrastructure.llm.utils.header_validator import HeaderProcessor
 
 

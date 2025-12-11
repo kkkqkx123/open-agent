@@ -7,7 +7,7 @@ import json
 import pickle
 import zlib
 import uuid
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, Type
 from datetime import datetime

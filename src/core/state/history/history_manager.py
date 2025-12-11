@@ -4,7 +4,7 @@
 """
 
 import json
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Sequence

@@ -3,7 +3,7 @@
 实现Thread检查点的业务逻辑和领域规则，遵循DDD领域服务原则。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 

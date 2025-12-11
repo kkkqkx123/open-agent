@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, TYPE_CHECKING
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.core.workflow.config.config import GraphConfig
 from src.core.workflow.workflow import Workflow

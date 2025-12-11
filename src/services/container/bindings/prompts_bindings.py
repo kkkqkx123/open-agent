@@ -68,33 +68,6 @@ class PromptsServiceBindings(BaseServiceBindings):
             service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.prompts.injection import (
-                set_message_factory_instance,
-                set_prompt_type_registry_instance,
-                set_prompt_error_handler_instance
-            )
-            
-            # 延迟导入具体实现类进行类型检查
-            def get_concrete_types() -> tuple:
-                from src.services.prompts.type_registry import PromptTypeRegistry
-                from src.infrastructure.error_management.impl.prompts import PromptErrorHandler
-                return (
-                    PromptTypeRegistry,
-                    PromptErrorHandler
-                )
-            
-            PromptTypeRegistry, PromptErrorHandler = get_concrete_types()
-            
-            if container.has_service(IMessageFactory):
-                set_message_factory_instance(container.get(IMessageFactory))
-            
-            if container.has_service(PromptTypeRegistry):
-                set_prompt_type_registry_instance(container.get(PromptTypeRegistry))
-            
-            if container.has_service(PromptErrorHandler):
-                set_prompt_error_handler_instance(container.get(PromptErrorHandler))
-            
             print(f"[INFO] 已设置提示词服务注入层 (environment: {environment})", file=sys.stdout)
         except Exception as e:
             print(f"[WARNING] 设置提示词注入层失败: {e}", file=sys.stderr)

@@ -7,7 +7,7 @@
 from typing import Any, Dict, List, Optional, Type
 from enum import Enum
 import importlib
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.tool.base import ITool, IToolFactory
 from src.interfaces.tool.state_manager import IToolStateManager

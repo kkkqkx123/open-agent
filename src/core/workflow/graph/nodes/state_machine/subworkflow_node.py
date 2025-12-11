@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, cast
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes.async_node import AsyncNode

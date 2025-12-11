@@ -5,15 +5,13 @@
 
 from typing import Any, Optional, Callable
 
-from src.interfaces.logger import ILogger
-
 
 # 全局函数实例，用于提供日志服务
-_global_logger_provider: Optional[Callable[[Optional[str]], ILogger]] = None
+_global_logger_provider: Optional[Callable[[Optional[str]], Any]] = None
 _global_token_calculator: Optional[Callable[[Any, str, str], int]] = None
 
 
-def set_logger_provider(provider: Callable[[Optional[str]], ILogger]) -> None:
+def set_logger_provider(provider: Callable[[Optional[str]], Any]) -> None:
     """设置全局日志提供者
     
     Args:
@@ -33,14 +31,14 @@ def set_token_calculator(calculator: Callable[[Any, str, str], int]) -> None:
     _global_token_calculator = calculator
 
 
-def get_logger(name: Optional[str] = None) -> ILogger:
+def get_logger(name: Optional[str] = None) -> Any:
     """获取日志记录器
     
     Args:
         name: 日志记录器名称
         
     Returns:
-        ILogger: 日志记录器实例
+        日志记录器实例
     """
     if _global_logger_provider:
         return _global_logger_provider(name)

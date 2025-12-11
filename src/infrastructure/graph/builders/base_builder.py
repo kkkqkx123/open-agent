@@ -37,7 +37,7 @@ class BaseElementBuilder(IElementBuilder):
         """
         # 使用基础设施层的日志服务
         if logger is None:
-            from src.services.logger.injection import get_logger
+            from src.interfaces.dependency_injection import get_logger
             self.logger = get_logger(self.__class__.__name__)
         else:
             self.logger = logger

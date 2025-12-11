@@ -3,7 +3,7 @@
 从核心层迁移过来的Hook执行器，专门负责Hook的执行逻辑。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 from typing import Dict, Any, List, Optional, Callable, TYPE_CHECKING
 from collections import defaultdict

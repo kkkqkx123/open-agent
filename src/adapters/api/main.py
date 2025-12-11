@@ -1,5 +1,5 @@
 """FastAPI应用入口"""
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import asyncio
 import logging
 from contextlib import asynccontextmanager

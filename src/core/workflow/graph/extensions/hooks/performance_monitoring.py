@@ -3,7 +3,7 @@
 监控节点执行过程中的性能指标。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 from typing import Dict, Any, List, Optional
 

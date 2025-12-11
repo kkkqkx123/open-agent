@@ -6,7 +6,7 @@
 import asyncio
 import time
 from typing import Dict, Any, Optional
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.storage.base import IStorage
 from .exceptions import StorageBackendError, ConnectionError, ConfigurationError

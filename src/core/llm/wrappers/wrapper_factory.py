@@ -1,6 +1,6 @@
 """LLM包装器工厂"""
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Type, Coroutine
 
 from .base_wrapper import BaseLLMWrapper

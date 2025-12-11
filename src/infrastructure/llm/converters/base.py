@@ -105,7 +105,7 @@ class BaseProvider(IProvider):
     def _get_logger(self):
         """获取日志器"""
         try:
-            from src.services.logger.injection import get_logger
+            from src.interfaces.dependency_injection import get_logger
             return get_logger(__name__)
         except ImportError:
             import logging

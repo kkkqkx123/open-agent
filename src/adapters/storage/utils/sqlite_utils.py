@@ -5,7 +5,7 @@
 
 import sqlite3
 import time
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
 

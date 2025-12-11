@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .base_registry import BaseRegistry, TypedRegistry
 
 logger = get_logger(__name__)

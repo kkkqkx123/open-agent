@@ -3,7 +3,7 @@
 提供Repository中ID生成的通用方法，基于全局IDGenerator。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Optional
 
 from src.infrastructure.common.utils.id_generator import IDGenerator

@@ -23,9 +23,10 @@ class StateManagerFactory:
     
     # 存储适配器注册表
     _adapter_registry: Dict[str, Union[Type[IStorageAdapter], Any]] = {
-        "memory": MemoryStorageBackend,
-        "sqlite": SQLiteStorageBackend,
-        "file": FileStorageBackend
+        # TODO: 修复 memory_backend 和 sqlite_backend 模块缺失问题
+        # "memory": MemoryStorageBackend,
+        # "sqlite": SQLiteStorageBackend,
+        # "file": FileStorageBackend
     }
     
     @classmethod

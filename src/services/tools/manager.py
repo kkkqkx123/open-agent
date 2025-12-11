@@ -5,7 +5,7 @@
 """
 
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
 from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig

@@ -5,7 +5,7 @@ import threading
 from typing import Optional, Dict, Any, Type
 from pathlib import Path
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.config.models.global_config import GlobalConfig, LogOutputConfig
 from src.interfaces.logger import LogLevel
 from .logger_wrapper import TUILogger

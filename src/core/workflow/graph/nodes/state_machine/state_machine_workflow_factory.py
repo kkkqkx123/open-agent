@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, Optional, Type, Union
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from .state_machine_workflow import StateMachineWorkflow, StateMachineConfig, StateDefinition, Transition, StateType
 from src.core.workflow.config.config import WorkflowConfig

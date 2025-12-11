@@ -11,7 +11,7 @@ from src.interfaces.llm.http_client import ILLMHttpClient
 from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
 from src.infrastructure.llm.converters.providers.gemini import GeminiProvider
 from src.infrastructure.llm.models import LLMResponse, TokenUsage
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.interfaces.messages import IBaseMessage
 
 

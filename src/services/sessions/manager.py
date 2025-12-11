@@ -1,7 +1,7 @@
 """Session管理器服务 - 简化适配器"""
 
 import uuid
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from datetime import datetime
 

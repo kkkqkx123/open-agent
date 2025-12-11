@@ -6,7 +6,7 @@
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointStatistics, CheckpointType
 from src.core.threads.checkpoints.service import ThreadCheckpointService
 

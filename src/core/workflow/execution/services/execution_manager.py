@@ -3,7 +3,7 @@
 提供工作流执行的统一管理服务。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 import uuid
 from typing import Dict, Any, Optional, List, TYPE_CHECKING, Union

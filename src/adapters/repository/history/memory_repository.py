@@ -3,7 +3,7 @@
 提供基于内存的历史记录Repository实现，用于测试和开发环境。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import threading

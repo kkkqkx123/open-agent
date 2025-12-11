@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List, Optional
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from pathlib import Path
 
 # TODO: 修复 node_config_loader 模块缺失问题

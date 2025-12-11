@@ -1,5 +1,5 @@
 """工作流管理API路由"""
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from typing import Optional, List

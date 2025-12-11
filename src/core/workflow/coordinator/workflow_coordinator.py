@@ -3,7 +3,7 @@
 负责 workflow 层内部的组件协调，不承担全局协调职责。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, List, Optional, cast
 
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator

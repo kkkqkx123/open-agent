@@ -36,8 +36,8 @@ from .coordinator import WorkflowCoordinator, create_workflow_coordinator
 # 验证和管理模块
 from .validation import WorkflowManager, WorkflowValidator, get_workflow_manager, get_workflow_validator
 
-# 加载模块
-from .loading.loader import WorkflowLoader
+# 加载模块 - 暂时注释掉，因为模块不存在
+# from .loading.loader import WorkflowLoader
 
 # 管理模块
 from .management.lifecycle import WorkflowLifecycleManager
@@ -104,13 +104,13 @@ def create_workflow_validator() -> WorkflowValidator:
     return get_workflow_validator()
 
 
-def create_workflow_loader() -> WorkflowLoader:
-    """创建工作流加载器
-    
-    Returns:
-        WorkflowLoader: 工作流加载器实例
-    """
-    return WorkflowLoader()
+# def create_workflow_loader() -> WorkflowLoader:
+#     """创建工作流加载器
+#
+#     Returns:
+#         WorkflowLoader: 工作流加载器实例
+#     """
+#     return WorkflowLoader()
 
 
 def create_workflow_executor() -> WorkflowExecutor:
@@ -211,8 +211,8 @@ __all__ = [
     "get_workflow_manager",
     "get_workflow_validator",
     
-    # 加载模块
-    "WorkflowLoader",
+    # 加载模块 - 暂时注释掉，因为模块不存在
+    # "WorkflowLoader",
     
     # 管理模块
     "WorkflowLifecycleManager",
@@ -252,7 +252,7 @@ __all__ = [
     "create_workflow",
     "create_workflow_manager",
     "create_workflow_validator",
-    "create_workflow_loader",
+    # "create_workflow_loader",
     "create_workflow_executor",
     "create_workflow_builder",
     "create_workflow_registry",

@@ -2,7 +2,7 @@
 
 import asyncio
 from src.infrastructure.llm.models import TokenUsage
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 from typing import Dict, Any, Optional, List, Sequence
 from datetime import datetime

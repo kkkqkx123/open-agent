@@ -4,7 +4,7 @@
 """
 
 from typing import Dict, Any, List, Optional
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from .base_registry import BaseRegistry
 from .node_registry import NodeRegistry
 from .function_registry import FunctionRegistry

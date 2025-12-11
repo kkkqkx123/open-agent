@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from src.interfaces.workflow.functions import FunctionType
 from src.interfaces.state.workflow import IWorkflowState
 from src.infrastructure.graph.registry.function_registry import FunctionRegistry as InfraFunctionRegistry
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 
 class FunctionRegistry:

@@ -5,7 +5,7 @@
 """
 
 import importlib
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import time
 import concurrent.futures
 from pathlib import Path

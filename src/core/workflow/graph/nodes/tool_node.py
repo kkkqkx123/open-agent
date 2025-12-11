@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List
 import time
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.core.workflow.graph.decorators import node
 from src.infrastructure.graph.nodes import SyncNode
@@ -211,7 +211,7 @@ class ToolNode(SyncNode):
             List[ToolCall]: 工具调用列表
         """
         tool_calls: List[ToolCall] = []
-        from src.services.logger.injection import get_logger
+        from src.interfaces.dependency_injection import get_logger
         logger = get_logger(__name__)
 
         # 从最后一条消息中提取工具调用
@@ -280,7 +280,7 @@ class ToolNode(SyncNode):
             try:
                 args = json.loads(args_str)
             except json.JSONDecodeError:
-                from src.services.logger.injection import get_logger
+                from src.interfaces.dependency_injection import get_logger
                 logger = get_logger(__name__)
                 logger.warning(f"无法解析工具参数 JSON: {args_str}")
                 args = {}
@@ -306,7 +306,7 @@ class ToolNode(SyncNode):
             List[ToolCall]: 工具调用列表
         """
         tool_calls: List[ToolCall] = []
-        from src.services.logger.injection import get_logger
+        from src.interfaces.dependency_injection import get_logger
         logger = get_logger(__name__)
         
         # 检查是否是 LangChain 消息类型
@@ -369,7 +369,7 @@ class ToolNode(SyncNode):
         Returns:
             List[ToolCall]: 工具调用列表
         """
-        from src.services.logger.injection import get_logger
+        from src.interfaces.dependency_injection import get_logger
         import json
         import re
         logger = get_logger(__name__)

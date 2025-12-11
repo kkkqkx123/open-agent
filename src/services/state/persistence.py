@@ -3,7 +3,7 @@
 协调历史记录和快照的持久化操作，提供事务支持和数据一致性保证。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import asyncio
 import contextlib
 from typing import Dict, Any, List, Optional, Tuple, Generator, AsyncGenerator

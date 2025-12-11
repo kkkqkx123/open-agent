@@ -3,7 +3,7 @@
 重构后专注于任务组和轮询池的业务逻辑，配置管理委托给ConfigManager。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Tuple
 
 from src.interfaces.llm import ITaskGroupManager

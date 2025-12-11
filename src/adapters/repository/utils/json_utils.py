@@ -3,7 +3,7 @@
 提供Repository中JSON序列化和反序列化的通用方法，基于全局MetadataManager。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional
 
 from src.infrastructure.common.utils.metadata import MetadataManager

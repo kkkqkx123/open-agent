@@ -3,7 +3,7 @@
 提供节点执行过程中的日志记录功能。
 """
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 import json
 from typing import Dict, Any, List, Optional
 from datetime import datetime

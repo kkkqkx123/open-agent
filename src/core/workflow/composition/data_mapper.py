@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, Union
 import re
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.workflow.composition import IDataMapper
 from src.interfaces.common_domain import ValidationResult

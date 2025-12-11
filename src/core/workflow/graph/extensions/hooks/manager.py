@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, List, Optional, Type
 from src.interfaces.workflow.hooks import IHook, IHookSystem, HookPoint, HookContext, HookExecutionResult
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.workflow.registry import HookRegistry
 
 logger = get_logger(__name__)

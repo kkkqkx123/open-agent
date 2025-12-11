@@ -145,11 +145,7 @@ class LoggerServiceBindings(BaseServiceBindings):
                 self._create_fallback_logger
             )
             
-            # 设置全局logger实例（向后兼容）
             logger_instance = container.get(ILogger)
-            from src.services.logger.injection import set_logger_instance
-            set_logger_instance(logger_instance)
-            
             if logger_instance:
                 logger_instance.debug(f"已设置logger实例和注入层 (environment: {environment})")
         except Exception as e:
@@ -157,8 +153,8 @@ class LoggerServiceBindings(BaseServiceBindings):
     
     def _create_fallback_logger(self) -> ILogger:
         """创建fallback logger"""
-        from src.services.logger.injection import _StubLogger
-        return _StubLogger()
+        from src.interfaces.dependency_injection.fallback_logger import FallbackLogger
+        return FallbackLogger("fallback")
 
 
 def _register_logger_factory(container: Any, config: Dict[str, Any], environment: str = "default") -> None:

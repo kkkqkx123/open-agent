@@ -94,63 +94,6 @@ class ConfigServiceBindings(BaseServiceBindings):
             service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.config.injection import (
-                set_config_manager_instance,
-                set_config_manager_factory_instance,
-                set_config_validator_instance,
-                set_config_processor_chain_instance,
-                set_inheritance_processor_instance,
-                set_reference_processor_instance,
-                set_adapter_factory_instance
-            )
-            
-            # 延迟导入具体实现类进行类型检查
-            def get_concrete_types() -> tuple:
-                from src.core.config.config_manager import ConfigManager
-                from src.core.config.config_manager_factory import CoreConfigManagerFactory
-                from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
-                from src.infrastructure.config.processor import (
-                    InheritanceProcessor,
-                    ReferenceProcessor
-                )
-                from src.core.config.adapter_factory import AdapterFactory
-                return (
-                    ConfigManager,
-                    CoreConfigManagerFactory,
-                    ConfigProcessorChain,
-                    InheritanceProcessor,
-                    ReferenceProcessor,
-                    AdapterFactory
-                )
-            
-            ConfigManager, CoreConfigManagerFactory, ConfigProcessorChain, InheritanceProcessor, ReferenceProcessor, AdapterFactory = get_concrete_types()
-            
-            if container.has_service(ConfigManager):
-                set_config_manager_instance(container.get(ConfigManager))
-            
-            if container.has_service(CoreConfigManagerFactory):
-                set_config_manager_factory_instance(container.get(CoreConfigManagerFactory))
-            
-            from src.infrastructure.config.validation import BaseConfigValidator
-            if container.has_service(BaseConfigValidator):
-                validator = container.get(BaseConfigValidator)
-                set_config_validator_instance(validator)  # type: ignore[arg-type]
-            
-            if container.has_service(ConfigProcessorChain):
-                set_config_processor_chain_instance(container.get(ConfigProcessorChain))
-            
-            if container.has_service(InheritanceProcessor):
-                set_inheritance_processor_instance(container.get(InheritanceProcessor))
-            
-            # EnvironmentProcessor 已弃用，不再设置全局实例
-            
-            if container.has_service(ReferenceProcessor):
-                set_reference_processor_instance(container.get(ReferenceProcessor))
-            
-            if container.has_service(AdapterFactory):
-                set_adapter_factory_instance(container.get(AdapterFactory))
-            
             print(f"[INFO] 已设置配置服务注入层 (environment: {environment})", file=sys.stdout)
         except Exception as e:
             print(f"[WARNING] 设置配置注入层失败: {e}", file=sys.stderr)

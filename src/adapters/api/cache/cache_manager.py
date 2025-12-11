@@ -1,7 +1,7 @@
 """内存缓存管理器 - 提供轻量级缓存服务"""
 
 from typing import Any, Optional, Dict, Union, List
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from pathlib import Path
 
 from .memory_cache import MemoryCache

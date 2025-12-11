@@ -5,7 +5,7 @@
 
 from typing import Dict, Any, Optional, List, Union
 from dataclasses import dataclass, field
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from copy import deepcopy
 
 from src.core.workflow.config.config import WorkflowConfig

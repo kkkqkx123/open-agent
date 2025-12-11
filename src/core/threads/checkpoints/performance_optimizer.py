@@ -9,7 +9,7 @@ import asyncio
 from functools import lru_cache
 import json
 
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from src.core.threads.checkpoints.models import ThreadCheckpoint, CheckpointStatistics
 
 logger = get_logger(__name__)

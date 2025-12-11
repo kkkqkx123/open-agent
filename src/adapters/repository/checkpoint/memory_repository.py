@@ -5,7 +5,7 @@ import uuid
 from typing import Dict, Any, List, Optional
 
 from src.interfaces.repository import ICheckpointRepository
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 
 logger = get_logger(__name__)

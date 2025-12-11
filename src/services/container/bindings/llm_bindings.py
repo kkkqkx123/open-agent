@@ -150,57 +150,6 @@ class LLMServiceBindings(BaseServiceBindings):
             service_types = get_service_types()
             self.setup_injection_layer(container, service_types)
             
-            # 设置全局实例（向后兼容）
-            from src.services.llm.injection import (
-                set_token_config_provider_instance,
-                set_token_cost_calculator_instance,
-                set_retry_logger_instance,
-                set_fallback_logger_instance,
-                set_token_calculation_service_instance,
-                set_token_calculation_decorator_instance,
-                set_retry_manager_instance,
-                set_fallback_executor_instance
-            )
-            
-            # 延迟导入具体实现类进行类型检查
-            def get_concrete_types() -> tuple:
-                from src.services.llm.token_calculation_service import TokenCalculationService
-                from src.services.llm.token_calculation_decorator import TokenCalculationDecorator
-                from src.services.llm.retry.retry_manager import RetryManager
-                from src.services.llm.fallback_system.fallback_executor import FallbackExecutor
-                return (
-                    TokenCalculationService,
-                    TokenCalculationDecorator,
-                    RetryManager,
-                    FallbackExecutor
-                )
-            
-            TokenCalculationService, TokenCalculationDecorator, RetryManager, FallbackExecutor = get_concrete_types()
-            
-            if container.has_service(ITokenConfigProvider):
-                set_token_config_provider_instance(container.get(ITokenConfigProvider))
-            
-            if container.has_service(ITokenCostCalculator):
-                set_token_cost_calculator_instance(container.get(ITokenCostCalculator))
-            
-            if container.has_service(IRetryLogger):
-                set_retry_logger_instance(container.get(IRetryLogger))
-            
-            if container.has_service(IFallbackLogger):
-                set_fallback_logger_instance(container.get(IFallbackLogger))
-            
-            if container.has_service(TokenCalculationService):
-                set_token_calculation_service_instance(container.get(TokenCalculationService))
-            
-            if container.has_service(TokenCalculationDecorator):
-                set_token_calculation_decorator_instance(container.get(TokenCalculationDecorator))
-            
-            if container.has_service(RetryManager):
-                set_retry_manager_instance(container.get(RetryManager))
-            
-            if container.has_service(FallbackExecutor):
-                set_fallback_executor_instance(container.get(FallbackExecutor))
-            
             logger = self.safe_get_service(container, ILogger)
             if logger:
                 logger.debug(f"已设置LLM服务注入层 (environment: {environment})")

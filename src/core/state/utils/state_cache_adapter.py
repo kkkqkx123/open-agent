@@ -4,7 +4,7 @@
 """
 
 import asyncio
-from src.services.logger.injection import get_logger
+from src.interfaces.dependency_injection import get_logger
 from typing import Any, Dict, List, Optional
 
 from src.infrastructure.common.cache import CacheManager
