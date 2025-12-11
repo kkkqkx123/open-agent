@@ -1,13 +1,14 @@
 """Graph配置模式
 
-定义Graph模块的配置验证模式。
+定义Graph模块的配置验证模式，与配置加载模块集成。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +16,72 @@ logger = logging.getLogger(__name__)
 class GraphSchema(BaseSchema):
     """Graph配置模式
     
-    定义Graph模块的配置验证规则和模式。
+    定义Graph模块的配置验证规则和模式，与配置加载模块集成。
     """
     
-    def __init__(self):
-        """初始化Graph配置模式"""
-        super().__init__(self._get_schema_definition())
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+        """初始化Graph配置模式
+        
+        Args:
+            config_loader: 配置加载器，用于动态加载配置模式
+        """
+        super().__init__()
+        self.config_loader = config_loader
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
         logger.debug("Graph配置模式初始化完成")
     
-    def _get_schema_definition(self) -> Dict[str, Any]:
+    def get_schema_definition(self) -> Dict[str, Any]:
         """获取模式定义
         
         Returns:
             模式定义字典
+        """
+        # 尝试从缓存获取
+        if "graph_config" in self._schema_cache:
+            return self._schema_cache["graph_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("graph_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_graph_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["graph_config"] = schema
+        return schema
+    
+    def _load_schema_from_config(self, schema_name: str) -> Optional[Dict[str, Any]]:
+        """从配置文件加载模式
+        
+        Args:
+            schema_name: 模式名称
+            
+        Returns:
+            模式字典或None
+        """
+        if not self.config_loader:
+            return None
+        
+        try:
+            # 尝试加载模式配置文件
+            schema_path = f"config/schema/graph/{schema_name}"
+            schema_config = self.config_loader.load(schema_path)
+            
+            if schema_config and "schema" in schema_config:
+                logger.debug(f"从配置文件加载模式: {schema_name}")
+                return schema_config["schema"]
+            
+        except Exception as e:
+            logger.debug(f"无法从配置文件加载模式 {schema_name}: {e}")
+        
+        return None
+    
+    def _get_base_graph_config_schema(self) -> Dict[str, Any]:
+        """获取基础Graph配置模式
+        
+        Returns:
+            基础Graph配置模式字典
         """
         return {
             "type": "object",
@@ -37,124 +91,17 @@ class GraphSchema(BaseSchema):
                     "type": "string",
                     "description": "图名称"
                 },
-                "id": {
-                    "type": "string",
-                    "description": "图ID"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "图描述"
-                },
-                "version": {
-                    "type": "string",
-                    "pattern": r"^\d+\.\d+(\.\d+)?$",
-                    "description": "版本号"
-                },
-                "enable_tracing": {
-                    "type": "boolean",
-                    "description": "是否启用跟踪"
-                },
-                "retry_attempts": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "重试次数"
-                },
-                "retry_delay": {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "重试延迟（秒）"
-                },
-                "logging_level": {
-                    "type": "string",
-                    "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                    "description": "日志级别"
-                },
-                "state_schema": {
-                    "type": "object",
-                    "required": ["name", "fields"],
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "状态名称"
-                        },
-                        "fields": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "required": ["type"],
-                                    "properties": {
-                                        "type": {"type": "string"},
-                                        "default": {},
-                                        "reducer": {"type": "string"},
-                                        "description": {"type": "string"}
-                                    }
-                                }
-                            },
-                            "description": "状态字段"
-                        }
-                    },
-                    "description": "状态模式"
-                },
                 "nodes": {
                     "type": "object",
-                    "patternProperties": {
-                        ".*": {
-                            "type": "object",
-                            "properties": {
-                                "ref": {"type": "string"},
-                                "description": {"type": "string"}
-                            }
-                        }
-                    },
                     "description": "节点引用"
                 },
                 "edges": {
                     "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["from", "type"],
-                        "properties": {
-                            "from": {"type": "string"},
-                            "to": {"type": "string"},
-                            "type": {
-                                "type": "string",
-                                "enum": ["simple", "conditional", "parallel", "merge", "always"]
-                            },
-                            "condition": {"type": "string"},
-                            "path_map": {
-                                "oneOf": [
-                                    {"type": "object"},
-                                    {"type": "array"}
-                                ]
-                            },
-                            "description": {"type": "string"}
-                        }
-                    },
                     "description": "边引用"
                 },
-                "entry_point": {
-                    "type": "string",
-                    "description": "入口点"
-                },
-                "additional_config": {
+                "state_schema": {
                     "type": "object",
-                    "properties": {
-                        "retry_attempts": {"type": "integer", "minimum": 0},
-                        "retry_delay": {"type": "number", "minimum": 0},
-                        "logging_level": {
-                            "type": "string",
-                            "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-                        },
-                        "enable_tracing": {"type": "boolean"},
-                        "enable_caching": {"type": "boolean"},
-                        "cache_ttl": {"type": "integer", "minimum": 0},
-                        "priority": {
-                            "type": "string",
-                            "enum": ["low", "normal", "high"]
-                        }
-                    },
-                    "description": "额外配置"
+                    "description": "状态模式"
                 }
             }
         }
@@ -220,15 +167,17 @@ class GraphSchema(BaseSchema):
             errors.append("版本号必须是字符串")
         
         # 验证数值字段
-        retry_attempts = config.get("retry_attempts")
-        if retry_attempts is not None:
-            if not isinstance(retry_attempts, int) or retry_attempts < 0:
-                errors.append("retry_attempts必须是非负整数")
+        numeric_fields = self._get_numeric_field_ranges()
         
-        retry_delay = config.get("retry_delay")
-        if retry_delay is not None:
-            if not isinstance(retry_delay, (int, float)) or retry_delay < 0:
-                errors.append("retry_delay必须是非负数")
+        for field_name, (min_val, max_val) in numeric_fields.items():
+            if field_name in config:
+                value = config[field_name]
+                if not isinstance(value, (int, float)):
+                    errors.append(f"{field_name}必须是数字类型")
+                elif min_val is not None and value < min_val:
+                    errors.append(f"{field_name}必须大于等于{min_val}")
+                elif max_val is not None and value > max_val:
+                    errors.append(f"{field_name}必须小于等于{max_val}")
         
         return errors
     
@@ -293,7 +242,14 @@ class GraphSchema(BaseSchema):
                 errors.append(f"边 {i} 引用了不存在的目标节点: {to_node}")
             
             # 验证边类型
-            if edge_type not in ["simple", "conditional", "parallel", "merge", "always"]:
+            # 从模式定义获取有效类型
+            schema = self.get_schema_definition()
+            edges_schema = schema.get("properties", {}).get("edges", {})
+            items_schema = edges_schema.get("items", {})
+            edge_type_schema = items_schema.get("properties", {}).get("type", {})
+            valid_edge_types = edge_type_schema.get("enum", [])
+            
+            if valid_edge_types and edge_type not in valid_edge_types:
                 errors.append(f"边 {i} 类型不支持: {edge_type}")
         
         return errors
@@ -372,3 +328,46 @@ class GraphSchema(BaseSchema):
             warnings.append("边数量过多可能影响性能")
         
         return warnings
+    
+    def _get_numeric_field_ranges(self) -> Dict[str, tuple]:
+        """获取数值字段的范围
+        
+        Returns:
+            字段名到范围元组的映射
+        """
+        # 默认范围
+        default_ranges = {
+            "retry_attempts": (0, None),
+            "retry_delay": (0, None)
+        }
+        
+        # 尝试从模式定义获取范围
+        try:
+            schema = self.get_schema_definition()
+            ranges = {}
+            
+            properties = schema.get("properties", {})
+            for field_name, field_schema in properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[field_name] = (min_val, max_val)
+            
+            # 检查额外配置中的数值字段
+            additional_config_schema = properties.get("additional_config", {})
+            additional_properties = additional_config_schema.get("properties", {})
+            
+            for field_name, field_schema in additional_properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[f"additional_config.{field_name}"] = (min_val, max_val)
+            
+            # 如果从模式获取到了范围，使用它们；否则使用默认范围
+            return ranges if ranges else default_ranges
+            
+        except Exception as e:
+            logger.debug(f"获取数值字段范围失败: {e}")
+            return default_ranges

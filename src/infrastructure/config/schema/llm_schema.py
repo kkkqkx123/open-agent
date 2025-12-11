@@ -1,6 +1,6 @@
 """LLM配置模式
 
-定义LLM模块的配置验证模式和规则。
+定义LLM模块的配置验证模式和规则，与配置加载模块集成。
 """
 
 from typing import Dict, Any, List, Optional
@@ -8,6 +8,7 @@ import logging
 
 from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +16,18 @@ logger = logging.getLogger(__name__)
 class LLMSchema(BaseSchema):
     """LLM配置模式
     
-    定义LLM模块配置的验证规则和模式。
+    定义LLM模块配置的验证规则和模式，与配置加载模块集成。
     """
     
-    def __init__(self):
-        """初始化LLM配置模式"""
-        self.schema_definition = self._build_schema_definition()
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+        """初始化LLM配置模式
+        
+        Args:
+            config_loader: 配置加载器，用于动态加载配置模式
+        """
+        super().__init__()
+        self.config_loader = config_loader
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
         logger.debug("LLM配置模式初始化完成")
     
     def validate(self, config: Dict[str, Any]) -> ValidationResult:
@@ -63,11 +70,58 @@ class LLMSchema(BaseSchema):
             warnings=warnings
         )
     
-    def _build_schema_definition(self) -> Dict[str, Any]:
-        """构建模式定义
+    def get_schema_definition(self) -> Dict[str, Any]:
+        """获取模式定义
         
         Returns:
             模式定义
+        """
+        # 尝试从缓存获取
+        if "llm_config" in self._schema_cache:
+            return self._schema_cache["llm_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("llm_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_llm_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["llm_config"] = schema
+        return schema
+    
+    def _load_schema_from_config(self, schema_name: str) -> Optional[Dict[str, Any]]:
+        """从配置文件加载模式
+        
+        Args:
+            schema_name: 模式名称
+            
+        Returns:
+            模式字典或None
+        """
+        if not self.config_loader:
+            return None
+        
+        try:
+            # 尝试加载模式配置文件
+            schema_path = f"config/schema/llm/{schema_name}"
+            schema_config = self.config_loader.load(schema_path)
+            
+            if schema_config and "schema" in schema_config:
+                logger.debug(f"从配置文件加载模式: {schema_name}")
+                return schema_config["schema"]
+            
+        except Exception as e:
+            logger.debug(f"无法从配置文件加载模式 {schema_name}: {e}")
+        
+        return None
+    
+    def _get_base_llm_config_schema(self) -> Dict[str, Any]:
+        """获取基础LLM配置模式
+        
+        Returns:
+            基础LLM配置模式字典
         """
         return {
             "type": "object",
@@ -83,211 +137,11 @@ class LLMSchema(BaseSchema):
                 },
                 "clients": {
                     "type": "object",
-                    "description": "客户端配置",
-                    "patternProperties": {
-                        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
-                            "type": "object",
-                            "required": ["model_type", "model_name"],
-                            "properties": {
-                                "model_type": {
-                                    "type": "string",
-                                    "enum": ["openai", "gemini", "anthropic", "mock", "human_relay"],
-                                    "description": "模型类型"
-                                },
-                                "model_name": {
-                                    "type": "string",
-                                    "minLength": 1,
-                                    "description": "模型名称"
-                                },
-                                "base_url": {
-                                    "type": "string",
-                                    "format": "uri",
-                                    "description": "API基础URL"
-                                },
-                                "api_key": {
-                                    "type": "string",
-                                    "description": "API密钥"
-                                },
-                                "headers": {
-                                    "type": "object",
-                                    "description": "HTTP请求头"
-                                },
-                                "timeout": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 300,
-                                    "description": "请求超时时间（秒）"
-                                },
-                                "max_retries": {
-                                    "type": "integer",
-                                    "minimum": 0,
-                                    "maximum": 10,
-                                    "description": "最大重试次数"
-                                },
-                                "temperature": {
-                                    "type": "number",
-                                    "minimum": 0.0,
-                                    "maximum": 2.0,
-                                    "description": "温度参数"
-                                },
-                                "max_tokens": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "description": "最大令牌数"
-                                },
-                                "top_p": {
-                                    "type": "number",
-                                    "minimum": 0.0,
-                                    "maximum": 1.0,
-                                    "description": "Top-p参数"
-                                },
-                                "stream": {
-                                    "type": "boolean",
-                                    "description": "是否启用流式响应"
-                                },
-                                "fallback_enabled": {
-                                    "type": "boolean",
-                                    "description": "是否启用降级"
-                                },
-                                "fallback_models": {
-                                    "type": "array",
-                                    "items": {"type": "string"},
-                                    "description": "降级模型列表"
-                                },
-                                "max_fallback_attempts": {
-                                    "type": "integer",
-                                    "minimum": 1,
-                                    "maximum": 5,
-                                    "description": "最大降级尝试次数"
-                                },
-                                "connection_pool_config": {
-                                    "type": "object",
-                                    "properties": {
-                                        "max_connections": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 100
-                                        },
-                                        "max_keepalive": {
-                                            "type": "integer",
-                                            "minimum": 1,
-                                            "maximum": 100
-                                        },
-                                        "connection_timeout": {
-                                            "type": "number",
-                                            "minimum": 1.0,
-                                            "maximum": 300.0
-                                        }
-                                    }
-                                },
-                                "metadata_config": {
-                                    "type": "object",
-                                    "description": "元数据配置"
-                                }
-                            }
-                        }
-                    }
+                    "description": "客户端配置"
                 },
                 "module": {
                     "type": "object",
-                    "properties": {
-                        "default_model": {
-                            "type": "string",
-                            "description": "默认模型"
-                        },
-                        "default_timeout": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 300,
-                            "description": "默认超时时间"
-                        },
-                        "default_max_retries": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 10,
-                            "description": "默认最大重试次数"
-                        },
-                        "cache_enabled": {
-                            "type": "boolean",
-                            "description": "是否启用缓存"
-                        },
-                        "cache_ttl": {
-                            "type": "integer",
-                            "minimum": 60,
-                            "maximum": 86400,
-                            "description": "缓存生存时间（秒）"
-                        },
-                        "cache_max_size": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 10000,
-                            "description": "最大缓存条目数"
-                        },
-                        "hooks_enabled": {
-                            "type": "boolean",
-                            "description": "是否启用钩子"
-                        },
-                        "log_requests": {
-                            "type": "boolean",
-                            "description": "是否记录请求日志"
-                        },
-                        "log_responses": {
-                            "type": "boolean",
-                            "description": "是否记录响应日志"
-                        },
-                        "log_errors": {
-                            "type": "boolean",
-                            "description": "是否记录错误日志"
-                        },
-                        "fallback_enabled": {
-                            "type": "boolean",
-                            "description": "是否启用全局降级"
-                        },
-                        "global_fallback_models": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "全局降级模型列表"
-                        },
-                        "max_concurrent_requests": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 1000,
-                            "description": "最大并发请求数"
-                        },
-                        "request_queue_size": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 10000,
-                            "description": "请求队列大小"
-                        },
-                        "metrics_enabled": {
-                            "type": "boolean",
-                            "description": "是否启用指标收集"
-                        },
-                        "performance_tracking": {
-                            "type": "boolean",
-                            "description": "是否启用性能跟踪"
-                        },
-                        "connection_pool_enabled": {
-                            "type": "boolean",
-                            "description": "是否启用连接池"
-                        },
-                        "default_max_connections": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 100
-                        },
-                        "default_max_keepalive": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 100
-                        },
-                        "default_connection_timeout": {
-                            "type": "number",
-                            "minimum": 1.0,
-                            "maximum": 300.0
-                        }
-                    }
+                    "description": "模块配置"
                 }
             }
         }
@@ -309,13 +163,21 @@ class LLMSchema(BaseSchema):
             errors.append("配置必须是字典类型")
             return errors, warnings
         
+        # 获取模式定义
+        schema = self.get_schema_definition()
+        required_fields = schema.get("required", [])
+        
         # 检查必要字段
-        if "clients" not in config:
-            errors.append("缺少必要的clients字段")
-        elif not isinstance(config["clients"], dict):
-            errors.append("clients字段必须是字典类型")
-        elif len(config["clients"]) == 0:
-            errors.append("至少需要配置一个客户端")
+        for field in required_fields:
+            if field not in config:
+                errors.append(f"缺少必要的{field}字段")
+        
+        # 特殊验证clients字段
+        if "clients" in config:
+            if not isinstance(config["clients"], dict):
+                errors.append("clients字段必须是字典类型")
+            elif len(config["clients"]) == 0:
+                errors.append("至少需要配置一个客户端")
         
         return errors, warnings
     
@@ -367,18 +229,24 @@ class LLMSchema(BaseSchema):
         # 验证模型类型
         if "model_type" in client_config:
             model_type = client_config["model_type"]
-            valid_types = ["openai", "gemini", "anthropic", "mock", "human_relay"]
-            if model_type not in valid_types:
+            # 从模式定义获取有效类型
+            schema = self.get_schema_definition()
+            clients_schema = schema.get("properties", {}).get("clients", {})
+            pattern_properties = clients_schema.get("patternProperties", {})
+            
+            # 获取第一个模式（所有客户端共享）
+            valid_types = []
+            if pattern_properties:
+                for pattern_schema in pattern_properties.values():
+                    model_type_schema = pattern_schema.get("properties", {}).get("model_type", {})
+                    valid_types = model_type_schema.get("enum", [])
+                    break
+            
+            if valid_types and model_type not in valid_types:
                 errors.append(f"客户端 {client_name} 的模型类型无效: {model_type}")
         
         # 验证数值范围
-        numeric_fields = {
-            "timeout": (1, 300),
-            "max_retries": (0, 10),
-            "temperature": (0.0, 2.0),
-            "top_p": (0.0, 1.0),
-            "max_fallback_attempts": (1, 5)
-        }
+        numeric_fields = self._get_numeric_field_ranges("client")
         
         for field, (min_val, max_val) in numeric_fields.items():
             if field in client_config:
@@ -456,17 +324,7 @@ class LLMSchema(BaseSchema):
         warnings = []
         
         # 验证数值范围
-        numeric_fields = {
-            "default_timeout": (1, 300),
-            "default_max_retries": (0, 10),
-            "cache_ttl": (60, 86400),
-            "cache_max_size": (1, 10000),
-            "max_concurrent_requests": (1, 1000),
-            "request_queue_size": (1, 10000),
-            "default_max_connections": (1, 100),
-            "default_max_keepalive": (1, 100),
-            "default_connection_timeout": (1.0, 300.0)
-        }
+        numeric_fields = self._get_numeric_field_ranges("module")
         
         for field, (min_val, max_val) in numeric_fields.items():
             if field in module:
@@ -536,3 +394,73 @@ class LLMSchema(BaseSchema):
         # 简单的版本号格式检查：x.y.z
         pattern = r'^\d+\.\d+\.\d+$'
         return bool(re.match(pattern, version))
+    
+    def _get_numeric_field_ranges(self, config_type: str) -> Dict[str, tuple]:
+        """获取数值字段的范围
+        
+        Args:
+            config_type: 配置类型（client或module）
+            
+        Returns:
+            字段名到范围元组的映射
+        """
+        # 默认范围
+        default_ranges = {
+            "client": {
+                "timeout": (1, 300),
+                "max_retries": (0, 10),
+                "temperature": (0.0, 2.0),
+                "top_p": (0.0, 1.0),
+                "max_fallback_attempts": (1, 5)
+            },
+            "module": {
+                "default_timeout": (1, 300),
+                "default_max_retries": (0, 10),
+                "cache_ttl": (60, 86400),
+                "cache_max_size": (1, 10000),
+                "max_concurrent_requests": (1, 1000),
+                "request_queue_size": (1, 10000),
+                "default_max_connections": (1, 100),
+                "default_max_keepalive": (1, 100),
+                "default_connection_timeout": (1.0, 300.0)
+            }
+        }
+        
+        # 尝试从模式定义获取范围
+        try:
+            schema = self.get_schema_definition()
+            ranges = {}
+            
+            if config_type == "client":
+                clients_schema = schema.get("properties", {}).get("clients", {})
+                pattern_properties = clients_schema.get("patternProperties", {})
+                
+                if pattern_properties:
+                    # 获取第一个模式（所有客户端共享）
+                    for pattern_schema in pattern_properties.values():
+                        properties = pattern_schema.get("properties", {})
+                        for field_name, field_schema in properties.items():
+                            if field_schema.get("type") in ["integer", "number"]:
+                                min_val = field_schema.get("minimum")
+                                max_val = field_schema.get("maximum")
+                                if min_val is not None and max_val is not None:
+                                    ranges[field_name] = (min_val, max_val)
+                        break
+            
+            elif config_type == "module":
+                module_schema = schema.get("properties", {}).get("module", {})
+                properties = module_schema.get("properties", {})
+                
+                for field_name, field_schema in properties.items():
+                    if field_schema.get("type") in ["integer", "number"]:
+                        min_val = field_schema.get("minimum")
+                        max_val = field_schema.get("maximum")
+                        if min_val is not None and max_val is not None:
+                            ranges[field_name] = (min_val, max_val)
+            
+            # 如果从模式获取到了范围，使用它们；否则使用默认范围
+            return ranges if ranges else default_ranges.get(config_type, {})
+            
+        except Exception as e:
+            logger.debug(f"获取数值字段范围失败: {e}")
+            return default_ranges.get(config_type, {})

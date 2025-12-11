@@ -9,7 +9,7 @@ import logging
 from src.interfaces.dependency_injection import get_logger
 from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool
-from src.core.tools.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
+from src.interfaces.tool.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
 from ..config.config_manager import get_default_manager, ConfigManager
 
 logger = get_logger(__name__)

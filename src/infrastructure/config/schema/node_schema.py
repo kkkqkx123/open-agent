@@ -1,13 +1,14 @@
 """Node配置模式
 
-定义Node模块的配置验证模式。
+定义Node模块的配置验证模式，与配置加载模块集成。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +16,72 @@ logger = logging.getLogger(__name__)
 class NodeSchema(BaseSchema):
     """Node配置模式
     
-    定义Node模块的配置验证规则和模式。
+    定义Node模块的配置验证规则和模式，与配置加载模块集成。
     """
     
-    def __init__(self):
-        """初始化Node配置模式"""
-        super().__init__(self._get_schema_definition())
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+        """初始化Node配置模式
+        
+        Args:
+            config_loader: 配置加载器，用于动态加载配置模式
+        """
+        super().__init__()
+        self.config_loader = config_loader
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
         logger.debug("Node配置模式初始化完成")
     
-    def _get_schema_definition(self) -> Dict[str, Any]:
+    def get_schema_definition(self) -> Dict[str, Any]:
         """获取模式定义
         
         Returns:
             模式定义字典
+        """
+        # 尝试从缓存获取
+        if "node_config" in self._schema_cache:
+            return self._schema_cache["node_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("node_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_node_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["node_config"] = schema
+        return schema
+    
+    def _load_schema_from_config(self, schema_name: str) -> Optional[Dict[str, Any]]:
+        """从配置文件加载模式
+        
+        Args:
+            schema_name: 模式名称
+            
+        Returns:
+            模式字典或None
+        """
+        if not self.config_loader:
+            return None
+        
+        try:
+            # 尝试加载模式配置文件
+            schema_path = f"config/schema/node/{schema_name}"
+            schema_config = self.config_loader.load(schema_path)
+            
+            if schema_config and "schema" in schema_config:
+                logger.debug(f"从配置文件加载模式: {schema_name}")
+                return schema_config["schema"]
+            
+        except Exception as e:
+            logger.debug(f"无法从配置文件加载模式 {schema_name}: {e}")
+        
+        return None
+    
+    def _get_base_node_config_schema(self) -> Dict[str, Any]:
+        """获取基础Node配置模式
+        
+        Returns:
+            基础Node配置模式字典
         """
         return {
             "type": "object",
@@ -37,140 +91,25 @@ class NodeSchema(BaseSchema):
                     "type": "string",
                     "description": "节点名称"
                 },
-                "id": {
-                    "type": "string",
-                    "description": "节点ID"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "节点描述"
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["llm", "tool", "condition", "start", "end", "custom", "input", "output"],
-                    "description": "节点类型"
-                },
                 "function_name": {
                     "type": "string",
                     "description": "函数名称"
                 },
-                "timeout": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "description": "超时时间（秒）"
-                },
-                "retry_attempts": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "重试次数"
-                },
-                "retry_delay": {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "重试延迟（秒）"
-                },
-                "enable_tracing": {
-                    "type": "boolean",
-                    "description": "是否启用跟踪"
-                },
-                "log_inputs": {
-                    "type": "boolean",
-                    "description": "是否记录输入"
-                },
-                "log_outputs": {
-                    "type": "boolean",
-                    "description": "是否记录输出"
+                "type": {
+                    "type": "string",
+                    "description": "节点类型"
                 },
                 "function_config": {
                     "type": "object",
-                    "properties": {
-                        "model": {"type": "string"},
-                        "temperature": {
-                            "type": "number",
-                            "minimum": 0,
-                            "maximum": 2
-                        },
-                        "max_tokens": {
-                            "type": "integer",
-                            "minimum": 1
-                        },
-                        "tool_name": {"type": "string"},
-                        "timeout": {"type": "integer", "minimum": 1},
-                        "error_handling": {
-                            "type": "string",
-                            "enum": ["raise", "ignore", "log"]
-                        },
-                        "default_path": {"type": "string"}
-                    },
                     "description": "函数配置"
                 },
                 "input_parameters": {
                     "type": "object",
-                    "patternProperties": {
-                        ".*": {
-                            "type": "object",
-                            "properties": {
-                                "type": {"type": "string"},
-                                "required": {"type": "boolean"},
-                                "default": {},
-                                "description": {"type": "string"}
-                            }
-                        }
-                    },
                     "description": "输入参数"
                 },
                 "output_parameters": {
                     "type": "object",
-                    "patternProperties": {
-                        ".*": {
-                            "type": "object",
-                            "properties": {
-                                "type": {"type": "string"},
-                                "description": {"type": "string"}
-                            }
-                        }
-                    },
                     "description": "输出参数"
-                },
-                "environment": {
-                    "type": "object",
-                    "patternProperties": {
-                        ".*": {"type": "string"}
-                    },
-                    "description": "环境变量"
-                },
-                "input_mapping": {
-                    "type": "object",
-                    "patternProperties": {
-                        ".*": {"type": "string"}
-                    },
-                    "description": "输入映射"
-                },
-                "output_mapping": {
-                    "type": "object",
-                    "patternProperties": {
-                        ".*": {"type": "string"}
-                    },
-                    "description": "输出映射"
-                },
-                "state_updates": {
-                    "type": "object",
-                    "patternProperties": {
-                        ".*": {"type": "string"}
-                    },
-                    "description": "状态更新"
-                },
-                "additional_config": {
-                    "type": "object",
-                    "properties": {
-                        "enable_caching": {"type": "boolean"},
-                        "cache_ttl": {"type": "integer", "minimum": 0},
-                        "priority": {
-                            "type": "string",
-                            "enum": ["low", "normal", "high"]
-                        }
-                    },
-                    "description": "额外配置"
                 }
             }
         }
@@ -238,24 +177,27 @@ class NodeSchema(BaseSchema):
         
         # 验证节点类型
         node_type = config.get("type")
-        if node_type and node_type not in ["llm", "tool", "condition", "start", "end", "custom", "input", "output"]:
-            errors.append(f"不支持的节点类型: {node_type}")
+        if node_type:
+            # 从模式定义获取有效类型
+            schema = self.get_schema_definition()
+            node_type_schema = schema.get("properties", {}).get("type", {})
+            valid_types = node_type_schema.get("enum", [])
+            
+            if valid_types and node_type not in valid_types:
+                errors.append(f"不支持的节点类型: {node_type}")
         
         # 验证数值字段
-        timeout = config.get("timeout")
-        if timeout is not None:
-            if not isinstance(timeout, int) or timeout <= 0:
-                errors.append("timeout必须是大于0的整数")
+        numeric_fields = self._get_numeric_field_ranges()
         
-        retry_attempts = config.get("retry_attempts")
-        if retry_attempts is not None:
-            if not isinstance(retry_attempts, int) or retry_attempts < 0:
-                errors.append("retry_attempts必须是非负整数")
-        
-        retry_delay = config.get("retry_delay")
-        if retry_delay is not None:
-            if not isinstance(retry_delay, (int, float)) or retry_delay < 0:
-                errors.append("retry_delay必须是非负数")
+        for field_name, (min_val, max_val) in numeric_fields.items():
+            if field_name in config:
+                value = config[field_name]
+                if not isinstance(value, (int, float)):
+                    errors.append(f"{field_name}必须是数字类型")
+                elif min_val is not None and value < min_val:
+                    errors.append(f"{field_name}必须大于等于{min_val}")
+                elif max_val is not None and value > max_val:
+                    errors.append(f"{field_name}必须小于等于{max_val}")
         
         return errors
     
@@ -283,8 +225,15 @@ class NodeSchema(BaseSchema):
             
             temperature = function_config.get("temperature")
             if temperature is not None:
-                if not isinstance(temperature, (int, float)) or temperature < 0 or temperature > 2:
-                    errors.append("temperature必须在0-2之间")
+                # 从模式定义获取温度范围
+                schema = self.get_schema_definition()
+                function_config_schema = schema.get("properties", {}).get("function_config", {})
+                temperature_schema = function_config_schema.get("properties", {}).get("temperature", {})
+                min_temp = temperature_schema.get("minimum", 0)
+                max_temp = temperature_schema.get("maximum", 2)
+                
+                if not isinstance(temperature, (int, float)) or temperature < min_temp or temperature > max_temp:
+                    errors.append(f"temperature必须在{min_temp}-{max_temp}之间")
             
             max_tokens = function_config.get("max_tokens")
             if max_tokens is not None:
@@ -302,8 +251,15 @@ class NodeSchema(BaseSchema):
         
         elif node_type == "condition":
             error_handling = function_config.get("error_handling")
-            if error_handling and error_handling not in ["raise", "ignore", "log"]:
-                errors.append("error_handling必须是raise、ignore或log")
+            if error_handling:
+                # 从模式定义获取有效错误处理方式
+                schema = self.get_schema_definition()
+                function_config_schema = schema.get("properties", {}).get("function_config", {})
+                error_handling_schema = function_config_schema.get("properties", {}).get("error_handling", {})
+                valid_error_handling = error_handling_schema.get("enum", ["raise", "ignore", "log"])
+                
+                if error_handling not in valid_error_handling:
+                    errors.append(f"error_handling必须是{', '.join(valid_error_handling)}之一")
         
         return errors
     
@@ -400,3 +356,58 @@ class NodeSchema(BaseSchema):
             warnings.append("输出参数过多可能影响性能")
         
         return warnings
+    
+    def _get_numeric_field_ranges(self) -> Dict[str, tuple]:
+        """获取数值字段的范围
+        
+        Returns:
+            字段名到范围元组的映射
+        """
+        # 默认范围
+        default_ranges = {
+            "timeout": (1, None),
+            "retry_attempts": (0, None),
+            "retry_delay": (0, None)
+        }
+        
+        # 尝试从模式定义获取范围
+        try:
+            schema = self.get_schema_definition()
+            ranges = {}
+            
+            properties = schema.get("properties", {})
+            for field_name, field_schema in properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[field_name] = (min_val, max_val)
+            
+            # 检查嵌套的数值字段
+            function_config_schema = properties.get("function_config", {})
+            function_properties = function_config_schema.get("properties", {})
+            
+            for field_name, field_schema in function_properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[f"function_config.{field_name}"] = (min_val, max_val)
+            
+            # 检查额外配置中的数值字段
+            additional_config_schema = properties.get("additional_config", {})
+            additional_properties = additional_config_schema.get("properties", {})
+            
+            for field_name, field_schema in additional_properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[f"additional_config.{field_name}"] = (min_val, max_val)
+            
+            # 如果从模式获取到了范围，使用它们；否则使用默认范围
+            return ranges if ranges else default_ranges
+            
+        except Exception as e:
+            logger.debug(f"获取数值字段范围失败: {e}")
+            return default_ranges

@@ -10,18 +10,10 @@ import logging
 
 from src.interfaces.config import IConfigMapper, ValidationResult
 from src.interfaces.common_domain import ValidationResult as CommonValidationResult
-from src.interfaces.tool.config import ToolConfig, BuiltinToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
-from src.core.tools.config import (
-    ToolConfig as CoreToolConfig,
-    BuiltinToolConfig as CoreBuiltinToolConfig,
-    NativeToolConfig as CoreNativeToolConfig,
-    RestToolConfig as CoreRestToolConfig,
-    MCPToolConfig as CoreMCPToolConfig,
-    ToolRegistryConfig,
-    StateManagerConfig,
-    BusinessStateConfig,
-    ConnectionStateConfig
+from src.interfaces.tool.config import (
+    ToolConfig, BuiltinToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
 )
+from src.core.tools.config import ToolRegistryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -155,21 +147,30 @@ class ToolsConfigMapper(IConfigMapper):
             for tool_data in config_data["tools"]:
                 tool_config = self.dict_to_entity(tool_data)
                 if isinstance(tool_config, ToolConfig):
-                    # 转换为核心层配置
-                    core_tool_config = self._interface_to_core_config(tool_config)
-                    tools.append(core_tool_config)
+                    tools.append(tool_config)
+        
+        # 从配置数据中获取所有必需的字段，如果没有提供则抛出异常
+        required_fields = [
+            "auto_discover", "discovery_paths", "reload_on_change",
+            "max_tools", "enable_caching", "cache_ttl",
+            "allow_dynamic_loading", "validate_schemas", "sandbox_mode"
+        ]
+        
+        missing_fields = [field for field in required_fields if field not in config_data]
+        if missing_fields:
+            raise ValueError(f"工具注册表配置缺少必需字段: {', '.join(missing_fields)}")
         
         return ToolRegistryConfig(
-            auto_discover=config_data.get("auto_discover", True),
-            discovery_paths=config_data.get("discovery_paths", []),
-            reload_on_change=config_data.get("reload_on_change", False),
+            auto_discover=config_data["auto_discover"],
+            discovery_paths=config_data["discovery_paths"],
+            reload_on_change=config_data["reload_on_change"],
             tools=tools,
-            max_tools=config_data.get("max_tools", 1000),
-            enable_caching=config_data.get("enable_caching", True),
-            cache_ttl=config_data.get("cache_ttl", 300),
-            allow_dynamic_loading=config_data.get("allow_dynamic_loading", True),
-            validate_schemas=config_data.get("validate_schemas", True),
-            sandbox_mode=config_data.get("sandbox_mode", False)
+            max_tools=config_data["max_tools"],
+            enable_caching=config_data["enable_caching"],
+            cache_ttl=config_data["cache_ttl"],
+            allow_dynamic_loading=config_data["allow_dynamic_loading"],
+            validate_schemas=config_data["validate_schemas"],
+            sandbox_mode=config_data["sandbox_mode"]
         )
     
     def _dict_to_builtin_config(self, config_data: Dict[str, Any]) -> BuiltinToolConfig:
@@ -237,8 +238,7 @@ class ToolsConfigMapper(IConfigMapper):
         # 转换工具配置列表
         tools = []
         for tool_config in config.tools:
-            interface_config = self._core_to_interface_config(tool_config)
-            tools.append(interface_config.to_dict())
+            tools.append(tool_config.to_dict())
         
         return {
             "auto_discover": config.auto_discover,
@@ -305,128 +305,6 @@ class ToolsConfigMapper(IConfigMapper):
         
         return errors
     
-    def _interface_to_core_config(self, interface_config: ToolConfig) -> CoreToolConfig:
-        """将接口层配置转换为核心层配置"""
-        if isinstance(interface_config, NativeToolConfig):
-            return CoreNativeToolConfig(
-                name=interface_config.name,
-                description=interface_config.description,
-                parameters_schema=interface_config.parameters_schema,
-                function_path=interface_config.function_path,
-                tool_type="native",
-                enabled=interface_config.enabled,
-                timeout=interface_config.timeout,
-                metadata=interface_config.metadata
-            )
-        elif isinstance(interface_config, RestToolConfig):
-            return CoreRestToolConfig(
-                name=interface_config.name,
-                description=interface_config.description,
-                parameters_schema=interface_config.parameters_schema,
-                api_url=interface_config.api_url,
-                tool_type="rest",
-                method=interface_config.method,
-                headers=interface_config.headers,
-                auth_method=interface_config.auth_method,
-                api_key=interface_config.api_key,
-                retry_count=interface_config.retry_count,
-                retry_delay=interface_config.retry_delay,
-                enabled=interface_config.enabled,
-                timeout=interface_config.timeout,
-                metadata=interface_config.metadata
-            )
-        elif isinstance(interface_config, MCPToolConfig):
-            return CoreMCPToolConfig(
-                name=interface_config.name,
-                description=interface_config.description,
-                parameters_schema=interface_config.parameters_schema,
-                mcp_server_url=interface_config.mcp_server_url,
-                tool_type="mcp",
-                dynamic_schema=interface_config.dynamic_schema,
-                refresh_interval=interface_config.refresh_interval,
-                enabled=interface_config.enabled,
-                timeout=interface_config.timeout,
-                metadata=interface_config.metadata
-            )
-        else:
-            # 默认转换为原生工具配置
-            return CoreNativeToolConfig(
-                name=interface_config.name,
-                description=interface_config.description,
-                parameters_schema=interface_config.parameters_schema,
-                function_path="",
-                tool_type="native",
-                enabled=interface_config.enabled,
-                timeout=interface_config.timeout,
-                metadata=interface_config.metadata
-            )
-    
-    def _core_to_interface_config(self, core_config: CoreToolConfig) -> ToolConfig:
-        """将核心层配置转换为接口层配置"""
-        if isinstance(core_config, CoreBuiltinToolConfig):
-            return BuiltinToolConfig(
-                name=core_config.name,
-                description=core_config.description,
-                parameters_schema=core_config.parameters_schema,
-                tool_type="builtin",
-                function_path=core_config.function_path,
-                enabled=core_config.enabled,
-                timeout=core_config.timeout,
-                metadata=core_config.metadata
-            )
-        elif isinstance(core_config, CoreNativeToolConfig):
-            return NativeToolConfig(
-                name=core_config.name,
-                description=core_config.description,
-                parameters_schema=core_config.parameters_schema,
-                tool_type="native",
-                function_path=core_config.function_path,
-                enabled=core_config.enabled,
-                timeout=core_config.timeout,
-                metadata=core_config.metadata
-            )
-        elif isinstance(core_config, CoreRestToolConfig):
-            return RestToolConfig(
-                name=core_config.name,
-                description=core_config.description,
-                parameters_schema=core_config.parameters_schema,
-                tool_type="rest",
-                api_url=core_config.api_url,
-                method=core_config.method,
-                headers=core_config.headers,
-                auth_method=core_config.auth_method,
-                api_key=core_config.api_key,
-                retry_count=core_config.retry_count,
-                retry_delay=core_config.retry_delay,
-                enabled=core_config.enabled,
-                timeout=core_config.timeout,
-                metadata=core_config.metadata
-            )
-        elif isinstance(core_config, CoreMCPToolConfig):
-            return MCPToolConfig(
-                name=core_config.name,
-                description=core_config.description,
-                parameters_schema=core_config.parameters_schema,
-                tool_type="mcp",
-                mcp_server_url=core_config.mcp_server_url,
-                refresh_interval=core_config.refresh_interval,
-                dynamic_schema=core_config.dynamic_schema,
-                enabled=core_config.enabled,
-                timeout=core_config.timeout,
-                metadata=core_config.metadata
-            )
-        else:
-            # 默认转换为原生工具配置
-            return NativeToolConfig(
-                name=core_config.name,
-                description=core_config.description,
-                parameters_schema=core_config.parameters_schema,
-                tool_type="native",
-                function_path="",
-                enabled=core_config.enabled,
-                timeout=core_config.timeout,
-                metadata=core_config.metadata
-            )
 
 
 # 便捷函数

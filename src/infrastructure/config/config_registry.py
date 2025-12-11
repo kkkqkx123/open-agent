@@ -7,7 +7,8 @@ from typing import Dict, Any, Optional, List, Type
 import logging
 from pathlib import Path
 
-from .impl.base_impl import IConfigImpl, ConfigProcessorChain, ConfigSchema
+from .impl.base_impl import IConfigImpl, ConfigProcessorChain
+from .schema.base_schema import IConfigSchema
 from .processor.base_processor import IConfigProcessor
 from .provider.base_provider import IConfigProvider
 from .processor.validation_processor import SchemaRegistry
@@ -265,7 +266,7 @@ class ConfigRegistry:
     
     # ==================== 模式管理 ====================
     
-    def register_schema(self, config_type: str, schema: ConfigSchema) -> None:
+    def register_schema(self, config_type: str, schema: IConfigSchema) -> None:
         """注册配置模式
         
         Args:
@@ -274,7 +275,7 @@ class ConfigRegistry:
         """
         self.schema_registry.register_schema(config_type, schema)
     
-    def get_schema(self, config_type: str) -> Optional[ConfigSchema]:
+    def get_schema(self, config_type: str) -> Optional[IConfigSchema]:
         """获取配置模式
         
         Args:

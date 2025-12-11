@@ -1,13 +1,14 @@
 """Workflow配置模式
 
-定义Workflow模块的配置验证模式。
+定义Workflow模块的配置验证模式，与配置加载模块集成。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import logging
 
 from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -15,19 +16,72 @@ logger = logging.getLogger(__name__)
 class WorkflowSchema(BaseSchema):
     """Workflow配置模式
     
-    定义Workflow模块的配置验证规则和模式。
+    定义Workflow模块的配置验证规则和模式，与配置加载模块集成。
     """
     
-    def __init__(self):
-        """初始化Workflow配置模式"""
-        super().__init__(self._get_schema_definition())
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+        """初始化Workflow配置模式
+        
+        Args:
+            config_loader: 配置加载器，用于动态加载配置模式
+        """
+        super().__init__()
+        self.config_loader = config_loader
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
         logger.debug("Workflow配置模式初始化完成")
     
-    def _get_schema_definition(self) -> Dict[str, Any]:
+    def get_schema_definition(self) -> Dict[str, Any]:
         """获取模式定义
         
         Returns:
             模式定义字典
+        """
+        # 尝试从缓存获取
+        if "workflow_config" in self._schema_cache:
+            return self._schema_cache["workflow_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("workflow_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_workflow_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["workflow_config"] = schema
+        return schema
+    
+    def _load_schema_from_config(self, schema_name: str) -> Optional[Dict[str, Any]]:
+        """从配置文件加载模式
+        
+        Args:
+            schema_name: 模式名称
+            
+        Returns:
+            模式字典或None
+        """
+        if not self.config_loader:
+            return None
+        
+        try:
+            # 尝试加载模式配置文件
+            schema_path = f"config/schema/workflow/{schema_name}"
+            schema_config = self.config_loader.load(schema_path)
+            
+            if schema_config and "schema" in schema_config:
+                logger.debug(f"从配置文件加载模式: {schema_name}")
+                return schema_config["schema"]
+            
+        except Exception as e:
+            logger.debug(f"无法从配置文件加载模式 {schema_name}: {e}")
+        
+        return None
+    
+    def _get_base_workflow_config_schema(self) -> Dict[str, Any]:
+        """获取基础Workflow配置模式
+        
+        Returns:
+            基础Workflow配置模式字典
         """
         return {
             "type": "object",
@@ -43,144 +97,15 @@ class WorkflowSchema(BaseSchema):
                 },
                 "workflow_type": {
                     "type": "string",
-                    "enum": ["sequential", "parallel", "conditional", "loop", "react", "state_machine"],
                     "description": "工作流类型"
-                },
-                "max_iterations": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 1000,
-                    "description": "最大迭代次数"
-                },
-                "timeout": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "description": "超时时间（秒）"
-                },
-                "retry_attempts": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "重试次数"
-                },
-                "retry_delay": {
-                    "type": "number",
-                    "minimum": 0,
-                    "description": "重试延迟（秒）"
-                },
-                "logging_level": {
-                    "type": "string",
-                    "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-                    "description": "日志级别"
-                },
-                "enable_tracing": {
-                    "type": "boolean",
-                    "description": "是否启用跟踪"
-                },
-                "metadata": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "version": {"type": "string"},
-                        "description": {"type": "string"},
-                        "author": {"type": "string"},
-                        "workflow_type": {"type": "string"}
-                    },
-                    "description": "元数据"
-                },
-                "state_schema": {
-                    "type": "object",
-                    "required": ["name", "fields"],
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "状态名称"
-                        },
-                        "fields": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "required": ["type"],
-                                    "properties": {
-                                        "type": {"type": "string"},
-                                        "default": {},
-                                        "reducer": {"type": "string"},
-                                        "description": {"type": "string"}
-                                    }
-                                }
-                            },
-                            "description": "状态字段"
-                        }
-                    },
-                    "description": "状态模式"
                 },
                 "nodes": {
                     "type": "object",
-                    "patternProperties": {
-                        ".*": {
-                            "type": "object",
-                            "required": ["function"],
-                            "properties": {
-                                "function": {"type": "string"},
-                                "config": {
-                                    "type": "object",
-                                    "properties": {
-                                        "description": {"type": "string"},
-                                        "timeout": {"type": "integer", "minimum": 1},
-                                        "retry_attempts": {"type": "integer", "minimum": 0},
-                                        "retry_delay": {"type": "number", "minimum": 0}
-                                    }
-                                },
-                                "description": {"type": "string"}
-                            }
-                        }
-                    },
                     "description": "节点配置"
                 },
                 "edges": {
                     "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["from", "type"],
-                        "properties": {
-                            "from": {"type": "string"},
-                            "to": {"type": "string"},
-                            "type": {
-                                "type": "string",
-                                "enum": ["simple", "conditional", "parallel", "merge", "always"]
-                            },
-                            "condition": {"type": "string"},
-                            "path_map": {
-                                "oneOf": [
-                                    {"type": "object"},
-                                    {"type": "array"}
-                                ]
-                            },
-                            "description": {"type": "string"}
-                        }
-                    },
                     "description": "边配置"
-                },
-                "entry_point": {
-                    "type": "string",
-                    "description": "入口点"
-                },
-                "validation_rules": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["field", "rule_type"],
-                        "properties": {
-                            "field": {"type": "string"},
-                            "rule_type": {
-                                "type": "string",
-                                "enum": ["required", "range", "pattern", "custom"]
-                            },
-                            "value": {},
-                            "message": {"type": "string"}
-                        }
-                    },
-                    "description": "验证规则"
                 }
             }
         }
@@ -237,19 +162,27 @@ class WorkflowSchema(BaseSchema):
         
         # 验证工作流类型
         workflow_type = config.get("workflow_type")
-        if workflow_type and workflow_type not in ["sequential", "parallel", "conditional", "loop", "react", "state_machine"]:
-            errors.append(f"不支持的工作流类型: {workflow_type}")
+        if workflow_type:
+            # 从模式定义获取有效类型
+            schema = self.get_schema_definition()
+            workflow_type_schema = schema.get("properties", {}).get("workflow_type", {})
+            valid_types = workflow_type_schema.get("enum", [])
+            
+            if valid_types and workflow_type not in valid_types:
+                errors.append(f"不支持的工作流类型: {workflow_type}")
         
         # 验证数值字段
-        max_iterations = config.get("max_iterations")
-        if max_iterations is not None:
-            if not isinstance(max_iterations, int) or max_iterations < 1:
-                errors.append("max_iterations必须是大于0的整数")
+        numeric_fields = self._get_numeric_field_ranges()
         
-        timeout = config.get("timeout")
-        if timeout is not None:
-            if not isinstance(timeout, (int, float)) or timeout <= 0:
-                errors.append("timeout必须是大于0的数字")
+        for field_name, (min_val, max_val) in numeric_fields.items():
+            if field_name in config:
+                value = config[field_name]
+                if not isinstance(value, (int, float)):
+                    errors.append(f"{field_name}必须是数字类型")
+                elif min_val is not None and value < min_val:
+                    errors.append(f"{field_name}必须大于等于{min_val}")
+                elif max_val is not None and value > max_val:
+                    errors.append(f"{field_name}必须小于等于{max_val}")
         
         return errors
     
@@ -319,7 +252,13 @@ class WorkflowSchema(BaseSchema):
                 errors.append(f"边 {i} 引用了不存在的目标节点: {to_node}")
             
             # 验证边类型
-            if edge_type not in ["simple", "conditional", "parallel", "merge", "always"]:
+            schema = self.get_schema_definition()
+            edges_schema = schema.get("properties", {}).get("edges", {})
+            items_schema = edges_schema.get("items", {})
+            edge_type_schema = items_schema.get("properties", {}).get("type", {})
+            valid_edge_types = edge_type_schema.get("enum", [])
+            
+            if valid_edge_types and edge_type not in valid_edge_types:
                 errors.append(f"边 {i} 类型不支持: {edge_type}")
             
             # 验证条件边
@@ -394,3 +333,56 @@ class WorkflowSchema(BaseSchema):
             warnings.append("重试次数过多可能影响性能")
         
         return warnings
+    
+    def _get_numeric_field_ranges(self) -> Dict[str, tuple]:
+        """获取数值字段的范围
+        
+        Returns:
+            字段名到范围元组的映射
+        """
+        # 默认范围
+        default_ranges = {
+            "max_iterations": (1, 1000),
+            "timeout": (1, None),
+            "retry_attempts": (0, None),
+            "retry_delay": (0, None)
+        }
+        
+        # 尝试从模式定义获取范围
+        try:
+            schema = self.get_schema_definition()
+            ranges = {}
+            
+            properties = schema.get("properties", {})
+            for field_name, field_schema in properties.items():
+                if field_schema.get("type") in ["integer", "number"]:
+                    min_val = field_schema.get("minimum")
+                    max_val = field_schema.get("maximum")
+                    if min_val is not None or max_val is not None:
+                        ranges[field_name] = (min_val, max_val)
+            
+            # 检查嵌套的数值字段
+            nodes_schema = properties.get("nodes", {})
+            pattern_properties = nodes_schema.get("patternProperties", {})
+            
+            if pattern_properties:
+                # 获取第一个模式（所有节点共享）
+                for pattern_schema in pattern_properties.values():
+                    node_properties = pattern_schema.get("properties", {})
+                    config_schema = node_properties.get("config", {})
+                    config_properties = config_schema.get("properties", {})
+                    
+                    for field_name, field_schema in config_properties.items():
+                        if field_schema.get("type") in ["integer", "number"]:
+                            min_val = field_schema.get("minimum")
+                            max_val = field_schema.get("maximum")
+                            if min_val is not None or max_val is not None:
+                                ranges[f"node.{field_name}"] = (min_val, max_val)
+                    break
+            
+            # 如果从模式获取到了范围，使用它们；否则使用默认范围
+            return ranges if ranges else default_ranges
+            
+        except Exception as e:
+            logger.debug(f"获取数值字段范围失败: {e}")
+            return default_ranges

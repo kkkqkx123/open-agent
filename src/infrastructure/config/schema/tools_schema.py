@@ -1,19 +1,33 @@
 """
 工具配置模式
 
-定义工具模块的配置模式和验证规则。
+定义工具模块的配置模式和验证规则，与配置加载模块集成。
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+import logging
 from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
+from src.interfaces.config import IConfigLoader
+
+logger = logging.getLogger(__name__)
 
 
 class ToolsSchema(BaseSchema):
     """工具配置模式
     
-    定义工具配置的结构和验证规则。
+    定义工具配置的结构和验证规则，与配置加载模块集成。
     """
+    
+    def __init__(self, config_loader: Optional[IConfigLoader] = None):
+        """初始化工具配置模式
+        
+        Args:
+            config_loader: 配置加载器，用于动态加载配置模式
+        """
+        super().__init__()
+        self.config_loader = config_loader
+        self._schema_cache: Dict[str, Dict[str, Any]] = {}
     
     def validate(self, config: Dict[str, Any]) -> ValidationResult:
         """验证工具配置
@@ -42,6 +56,95 @@ class ToolsSchema(BaseSchema):
         Returns:
             工具配置模式字典
         """
+        # 尝试从缓存获取
+        if "tool_config" in self._schema_cache:
+            return self._schema_cache["tool_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("tool_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_tool_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["tool_config"] = schema
+        return schema
+    
+    def get_registry_config_schema(self) -> Dict[str, Any]:
+        """获取工具注册表配置模式
+        
+        Returns:
+            工具注册表配置模式字典
+        """
+        # 尝试从缓存获取
+        if "registry_config" in self._schema_cache:
+            return self._schema_cache["registry_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("registry_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_registry_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["registry_config"] = schema
+        return schema
+    
+    def get_toolset_config_schema(self) -> Dict[str, Any]:
+        """获取工具集配置模式
+        
+        Returns:
+            工具集配置模式字典
+        """
+        # 尝试从缓存获取
+        if "toolset_config" in self._schema_cache:
+            return self._schema_cache["toolset_config"]
+        
+        # 尝试从配置文件加载
+        schema = self._load_schema_from_config("toolset_config")
+        
+        if schema is None:
+            # 如果无法从配置加载，使用基础模式
+            schema = self._get_base_toolset_config_schema()
+        
+        # 缓存模式
+        self._schema_cache["toolset_config"] = schema
+        return schema
+    
+    def _load_schema_from_config(self, schema_name: str) -> Optional[Dict[str, Any]]:
+        """从配置文件加载模式
+        
+        Args:
+            schema_name: 模式名称
+            
+        Returns:
+            模式字典或None
+        """
+        if not self.config_loader:
+            return None
+        
+        try:
+            # 尝试加载模式配置文件
+            schema_path = f"config/schema/tools/{schema_name}"
+            schema_config = self.config_loader.load(schema_path)
+            
+            if schema_config and "schema" in schema_config:
+                logger.debug(f"从配置文件加载模式: {schema_name}")
+                return schema_config["schema"]
+            
+        except Exception as e:
+            logger.debug(f"无法从配置文件加载模式 {schema_name}: {e}")
+        
+        return None
+    
+    def _get_base_tool_config_schema(self) -> Dict[str, Any]:
+        """获取基础工具配置模式
+        
+        Returns:
+            基础工具配置模式字典
+        """
         return {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
@@ -52,247 +155,48 @@ class ToolsSchema(BaseSchema):
                 "name": {
                     "type": "string",
                     "title": "工具名称",
-                    "description": "工具的唯一标识名称",
-                    "minLength": 1,
-                    "maxLength": 100,
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+                    "description": "工具的唯一标识名称"
                 },
                 "description": {
                     "type": "string",
                     "title": "工具描述",
-                    "description": "工具功能的详细描述",
-                    "minLength": 1,
-                    "maxLength": 500
+                    "description": "工具功能的详细描述"
                 },
                 "parameters_schema": {
                     "type": "object",
                     "title": "参数模式",
-                    "description": "工具参数的JSON Schema定义",
-                    "properties": {
-                        "type": {"type": "string"},
-                        "properties": {"type": "object"},
-                        "required": {"type": "array", "items": {"type": "string"}}
-                    }
+                    "description": "工具参数的JSON Schema定义"
                 },
                 "tool_type": {
                     "type": "string",
                     "title": "工具类型",
                     "description": "工具的实现类型",
-                    "enum": ["builtin", "native", "rest", "mcp"],
-                    "default": "native"
+                    "enum": ["builtin", "native", "rest", "mcp"]
                 },
                 "enabled": {
                     "type": "boolean",
                     "title": "是否启用",
-                    "description": "是否启用此工具",
-                    "default": True
+                    "description": "是否启用此工具"
                 },
                 "timeout": {
                     "type": "integer",
                     "title": "超时时间",
                     "description": "工具执行的超时时间（秒）",
-                    "minimum": 1,
-                    "maximum": 3600,
-                    "default": 30
+                    "minimum": 1
                 },
                 "metadata": {
                     "type": "object",
                     "title": "元数据",
-                    "description": "工具的额外元数据信息",
-                    "additionalProperties": True
+                    "description": "工具的额外元数据信息"
                 }
-            },
-            "allOf": [
-                {
-                    "if": {"properties": {"tool_type": {"const": "builtin"}}},
-                    "then": {
-                        "properties": {
-                            "function_path": {
-                                "type": "string",
-                                "title": "函数路径",
-                                "description": "内置工具函数的导入路径",
-                                "minLength": 1
-                            }
-                        },
-                        "required": ["function_path"]
-                    }
-                },
-                {
-                    "if": {"properties": {"tool_type": {"const": "native"}}},
-                    "then": {
-                        "properties": {
-                            "function_path": {
-                                "type": "string",
-                                "title": "函数路径",
-                                "description": "原生工具函数的导入路径",
-                                "minLength": 1
-                            },
-                            "state_config": {
-                                "type": "object",
-                                "title": "状态配置",
-                                "description": "状态管理器配置",
-                                "properties": {
-                                    "manager_type": {
-                                        "type": "string",
-                                        "enum": ["memory", "persistent", "session", "distributed"],
-                                        "default": "memory"
-                                    },
-                                    "ttl": {"type": "integer", "minimum": 0},
-                                    "auto_cleanup": {"type": "boolean", "default": True},
-                                    "cleanup_interval": {"type": "integer", "minimum": 1, "default": 300}
-                                }
-                            },
-                            "business_config": {
-                                "type": "object",
-                                "title": "业务状态配置",
-                                "description": "业务状态管理配置",
-                                "properties": {
-                                    "max_history_size": {"type": "integer", "minimum": 1, "default": 1000},
-                                    "max_state_size": {"type": "integer", "minimum": 1, "default": 1048576},
-                                    "state_compression": {"type": "boolean", "default": False},
-                                    "versioning": {"type": "boolean", "default": True},
-                                    "max_versions": {"type": "integer", "minimum": 1, "default": 10},
-                                    "auto_save": {"type": "boolean", "default": True}
-                                }
-                            },
-                            "state_injection": {
-                                "type": "boolean",
-                                "title": "状态注入",
-                                "description": "是否自动注入状态参数",
-                                "default": True
-                            },
-                            "state_parameter_name": {
-                                "type": "string",
-                                "title": "状态参数名称",
-                                "description": "状态参数的名称",
-                                "default": "state"
-                            }
-                        },
-                        "required": ["function_path"]
-                    }
-                },
-                {
-                    "if": {"properties": {"tool_type": {"const": "rest"}}},
-                    "then": {
-                        "properties": {
-                            "api_url": {
-                                "type": "string",
-                                "title": "API URL",
-                                "description": "REST API的端点URL",
-                                "format": "uri",
-                                "minLength": 1
-                            },
-                            "method": {
-                                "type": "string",
-                                "title": "HTTP方法",
-                                "description": "HTTP请求方法",
-                                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
-                                "default": "POST"
-                            },
-                            "headers": {
-                                "type": "object",
-                                "title": "请求头",
-                                "description": "HTTP请求头",
-                                "additionalProperties": {"type": "string"}
-                            },
-                            "auth_method": {
-                                "type": "string",
-                                "title": "认证方法",
-                                "description": "API认证方法",
-                                "enum": ["api_key", "api_key_header", "oauth", "none"],
-                                "default": "api_key"
-                            },
-                            "api_key": {
-                                "type": "string",
-                                "title": "API密钥",
-                                "description": "API认证密钥"
-                            },
-                            "retry_count": {
-                                "type": "integer",
-                                "title": "重试次数",
-                                "description": "请求失败时的重试次数",
-                                "minimum": 0,
-                                "maximum": 10,
-                                "default": 3
-                            },
-                            "retry_delay": {
-                                "type": "number",
-                                "title": "重试延迟",
-                                "description": "重试之间的延迟时间（秒）",
-                                "minimum": 0,
-                                "maximum": 60,
-                                "default": 1.0
-                            },
-                            "state_config": {
-                                "type": "object",
-                                "title": "状态配置",
-                                "description": "连接状态管理配置",
-                                "properties": {
-                                    "manager_type": {
-                                        "type": "string",
-                                        "enum": ["memory", "persistent", "session", "distributed"],
-                                        "default": "memory"
-                                    },
-                                    "ttl": {"type": "integer", "minimum": 0},
-                                    "auto_cleanup": {"type": "boolean", "default": True},
-                                    "cleanup_interval": {"type": "integer", "minimum": 1, "default": 300}
-                                }
-                            }
-                        },
-                        "required": ["api_url"]
-                    }
-                },
-                {
-                    "if": {"properties": {"tool_type": {"const": "mcp"}}},
-                    "then": {
-                        "properties": {
-                            "mcp_server_url": {
-                                "type": "string",
-                                "title": "MCP服务器URL",
-                                "description": "MCP服务器的连接URL",
-                                "format": "uri",
-                                "minLength": 1
-                            },
-                            "dynamic_schema": {
-                                "type": "boolean",
-                                "title": "动态模式",
-                                "description": "是否动态获取工具模式",
-                                "default": False
-                            },
-                            "refresh_interval": {
-                                "type": "integer",
-                                "title": "刷新间隔",
-                                "description": "模式刷新间隔（秒）",
-                                "minimum": 1,
-                                "maximum": 86400
-                            },
-                            "state_config": {
-                                "type": "object",
-                                "title": "状态配置",
-                                "description": "MCP连接状态管理配置",
-                                "properties": {
-                                    "manager_type": {
-                                        "type": "string",
-                                        "enum": ["memory", "persistent", "session", "distributed"],
-                                        "default": "memory"
-                                    },
-                                    "ttl": {"type": "integer", "minimum": 0},
-                                    "auto_cleanup": {"type": "boolean", "default": True},
-                                    "cleanup_interval": {"type": "integer", "minimum": 1, "default": 300}
-                                }
-                            }
-                        },
-                        "required": ["mcp_server_url"]
-                    }
-                }
-            ]
+            }
         }
     
-    def get_registry_config_schema(self) -> Dict[str, Any]:
-        """获取工具注册表配置模式
+    def _get_base_registry_config_schema(self) -> Dict[str, Any]:
+        """获取基础工具注册表配置模式
         
         Returns:
-            工具注册表配置模式字典
+            基础工具注册表配置模式字典
         """
         return {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -303,105 +207,65 @@ class ToolsSchema(BaseSchema):
                 "auto_discover": {
                     "type": "boolean",
                     "title": "自动发现",
-                    "description": "是否自动发现工具",
-                    "default": True
+                    "description": "是否自动发现工具"
                 },
                 "discovery_paths": {
                     "type": "array",
                     "title": "发现路径",
                     "description": "工具发现的路径列表",
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    },
-                    "default": []
+                    "items": {"type": "string"}
                 },
                 "reload_on_change": {
                     "type": "boolean",
                     "title": "变化时重新加载",
-                    "description": "配置文件变化时是否自动重新加载",
-                    "default": False
+                    "description": "配置文件变化时是否自动重新加载"
                 },
                 "tools": {
                     "type": "array",
                     "title": "工具列表",
                     "description": "显式配置的工具列表",
-                    "items": {
-                        "$ref": "#/definitions/tool_config"
-                    },
-                    "default": []
+                    "items": {"type": "object"}
                 },
                 "max_tools": {
                     "type": "integer",
                     "title": "最大工具数",
                     "description": "允许加载的最大工具数量",
-                    "minimum": 1,
-                    "maximum": 10000,
-                    "default": 1000
+                    "minimum": 1
                 },
                 "enable_caching": {
                     "type": "boolean",
                     "title": "启用缓存",
-                    "description": "是否启用工具配置缓存",
-                    "default": True
+                    "description": "是否启用工具配置缓存"
                 },
                 "cache_ttl": {
                     "type": "integer",
                     "title": "缓存生存时间",
                     "description": "配置缓存的生存时间（秒）",
-                    "minimum": 1,
-                    "maximum": 86400,
-                    "default": 300
+                    "minimum": 1
                 },
                 "allow_dynamic_loading": {
                     "type": "boolean",
                     "title": "允许动态加载",
-                    "description": "是否允许运行时动态加载工具",
-                    "default": True
+                    "description": "是否允许运行时动态加载工具"
                 },
                 "validate_schemas": {
                     "type": "boolean",
                     "title": "验证模式",
-                    "description": "是否验证工具参数模式",
-                    "default": True
+                    "description": "是否验证工具参数模式"
                 },
                 "sandbox_mode": {
                     "type": "boolean",
                     "title": "沙盒模式",
-                    "description": "是否在沙盒模式下运行工具",
-                    "default": False
-                }
-            },
-            "definitions": {
-                "tool_config": {
-                    "$ref": "#/definitions/tool_base_config"
-                }
-            },
-            "definitions": {
-                "tool_base_config": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "minLength": 1},
-                        "description": {"type": "string"},
-                        "parameters_schema": {"type": "object"},
-                        "tool_type": {
-                            "type": "string",
-                            "enum": ["builtin", "native", "rest", "mcp"]
-                        },
-                        "enabled": {"type": "boolean"},
-                        "timeout": {"type": "integer", "minimum": 1},
-                        "metadata": {"type": "object"}
-                    },
-                    "required": ["name", "description", "parameters_schema", "tool_type"]
+                    "description": "是否在沙盒模式下运行工具"
                 }
             }
         }
     
-    def get_toolset_config_schema(self) -> Dict[str, Any]:
-        """获取工具集配置模式
+    def _get_base_toolset_config_schema(self) -> Dict[str, Any]:
+        """获取基础工具集配置模式
         
         Returns:
-            工具集配置模式字典
+            基础工具集配置模式字典
         """
         return {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -413,39 +277,29 @@ class ToolsSchema(BaseSchema):
                 "name": {
                     "type": "string",
                     "title": "工具集名称",
-                    "description": "工具集的唯一标识名称",
-                    "minLength": 1,
-                    "maxLength": 100,
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$"
+                    "description": "工具集的唯一标识名称"
                 },
                 "description": {
                     "type": "string",
                     "title": "工具集描述",
-                    "description": "工具集功能的详细描述",
-                    "minLength": 1,
-                    "maxLength": 500
+                    "description": "工具集功能的详细描述"
                 },
                 "tools": {
                     "type": "array",
                     "title": "工具列表",
                     "description": "工具集中包含的工具名称列表",
-                    "items": {
-                        "type": "string",
-                        "minLength": 1
-                    },
+                    "items": {"type": "string"},
                     "minItems": 1
                 },
                 "enabled": {
                     "type": "boolean",
                     "title": "是否启用",
-                    "description": "是否启用此工具集",
-                    "default": True
+                    "description": "是否启用此工具集"
                 },
                 "metadata": {
                     "type": "object",
                     "title": "元数据",
-                    "description": "工具集的额外元数据信息",
-                    "additionalProperties": True
+                    "description": "工具集的额外元数据信息"
                 }
             }
         }
