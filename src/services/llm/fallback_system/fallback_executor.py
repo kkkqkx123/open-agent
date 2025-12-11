@@ -10,7 +10,7 @@ from src.infrastructure.messages.base import BaseMessage
 
 from src.interfaces.llm import IFallbackStrategy, IClientFactory, IFallbackLogger, LLMResponse
 # 从基础设施层导入降级配置和策略
-from src.infrastructure.llm.fallback import FallbackConfig, FallbackAttempt, FallbackSession, create_fallback_strategy
+from src.infrastructure.llm.fallback import FallbackConfig, FallbackAttempt, FallbackSession, FallbackEngine
 
 # 修复导入路径
 from src.interfaces.llm.exceptions import LLMCallError
@@ -52,7 +52,7 @@ class FallbackExecutor:
             return
             
         if self.config:
-            self._strategy = create_fallback_strategy(self.config)
+            self._engine = FallbackEngine(self.config)
             
         self._strategies_initialized = True
     
@@ -256,7 +256,7 @@ class FallbackExecutor:
             config: 新的降级配置
         """
         self.config = config
-        self._strategy = create_fallback_strategy(config)
+        self._engine = FallbackEngine(config)
         self._strategies_initialized = False  # 重新初始化策略
     
     def is_enabled(self) -> bool:

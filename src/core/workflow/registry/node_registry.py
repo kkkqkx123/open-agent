@@ -86,13 +86,14 @@ class BaseNode:
         Returns:
             合并后的配置
         """
-        from src.core.workflow.config.node_config_loader import get_node_config_loader
+        # TODO: 修复 node_config_loader 模块缺失问题
+        # from src.core.workflow.config.node_config_loader import get_node_config_loader
         
         # 获取节点配置加载器
-        config_loader = get_node_config_loader()
+        # config_loader = get_node_config_loader()
         
         # 如果配置加载器不可用，直接返回运行时配置
-        if config_loader is None:
+        # if config_loader is None:
             return runtime_config
         
         # 获取默认配置并合并

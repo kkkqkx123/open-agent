@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
-from core.workflow.execution.core.execution_context import BatchExecutionResult, ExecutionResult, NodeResult
+from src.core.workflow.execution.core.execution_context import BatchExecutionResult, ExecutionResult, NodeResult
 
 from .strategy_base import BaseStrategy, IExecutionStrategy
 

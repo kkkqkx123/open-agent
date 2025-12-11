@@ -8,7 +8,7 @@ from enum import Enum
 from src.interfaces.config import ConfigError, ConfigurationValidationError as ConfigValidationError
 from src.infrastructure.error_management import handle_error, ErrorCategory, ErrorSeverity
 from src.interfaces.logger import ILogger
-from ..interfaces import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 # 通过依赖注入获取日志记录器
 logger: ILogger = get_logger(__name__)

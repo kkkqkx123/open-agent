@@ -10,7 +10,7 @@ from src.infrastructure.error_management import (
     BaseErrorHandler, ErrorCategory, ErrorSeverity,
     register_error_handler
 )
-from src.interfaces.configuration import (
+from src.interfaces.config import (
     ConfigError, ConfigurationValidationError as ConfigValidationError,
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationInheritanceError as ConfigInheritanceError,

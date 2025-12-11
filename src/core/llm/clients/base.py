@@ -277,7 +277,7 @@ class BaseLLMClient(ILLMClient):
             
         try:
             # 通过依赖注入获取Token计算服务提供者
-            from ...interfaces import calculate_messages_tokens
+            from src.interfaces.dependency_injection import calculate_messages_tokens
             
             # 计算消息列表的token数量
             token_count = calculate_messages_tokens(

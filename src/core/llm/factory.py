@@ -405,3 +405,7 @@ def get_cached_client(model_name: str) -> Optional[ILLMClient]:
         Optional[ILLMClient]: 缓存的客户端实例
     """
     return get_global_factory_new().get_cached_client(model_name)
+
+
+# 为了向后兼容，提供LLMFactory别名
+LLMFactory = LLMFactoryNew

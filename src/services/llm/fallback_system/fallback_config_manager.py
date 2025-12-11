@@ -5,7 +5,7 @@
 
 from typing import List, Optional, Dict, Any
 from src.interfaces.llm import IClientFactory
-from .fallback_config import FallbackConfig
+from src.infrastructure.llm.fallback import FallbackConfig
 
 
 class FallbackConfigManager:

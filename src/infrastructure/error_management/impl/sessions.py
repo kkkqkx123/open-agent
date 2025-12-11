@@ -18,7 +18,7 @@ from src.interfaces.sessions.exceptions import (
     WorkflowExecutionError,
     SynchronizationError
 )
-from src.interfaces.configuration import ConfigurationValidationError
+from src.interfaces.config import ConfigurationValidationError
 
 logger = get_logger(__name__)
 

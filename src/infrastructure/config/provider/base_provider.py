@@ -3,6 +3,7 @@
 定义配置提供者的基础实现类，提供配置获取、缓存和模型转换的通用框架。
 """
 
+from abc import abstractmethod
 from typing import Dict, Any, Optional, Type, Union
 from pathlib import Path
 import logging

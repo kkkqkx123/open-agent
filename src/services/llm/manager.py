@@ -10,7 +10,7 @@ from src.services.logger.injection import get_logger
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
 from src.interfaces.messages import IBaseMessage
 from src.core.llm.factory import LLMFactory
-from src.core.llm.config import LLMClientConfig
+from src.infrastructure.llm.config.models import LLMClientConfig
 from src.interfaces.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
@@ -18,7 +18,7 @@ from src.core.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
-from src.interfaces.configuration import ValidationResult
+from src.interfaces.common_domain import ValidationResult
 
 logger = get_logger(__name__)
 

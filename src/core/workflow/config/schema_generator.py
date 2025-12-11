@@ -7,7 +7,8 @@ from typing import Dict, Any, List, Optional
 from src.services.logger.injection import get_logger
 from pathlib import Path
 
-from .node_config_loader import get_node_config_loader
+# TODO: 修复 node_config_loader 模块缺失问题
+# from .node_config_loader import get_node_config_loader
 
 logger = get_logger(__name__)
 
@@ -17,7 +18,9 @@ class SchemaGenerator:
     
     def __init__(self):
         """初始化Schema生成器"""
-        self._config_loader = get_node_config_loader()
+        # TODO: 修复 node_config_loader 模块缺失问题
+        # self._config_loader = get_node_config_loader()
+        self._config_loader = None
         self._schema_cache: Dict[str, Dict[str, Any]] = {}
     
     def generate_schema_from_config(self, node_type: str) -> Dict[str, Any]:
@@ -34,6 +37,10 @@ class SchemaGenerator:
             return self._schema_cache[node_type]
         
         # 获取节点配置
+        if self._config_loader is None:
+            logger.warning(f"配置加载器不可用，使用默认Schema")
+            return self._get_default_schema()
+            
         config = self._config_loader.get_config(node_type)
         if not config:
             logger.warning(f"未找到节点 {node_type} 的配置，使用默认Schema")

@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 
-from src.interfaces.configuration import IConfigManager, IConfigValidator, ConfigError
+from src.interfaces.config import IConfigManager, IConfigValidator, ConfigError
 from src.interfaces.common_domain import ValidationResult
 from src.core.config.config_manager import ConfigManager, get_default_manager
 

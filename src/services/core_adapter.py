@@ -15,7 +15,7 @@ def initialize_core_dependencies() -> None:
     
     将Service层的依赖设置到Core层。
     """
-    from src.core.interfaces import set_logger_provider, set_token_calculator
+    from src.interfaces import set_logger_provider, set_token_calculator
     
     # 设置日志提供者
     def logger_provider(name: Optional[str] = None) -> ILogger:
@@ -27,20 +27,40 @@ def initialize_core_dependencies() -> None:
     def token_calculator(messages: Any, model_type: str, model_name: str) -> int:
         try:
             token_service = get_token_calculation_service()
-            return token_service.calculate_messages_tokens(
-                messages,
-                model_type,
-                model_name
-            )
+            # TokenCalculationService使用calculate_messages_tokens方法
+            if hasattr(token_service, 'calculate_messages_tokens'):
+                # 如果是消息列表，使用calculate_messages_tokens方法
+                if isinstance(messages, list):
+                    return token_service.calculate_messages_tokens(messages, model_type, model_name)
+                else:
+                    # 单个消息或文本，使用calculate_tokens方法
+                    return token_service.calculate_tokens(str(messages), model_type, model_name)
+            else:
+                # 如果没有相应方法，返回估算值
+                if not messages:
+                    return 0
+                
+                total_chars = 0
+                if isinstance(messages, list):
+                    for message in messages:
+                        if hasattr(message, 'content') and message.content:
+                            total_chars += len(str(message.content))
+                else:
+                    total_chars = len(str(messages))
+                
+                return max(1, total_chars // 4)
         except Exception:
             # 如果服务不可用，返回估算值
             if not messages:
                 return 0
             
             total_chars = 0
-            for message in messages:
-                if hasattr(message, 'content') and message.content:
-                    total_chars += len(str(message.content))
+            if isinstance(messages, list):
+                for message in messages:
+                    if hasattr(message, 'content') and message.content:
+                        total_chars += len(str(message.content))
+            else:
+                total_chars = len(str(messages))
             
             return max(1, total_chars // 4)
     
@@ -49,7 +69,7 @@ def initialize_core_dependencies() -> None:
 
 def clear_core_dependencies() -> None:
     """清除Core层依赖"""
-    from src.core.interfaces import clear_providers
+    from src.interfaces.dependency_injection import clear_providers
     
     clear_providers()
 

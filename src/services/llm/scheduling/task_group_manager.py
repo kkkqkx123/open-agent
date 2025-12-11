@@ -7,7 +7,7 @@ from src.services.logger.injection import get_logger
 from typing import Dict, Any, Optional, List, Tuple
 
 from src.interfaces.llm import ITaskGroupManager
-from ..config.config_manager import ConfigManager
+from src.core.config.config_manager import ConfigManager
 
 logger = get_logger(__name__)
 

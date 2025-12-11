@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
 
 from src.interfaces.logger import ILogger
-from ...interfaces import get_logger
+from src.interfaces.dependency_injection import get_logger
 
 
 class IRegistry(ABC):

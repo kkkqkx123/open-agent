@@ -35,11 +35,12 @@ from .impl import (
     ThreadBackend
 )
 
+# TODO: 修复 factory 模块缺失问题
 # 工厂层
-from .factory import (
-    StorageBackendFactory,
-    BackendRegistry
-)
+# from .factory import (
+#     StorageBackendFactory,
+#     BackendRegistry
+# )
 
 __all__ = [
     # 接口层
@@ -66,6 +67,6 @@ __all__ = [
     "ThreadBackend",
     
     # 工厂层
-    "StorageBackendFactory",
-    "BackendRegistry"
+    # "StorageBackendFactory",
+    # "BackendRegistry"
 ]

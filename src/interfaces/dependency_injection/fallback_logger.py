@@ -4,9 +4,74 @@
 """
 
 import sys
+from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from src.interfaces.logger import ILogger, IBaseHandler, ILogRedactor
+# 避免循环导入，直接定义接口
+class IBaseHandler(ABC):
+    @abstractmethod
+    def handle(self, record: dict) -> None:
+        pass
+    
+    @abstractmethod
+    def set_level(self, level: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def set_formatter(self, formatter: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def flush(self) -> None:
+        pass
+    
+    @abstractmethod
+    def close(self) -> None:
+        pass
+
+
+class ILogRedactor(ABC):
+    @abstractmethod
+    def redact(self, text: str, level: str = "INFO") -> str:
+        pass
+
+
+class ILogger(ABC):
+    @abstractmethod
+    def debug(self, message: str, **kwargs: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def info(self, message: str, **kwargs: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def warning(self, message: str, **kwargs: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def error(self, message: str, **kwargs: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def critical(self, message: str, **kwargs: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def set_level(self, level: Any) -> None:
+        pass
+    
+    @abstractmethod
+    def add_handler(self, handler: IBaseHandler) -> None:
+        pass
+    
+    @abstractmethod
+    def remove_handler(self, handler: IBaseHandler) -> None:
+        pass
+    
+    @abstractmethod
+    def set_redactor(self, redactor: ILogRedactor) -> None:
+        pass
 
 
 class FallbackLogger(ILogger):

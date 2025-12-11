@@ -7,7 +7,7 @@ from typing import Optional
 from src.interfaces.llm import IFallbackStrategy
 # 从基础设施层导入降级配置
 from src.infrastructure.llm.fallback import FallbackConfig
-from .strategies import create_fallback_strategy
+from src.infrastructure.llm.fallback import FallbackEngine
 
 # Services 层的导入
 from src.interfaces.llm import ITaskGroupManager, IPollingPoolManager
@@ -60,7 +60,7 @@ class FallbackStrategyManager:
             
         # Core 层策略初始化
         if self.config:
-            self._strategy = create_fallback_strategy(self.config)
+            self._engine = FallbackEngine(self.config)
         
         # Services 层策略初始化
         if self.task_group_manager:
@@ -108,7 +108,7 @@ class FallbackStrategyManager:
             config: 新的降级配置
         """
         self.config = config
-        self._strategy = create_fallback_strategy(config)
+        self._engine = FallbackEngine(config)
         self._strategies_initialized = False  # 重新初始化策略
     
     def update_task_group_manager(self, task_group_manager: ITaskGroupManager) -> None:

@@ -8,9 +8,11 @@ from typing import Any, Dict, Optional, Type, Union
 from src.interfaces.state.manager import IStateManager
 from src.interfaces.storage import IStateStorageAdapter as IStorageAdapter
 from ..core.state_manager import StateManager
-from src.adapters.storage.backends.memory_backend import MemoryStorageBackend
-from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
-from src.adapters.storage.backends.file_backend import FileStorageBackend
+# TODO: 修复 memory_backend 和 sqlite_backend 模块缺失问题
+# from src.adapters.storage.backends.memory_backend import MemoryStorageBackend
+# from src.adapters.storage.backends.sqlite_backend import SQLiteStorageBackend
+# TODO: 修复 file_backend 模块缺失问题
+# from src.adapters.storage.backends.file_backend import FileStorageBackend
 
 
 class StateManagerFactory:

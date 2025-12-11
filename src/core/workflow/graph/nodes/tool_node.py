@@ -12,7 +12,8 @@ from src.infrastructure.graph.nodes import SyncNode
 from src.interfaces.workflow.graph import NodeExecutionResult
 from src.interfaces.state.base import IState
 from src.interfaces.tool.base import IToolRegistry, ToolCall, ToolResult
-from src.core.workflow.config.node_config_loader import get_node_config_loader
+# TODO: 修复 node_config_loader 模块缺失问题
+# from src.core.workflow.config.node_config_loader import get_node_config_loader
 
 logger = get_logger(__name__)
 

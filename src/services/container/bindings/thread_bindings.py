@@ -154,7 +154,8 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
     
     # 延迟导入具体实现，避免循环依赖
     def create_primary_backend() -> 'ThreadBackend':
-        from src.adapters.storage.backends.factory import StorageBackendFactory
+        # TODO: 修复 factory 模块缺失问题
+        # from src.adapters.storage.backends.factory import StorageBackendFactory
         from src.adapters.storage.backends import ThreadBackend
         
         factory = StorageBackendFactory()
@@ -182,7 +183,8 @@ def _register_thread_backends(container: Any, config: Dict[str, Any], environmen
         secondary_types = config.get("thread", {}).get("secondary_backends", [])
         
         for backend_type in secondary_types:
-            from src.adapters.storage.backends.factory import StorageBackendFactory
+            # TODO: 修复 factory 模块缺失问题
+            # from src.adapters.storage.backends.factory import StorageBackendFactory
             from src.adapters.storage.backends import ThreadBackend
             
             factory = StorageBackendFactory()
