@@ -8,8 +8,9 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 import logging
 
-from .base_impl import BaseConfigImpl, ConfigSchema, ConfigProcessorChain
+from .base_impl import BaseConfigImpl, ConfigProcessorChain
 from src.interfaces.config import IConfigLoader, IConfigProcessor
+from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.exceptions import ConfigError
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class ToolsConfigImpl(BaseConfigImpl):
     def __init__(self,
                  config_loader: IConfigLoader,
                  processor_chain: ConfigProcessorChain | None = None,
-                 schema: ConfigSchema | None = None):
+                 schema: IConfigSchema | None = None):
         """初始化工具配置实现
         
         Args:
@@ -38,7 +39,8 @@ class ToolsConfigImpl(BaseConfigImpl):
         
         # 如果没有提供模式，创建一个默认的
         if schema is None:
-            schema = ConfigSchema()
+            from ..schema.base_schema import BaseSchema
+            schema = BaseSchema()
         
         super().__init__("tools", config_loader, processor_chain, schema)
         

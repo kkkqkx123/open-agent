@@ -14,8 +14,8 @@ from .config_factory import ConfigFactory
 
 # 配置实现层
 from .impl import (
-    BaseConfigImpl, IConfigImpl, IConfigSchema, IConfigProcessorChain,
-    ConfigProcessorChain, ConfigSchema,
+    BaseConfigImpl, IConfigImpl, IConfigProcessorChain,
+    ConfigProcessorChain,
     LLMConfigImpl, WorkflowConfigImpl, GraphConfigImpl,
     NodeConfigImpl, EdgeConfigImpl, ToolsConfigImpl
 )
@@ -28,7 +28,7 @@ from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProc
 
 # 配置提供者层
 from .provider import (
-    BaseConfigProvider, IConfigProvider, CommonConfigProvider,
+    BaseConfigProvider, IConfigProvider,
     LLMConfigProvider, WorkflowConfigProvider, GraphConfigProvider,
     NodeConfigProvider, EdgeConfigProvider, ToolsConfigProvider
 )
@@ -51,10 +51,8 @@ __all__ = [
     # 配置实现层
     "BaseConfigImpl",
     "IConfigImpl",
-    "IConfigSchema",
     "IConfigProcessorChain",
     "ConfigProcessorChain",
-    "ConfigSchema",
     "LLMConfigImpl",
     "WorkflowConfigImpl",
     "GraphConfigImpl",
@@ -76,7 +74,6 @@ __all__ = [
     # 配置提供者层
     "BaseConfigProvider",
     "IConfigProvider",
-    "CommonConfigProvider",
     "LLMConfigProvider",
     "WorkflowConfigProvider",
     "GraphConfigProvider",

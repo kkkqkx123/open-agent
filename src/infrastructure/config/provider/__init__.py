@@ -6,8 +6,6 @@
 # 基础提供者
 from .base_provider import BaseConfigProvider, IConfigProvider
 
-# 通用提供者
-from .common_provider import CommonConfigProvider
 
 # LLM配置提供者
 from .llm_config_provider import LLMConfigProvider
@@ -32,8 +30,6 @@ __all__ = [
     "BaseConfigProvider",
     "IConfigProvider",
     
-    # 通用提供者
-    "CommonConfigProvider",
     
     # LLM配置提供者
     "LLMConfigProvider",

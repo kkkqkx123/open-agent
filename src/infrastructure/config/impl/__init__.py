@@ -4,7 +4,7 @@
 """
 
 # 基础实现
-from .base_impl import BaseConfigImpl, IConfigImpl, IConfigSchema, IConfigProcessorChain, ConfigProcessorChain, ConfigSchema
+from .base_impl import BaseConfigImpl, IConfigImpl, IConfigProcessorChain, ConfigProcessorChain
 
 # LLM配置实现
 from .llm_config_impl import LLMConfigImpl
@@ -28,10 +28,8 @@ __all__ = [
     # 基础实现
     "BaseConfigImpl",
     "IConfigImpl",
-    "IConfigSchema",
     "IConfigProcessorChain",
     "ConfigProcessorChain",
-    "ConfigSchema",
     
     # LLM配置实现
     "LLMConfigImpl",

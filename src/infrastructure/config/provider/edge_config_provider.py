@@ -3,18 +3,14 @@
 提供Edge模块的配置获取、缓存和管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List
 import logging
 import time
 from threading import RLock
-from datetime import datetime
 
 from .base_provider import BaseConfigProvider
 from ..impl.edge_config_impl import EdgeConfigImpl
 from ..impl.base_impl import IConfigImpl
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -181,16 +177,21 @@ class EdgeConfigProvider(BaseConfigProvider):
             
             return node_refs
     
-    def get_config_value(self, key: str, default: Any = None) -> Any:
+    def get_config_value(self, config_name: str, key: str, default: Any = None) -> Any:
         """获取配置值
         
         Args:
+            config_name: 配置名称
             key: 配置键
             default: 默认值
             
         Returns:
             配置值
         """
+        # 对于Edge提供者，如果config_name不是"edge"，则使用基类方法
+        if config_name != "edge":
+            return super().get_config_value(config_name, key, default)
+        
         config = self.get_config("edge")
         if key in config:
             return config[key]
@@ -343,15 +344,15 @@ class EdgeConfigProvider(BaseConfigProvider):
         
         # 添加Edge特定的统计信息
         edge_stats = {
-            "edge_name": self.get_config_value("name"),
-            "edge_type": self.get_config_value("type"),
-            "from_node": self.get_config_value("from"),
-            "to_node": self.get_config_value("to"),
-            "timeout": self.get_config_value("timeout"),
-            "retry_attempts": self.get_config_value("retry_attempts"),
-            "enable_tracing": self.get_config_value("enable_tracing", False),
-            "has_condition": self.get_config_value("has_condition", False),
-            "has_path_map": self.get_config_value("has_path_map", False),
+            "edge_name": self.get_config_value("edge", "name"),
+            "edge_type": self.get_config_value("edge", "type"),
+            "from_node": self.get_config_value("edge", "from"),
+            "to_node": self.get_config_value("edge", "to"),
+            "timeout": self.get_config_value("edge", "timeout"),
+            "retry_attempts": self.get_config_value("edge", "retry_attempts"),
+            "enable_tracing": self.get_config_value("edge", "enable_tracing", False),
+            "has_condition": self.get_config_value("edge", "has_condition", False),
+            "has_path_map": self.get_config_value("edge", "has_path_map", False),
             "cache_stats": self.get_cache_stats()
         }
         

@@ -26,6 +26,14 @@ class BaseSchema(IConfigSchema):
         """
         self.schema_definition = schema_definition or {}
     
+    def get_schema_type(self) -> str:
+        """获取模式类型
+        
+        Returns:
+            str: 模式类型
+        """
+        return "base"
+    
     def validate(self, config: Dict[str, Any]) -> ValidationResult:
         """验证配置
         

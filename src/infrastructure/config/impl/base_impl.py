@@ -10,7 +10,7 @@ import logging
 
 from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationResult
 from src.interfaces.common_domain import ValidationResult as CommonValidationResult
-from src.interfaces.config.schema import ISchemaGenerator
+from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
 from src.interfaces.config.provider import IConfigProvider
 
 logger = logging.getLogger(__name__)

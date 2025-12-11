@@ -215,16 +215,21 @@ class NodeConfigProvider(BaseConfigProvider):
             
             return io_mapping
     
-    def get_config_value(self, key: str, default: Any = None) -> Any:
+    def get_config_value(self, config_name: str, key: str, default: Any = None) -> Any:
         """获取配置值
         
         Args:
+            config_name: 配置名称
             key: 配置键
             default: 默认值
             
         Returns:
             配置值
         """
+        # 对于Node提供者，如果config_name不是"node"，则使用基类方法
+        if config_name != "node":
+            return super().get_config_value(config_name, key, default)
+        
         config = self.get_config("node")
         if key in config:
             return config[key]
@@ -390,12 +395,12 @@ class NodeConfigProvider(BaseConfigProvider):
         
         # 添加Node特定的统计信息
         node_stats = {
-            "node_name": self.get_config_value("name"),
-            "node_type": self.get_config_value("type"),
-            "function_name": self.get_config_value("function_name"),
-            "timeout": self.get_config_value("timeout"),
-            "retry_attempts": self.get_config_value("retry_attempts"),
-            "enable_tracing": self.get_config_value("enable_tracing", False),
+            "node_name": self.get_config_value("node", "name"),
+            "node_type": self.get_config_value("node", "type"),
+            "function_name": self.get_config_value("node", "function_name"),
+            "timeout": self.get_config_value("node", "timeout"),
+            "retry_attempts": self.get_config_value("node", "retry_attempts"),
+            "enable_tracing": self.get_config_value("node", "enable_tracing", False),
             "cache_stats": self.get_cache_stats()
         }
         

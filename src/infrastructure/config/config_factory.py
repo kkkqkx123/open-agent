@@ -9,7 +9,8 @@ import logging
 
 from .config_registry import ConfigRegistry
 from .config_loader import ConfigLoader
-from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain, ConfigSchema
+from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain
+from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.processor import IConfigProcessor
 from src.interfaces.config.schema import ISchemaGenerator
 from src.interfaces.config.provider import IConfigProvider
@@ -18,8 +19,7 @@ from .processor.transformation_processor import TransformationProcessor, TypeCon
 from .processor.environment_processor import EnvironmentProcessor
 from .processor.inheritance_processor import InheritanceProcessor
 from .processor.reference_processor import ReferenceProcessor
-from .provider.base_provider import BaseConfigProvider, IConfigProvider
-from .provider.common_provider import CommonConfigProvider
+from .provider.base_provider import BaseConfigProvider
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +92,11 @@ class ConfigFactory:
             "validation"
         ])
     
-    def create_config_implementation(self, 
+    def create_config_implementation(self,
                                    module_type: str,
                                    config_loader: Optional[ConfigLoader] = None,
                                    processor_chain: Optional[ConfigProcessorChain] = None,
-                                   schema: Optional[ConfigSchema] = None) -> BaseConfigImpl:
+                                   schema: Optional[IConfigSchema] = None) -> BaseConfigImpl:
         """创建配置实现
         
         Args:
@@ -113,7 +113,8 @@ class ConfigFactory:
         
         # 如果没有schema，创建一个默认的空schema
         if schema is None:
-            schema = ConfigSchema()
+            from .schema.base_schema import BaseSchema
+            schema = BaseSchema()
         
         impl = BaseConfigImpl(module_type, loader, chain, schema)
         
@@ -145,11 +146,11 @@ class ConfigFactory:
             # 如果没有实现，创建一个默认的
             impl = self.create_config_implementation(module_type)
         
-        # 使用指定的提供者类或默认的通用提供者
+        # 使用指定的提供者类或默认的基类提供者
         if provider_class:
             provider: IConfigProvider = provider_class(module_type, impl, **kwargs)
         else:
-            provider = CommonConfigProvider(module_type, impl, **kwargs)
+            provider = BaseConfigProvider(module_type, impl, **kwargs)
         
         # 注册到注册表
         self.registry.register_provider(module_type, provider)
@@ -159,7 +160,7 @@ class ConfigFactory:
     
     def register_module_config(self,
                                module_type: str,
-                               schema: Optional[ConfigSchema] = None,
+                               schema: Optional[IConfigSchema] = None,
                                processor_names: Optional[List[str]] = None,
                                provider_class: Optional[Type['BaseConfigProvider']] = None,
                                **kwargs: Any) -> None:

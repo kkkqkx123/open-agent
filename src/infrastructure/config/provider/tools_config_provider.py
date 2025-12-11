@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional, List
 import logging
 
 from .base_provider import BaseConfigProvider
-from .common_provider import CommonConfigProvider
 from ..impl.tools_config_impl import ToolsConfigImpl
 from ..impl.base_impl import IConfigImpl
 from src.interfaces.config.exceptions import ConfigError

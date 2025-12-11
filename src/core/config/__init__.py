@@ -20,8 +20,6 @@ from .config_manager_factory import (
 from .models import (
     BaseConfig,
     LLMConfig,
-    ToolConfig,
-    ToolSetConfig,
     GlobalConfig,
 )
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
@@ -63,8 +61,6 @@ __all__ = [
     # 配置模型
     "BaseConfig",
     "LLMConfig",
-    "ToolConfig",
-    "ToolSetConfig",
     "GlobalConfig",
     
     # 基础设施组件

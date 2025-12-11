@@ -3,7 +3,7 @@
 提供Graph模块的配置获取、缓存和管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List
 import logging
 import time
 from threading import RLock
@@ -12,9 +12,6 @@ from datetime import datetime
 from .base_provider import BaseConfigProvider
 from ..impl.graph_config_impl import GraphConfigImpl
 from ..impl.base_impl import IConfigImpl
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -181,16 +178,21 @@ class GraphConfigProvider(BaseConfigProvider):
             
             return state_schema
     
-    def get_config_value(self, key: str, default: Any = None) -> Any:
+    def get_config_value(self, config_name: str, key: str, default: Any = None) -> Any:
         """获取配置值
         
         Args:
+            config_name: 配置名称
             key: 配置键
             default: 默认值
             
         Returns:
             配置值
         """
+        # 对于Graph提供者，如果config_name不是"graph"，则使用基类方法
+        if config_name != "graph":
+            return super().get_config_value(config_name, key, default)
+        
         config = self.get_config("graph")
         if key in config:
             return config[key]
@@ -361,9 +363,9 @@ class GraphConfigProvider(BaseConfigProvider):
         graph_stats = {
             "total_nodes": len(self.list_nodes()),
             "total_edges": len(self.list_edges()),
-            "graph_name": self.get_config_value("name"),
-            "graph_id": self.get_config_value("id"),
-            "enable_tracing": self.get_config_value("enable_tracing", False),
+            "graph_name": self.get_config_value("graph", "name"),
+            "graph_id": self.get_config_value("graph", "id"),
+            "enable_tracing": self.get_config_value("graph", "enable_tracing", False),
             "cache_stats": self.get_cache_stats()
         }
         

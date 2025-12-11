@@ -3,7 +3,7 @@
 提供LLM模块的配置获取、缓存和管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List
 import logging
 import time
 from threading import RLock
@@ -12,9 +12,6 @@ from datetime import datetime
 from .base_provider import BaseConfigProvider
 from ..impl.llm_config_impl import LLMConfigImpl
 from ..impl.base_impl import IConfigImpl
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -107,17 +104,19 @@ class LLMConfigProvider(BaseConfigProvider):
             
             return module_config
     
-    def get_config_value(self, model_name: str, key: str, default: Any = None) -> Any:
+    def get_config_value(self, config_name: str, key: str, default: Any = None) -> Any:
         """获取配置值
         
         Args:
-            model_name: 模型名称
+            config_name: 配置名称（对于LLM提供者，这应该是模型名称）
             key: 配置键
             default: 默认值
             
         Returns:
             配置值
         """
+        # 对于LLM提供者，config_name是模型名称
+        model_name = config_name
         client_config = self.get_client_config(model_name)
         if client_config and key in client_config:
             return client_config[key]
