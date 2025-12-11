@@ -237,6 +237,7 @@ class ConfigProcessorChain(IConfigProcessorChain):
     
     def __init__(self) -> None:
         self._processors: list[IConfigProcessor] = []
+        logger.debug("配置处理器链初始化完成")
     
     def add_processor(self, processor: IConfigProcessor) -> None:
         """添加处理器
@@ -245,6 +246,27 @@ class ConfigProcessorChain(IConfigProcessorChain):
             processor: 配置处理器
         """
         self._processors.append(processor)
+        logger.debug(f"已添加配置处理器: {processor.__class__.__name__}")
+    
+    def remove_processor(self, processor: IConfigProcessor) -> bool:
+        """移除处理器
+        
+        Args:
+            processor: 配置处理器
+            
+        Returns:
+            是否成功移除
+        """
+        if processor in self._processors:
+            self._processors.remove(processor)
+            logger.debug(f"已移除配置处理器: {processor.__class__.__name__}")
+            return True
+        return False
+    
+    def clear_processors(self) -> None:
+        """清除所有处理器"""
+        self._processors.clear()
+        logger.debug("已清除所有配置处理器")
     
     def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
         """应用处理器链
@@ -259,9 +281,14 @@ class ConfigProcessorChain(IConfigProcessorChain):
         result = config
         
         for i, processor in enumerate(self._processors):
-            logger.debug(f"应用处理器 {i+1}/{len(self._processors)}: {processor.__class__.__name__}")
-            result = processor.process(result, config_path)
+            try:
+                logger.debug(f"执行处理器 {i+1}/{len(self._processors)}: {processor.__class__.__name__}")
+                result = processor.process(result, config_path)
+            except Exception as e:
+                logger.error(f"处理器 {processor.__class__.__name__} 执行失败: {e}")
+                raise
         
+        logger.debug(f"配置处理完成，共执行 {len(self._processors)} 个处理器")
         return result
     
     def get_processors(self) -> list[IConfigProcessor]:
@@ -271,6 +298,22 @@ class ConfigProcessorChain(IConfigProcessorChain):
             处理器列表
         """
         return self._processors.copy()
+    
+    def get_processor_count(self) -> int:
+        """获取处理器数量
+        
+        Returns:
+            处理器数量
+        """
+        return len(self._processors)
+    
+    def get_processor_names(self) -> list[str]:
+        """获取处理器名称列表
+        
+        Returns:
+            处理器名称列表
+        """
+        return [processor.__class__.__name__ for processor in self._processors]
 
 
 class ConfigSchema(IConfigSchema):

@@ -18,9 +18,7 @@ from .models import (
     ToolSetConfig,
     GlobalConfig,
 )
-from .processor import (
-    ConfigProcessorChain,
-)
+from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.processor import (
     InheritanceProcessor,
     ReferenceProcessor,

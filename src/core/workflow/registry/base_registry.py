@@ -5,8 +5,10 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable
-from src.services.logger.injection import get_logger
 from datetime import datetime
+
+from src.interfaces.logger import ILogger
+from ...interfaces import get_logger
 
 
 class IRegistry(ABC):
@@ -59,6 +61,7 @@ class BaseRegistry(IRegistry):
         """
         self._registry_name = registry_name
         self._items: Dict[str, Any] = {}
+        # 通过依赖注入获取日志记录器
         self._logger = get_logger(f"{__name__}.{registry_name}")
         self._created_at = datetime.now()
         self._last_updated = datetime.now()

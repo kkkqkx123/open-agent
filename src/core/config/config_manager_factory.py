@@ -13,7 +13,7 @@ from src.interfaces.config import (
 )
 from src.interfaces.common_domain import ValidationResult
 from .config_manager import ConfigManager
-from .processor import ConfigProcessorChain
+from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.validation import BaseConfigValidator
 
 logger = logging.getLogger(__name__)

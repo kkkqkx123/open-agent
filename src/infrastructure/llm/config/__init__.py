@@ -7,17 +7,18 @@
 from .config_discovery import ConfigDiscovery, ConfigLocation, get_config_discovery, ConfigInfo, ProviderInfo
 from .config_loader import ConfigLoader, LoadOptions, get_config_loader
 from .config_validator import (
-    ConfigValidator, 
-    ValidationResult, 
-    ValidationReport, 
+    ConfigValidator,
+    ValidationResult,
+    ValidationReport,
     ValidationSeverity,
     get_config_validator
 )
+from .models import LLMClientConfig, OpenAIConfig, MockConfig, GeminiConfig, AnthropicConfig, HumanRelayConfig
 
 __all__ = [
     # 核心类
     "ConfigDiscovery",
-    "ConfigLoader", 
+    "ConfigLoader",
     "ConfigValidator",
     
     # 数据类
@@ -26,6 +27,14 @@ __all__ = [
     "ValidationResult",
     "ValidationReport",
     "ValidationSeverity",
+    
+    # 配置模型
+    "LLMClientConfig",
+    "OpenAIConfig",
+    "MockConfig",
+    "GeminiConfig",
+    "AnthropicConfig",
+    "HumanRelayConfig",
     
     # 全局函数
     "get_config_discovery",

@@ -15,7 +15,7 @@ from src.interfaces.config import (
     ConfigurationLoadError as ConfigNotFoundError,
     ConfigurationValidationError as ConfigValidationError
 )
-from .processor import ConfigProcessorChain
+from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.validation import BaseConfigValidator
 
 logger = logging.getLogger(__name__)

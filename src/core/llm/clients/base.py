@@ -9,7 +9,10 @@ from src.interfaces.messages import IBaseMessage
 
 from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
 from src.infrastructure.llm.models import TokenUsage, LLMError, ModelInfo
-from ..config import LLMClientConfig
+from typing import Dict, Any, Optional
+
+# 使用infrastructure层的配置
+from src.infrastructure.llm.config import LLMClientConfig
 from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMModelNotFoundError,
@@ -273,12 +276,11 @@ class BaseLLMClient(ILLMClient):
             return
             
         try:
-            # 通过依赖注入获取TokenCalculationService
-            from src.services.history.injection import get_token_calculation_service
-            token_service = get_token_calculation_service()
+            # 通过依赖注入获取Token计算服务提供者
+            from ...interfaces import calculate_messages_tokens
             
             # 计算消息列表的token数量
-            token_count = token_service.calculate_messages_tokens(
+            token_count = calculate_messages_tokens(
                 messages,
                 self.config.model_type,
                 self.config.model_name

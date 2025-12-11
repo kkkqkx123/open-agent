@@ -3,12 +3,11 @@
 使用通用依赖注入框架提供简洁的Config服务获取方式。
 """
 
-from typing import Any, Optional, Callable, TYPE_CHECKING
+from typing import Any, Optional, Callable
 from pathlib import Path
 
 from src.core.config.config_manager import ConfigManager
-from src.core.config.config_manager_factory import ConfigManagerFactory
-from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.processor import (
     InheritanceProcessor,
     EnvironmentProcessor,
@@ -40,18 +39,6 @@ class _StubConfigManager(ConfigManager):
     def has(self, key: str) -> bool:
         """检查配置是否存在"""
         return False
-
-
-class _StubConfigManagerFactory(ConfigManagerFactory):
-    """临时 ConfigManagerFactory 实现（用于极端情况）"""
-    
-    def __init__(self) -> None:
-        # 不调用父类初始化，避免依赖问题
-        pass
-    
-    def create_manager(self, config_path: str) -> ConfigManager:
-        """创建配置管理器"""
-        return _StubConfigManager()
 
 
 class _StubConfigLoader(ConfigLoader):
@@ -199,11 +186,6 @@ def _create_fallback_config_manager() -> ConfigManager:
     return _StubConfigManager()
 
 
-def _create_fallback_config_manager_factory() -> ConfigManagerFactory:
-    """创建fallback config manager factory"""
-    return _StubConfigManagerFactory()
-
-
 def _create_fallback_config_loader() -> ConfigLoader:
     """创建fallback config loader"""
     return _StubConfigLoader()
@@ -242,9 +224,6 @@ def _create_fallback_adapter_factory() -> AdapterFactory:
 # 注册Config注入
 _config_manager_injection = get_global_injection_registry().register(
     ConfigManager, _create_fallback_config_manager
-)
-_config_manager_factory_injection = get_global_injection_registry().register(
-    ConfigManagerFactory, _create_fallback_config_manager_factory
 )
 _config_validator_injection = get_global_injection_registry().register(
     ConfigValidator, _create_fallback_config_validator
@@ -289,16 +268,6 @@ def get_config_manager() -> ConfigManager:
         ConfigManager: 配置管理器实例
     """
     return _config_manager_injection.get_instance()
-
-
-@injectable(ConfigManagerFactory, _create_fallback_config_manager_factory)  # type: ignore
-def get_config_manager_factory() -> ConfigManagerFactory:
-    """获取配置管理器工厂实例
-    
-    Returns:
-        ConfigManagerFactory: 配置管理器工厂实例
-    """
-    return _config_manager_factory_injection.get_instance()
 
 
 @injectable(ConfigValidator, _create_fallback_config_validator)  # type: ignore
@@ -379,16 +348,6 @@ def set_config_manager_instance(config_manager: ConfigManager) -> None:
     """
     _config_manager_injection.set_instance(config_manager)
 
-
-def set_config_manager_factory_instance(config_manager_factory: ConfigManagerFactory) -> None:
-    """在应用启动时设置全局 ConfigManagerFactory 实例
-    
-    Args:
-        config_manager_factory: ConfigManagerFactory 实例
-    """
-    _config_manager_factory_injection.set_instance(config_manager_factory)
-
-
 def set_config_validator_instance(config_validator: ConfigValidator) -> None:
     """在应用启动时设置全局 ConfigValidator 实例
     
@@ -454,11 +413,6 @@ def clear_config_manager_instance() -> None:
     _config_manager_injection.clear_instance()
 
 
-def clear_config_manager_factory_instance() -> None:
-    """清除全局 ConfigManagerFactory 实例"""
-    _config_manager_factory_injection.clear_instance()
-
-
 def clear_config_validator_instance() -> None:
     """清除全局 ConfigValidator 实例"""
     _config_validator_injection.clear_instance()
@@ -500,11 +454,6 @@ def get_config_manager_status() -> dict:
     return _config_manager_injection.get_status()
 
 
-def get_config_manager_factory_status() -> dict:
-    """获取配置管理器工厂注入状态"""
-    return _config_manager_factory_injection.get_status()
-
-
 def get_config_validator_status() -> dict:
     """获取配置验证器注入状态"""
     return _config_validator_injection.get_status()
@@ -539,7 +488,6 @@ def get_adapter_factory_status() -> dict:
 __all__ = [
     "get_config_loader",
     "get_config_manager",
-    "get_config_manager_factory",
     "get_config_validator",
     "get_config_processor_chain",
     "get_inheritance_processor",
@@ -548,7 +496,6 @@ __all__ = [
     "get_adapter_factory",
     "set_config_loader_instance",
     "set_config_manager_instance",
-    "set_config_manager_factory_instance",
     "set_config_validator_instance",
     "set_config_processor_chain_instance",
     "set_inheritance_processor_instance",
@@ -557,7 +504,6 @@ __all__ = [
     "set_adapter_factory_instance",
     "clear_config_loader_instance",
     "clear_config_manager_instance",
-    "clear_config_manager_factory_instance",
     "clear_config_validator_instance",
     "clear_config_processor_chain_instance",
     "clear_inheritance_processor_instance",
@@ -566,7 +512,6 @@ __all__ = [
     "clear_adapter_factory_instance",
     "get_config_loader_status",
     "get_config_manager_status",
-    "get_config_manager_factory_status",
     "get_config_validator_status",
     "get_config_processor_chain_status",
     "get_inheritance_processor_status",

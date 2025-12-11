@@ -5,12 +5,12 @@ from typing import Dict, Any, List, Optional, AsyncGenerator, Generator, Sequenc
 
 from src.interfaces.messages import IBaseMessage
 
-from .interfaces import ResponsesAPIClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.http_client.openai_http_client import OpenAIHttpClient
+from ..base import BaseLLMClient
 
 
-class ResponsesClient(ResponsesAPIClient):
+class ResponsesClient(BaseLLMClient):
     """轻量级 Responses API 客户端"""
     
     def __init__(self, config: Any) -> None:

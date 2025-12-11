@@ -5,11 +5,11 @@ from typing import List, Dict, Any, Generator, AsyncGenerator, Sequence, Optiona
 from src.interfaces.messages import IBaseMessage
 from src.interfaces.llm.http_client import ILLMHttpClient
 
-from .interfaces import ChatCompletionClient
 from src.interfaces.llm import LLMResponse
+from ..base import BaseLLMClient
 
 
-class ChatClient(ChatCompletionClient):
+class ChatClient(BaseLLMClient):
     """基于基础设施层的 Chat Completions 客户端"""
     
     def __init__(self, config: Any) -> None:

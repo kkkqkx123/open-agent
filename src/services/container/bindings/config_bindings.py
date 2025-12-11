@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from src.core.config.config_manager import ConfigManager
     from src.infrastructure.config.validation import BaseConfigValidator
     from src.core.config.config_manager_factory import CoreConfigManagerFactory
-    from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+    from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
     from src.infrastructure.config.processor import (
         InheritanceProcessor,
         ReferenceProcessor
@@ -74,7 +74,7 @@ class ConfigServiceBindings(BaseServiceBindings):
             def get_service_types() -> list:
                 from src.core.config.config_manager import ConfigManager
                 from src.core.config.config_manager_factory import CoreConfigManagerFactory
-                from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+                from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
                 from src.infrastructure.config.processor import (
                     InheritanceProcessor,
                     ReferenceProcessor
@@ -101,7 +101,6 @@ class ConfigServiceBindings(BaseServiceBindings):
                 set_config_validator_instance,
                 set_config_processor_chain_instance,
                 set_inheritance_processor_instance,
-                # set_environment_variable_processor_instance 已弃用
                 set_reference_processor_instance,
                 set_adapter_factory_instance
             )
@@ -110,7 +109,7 @@ class ConfigServiceBindings(BaseServiceBindings):
             def get_concrete_types() -> tuple:
                 from src.core.config.config_manager import ConfigManager
                 from src.core.config.config_manager_factory import CoreConfigManagerFactory
-                from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+                from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
                 from src.infrastructure.config.processor import (
                     InheritanceProcessor,
                     ReferenceProcessor
@@ -167,7 +166,7 @@ def _register_config_manager(container: IDependencyContainer, config: Dict[str, 
             InheritanceProcessor,
             ReferenceProcessor
         )
-        from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+        from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
         
         # 创建基础设施层组件
         config_loader = ConfigLoader()
@@ -332,7 +331,7 @@ def _create_adapter_factory() -> 'AdapterFactory':
         from src.core.config.config_manager import ConfigManager
         from src.infrastructure.config import ConfigLoader
         from src.infrastructure.config.processor import InheritanceProcessor, ReferenceProcessor
-        from src.core.config.processor.config_processor_chain import ConfigProcessorChain
+        from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
         
         # 创建配置管理器
         config_loader = ConfigLoader()
