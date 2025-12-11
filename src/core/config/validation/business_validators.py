@@ -3,7 +3,7 @@
 提供配置的业务逻辑验证，处理复杂的业务规则和跨模块验证。
 """
 
-from typing import Dict, Any, List, Optional, Protocol
+from typing import Dict, Any, Protocol
 from abc import ABC, abstractmethod
 
 from .validation_context import ValidationContext

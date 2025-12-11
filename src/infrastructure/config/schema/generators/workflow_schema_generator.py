@@ -3,11 +3,11 @@
 提供从工作流配置生成JSON Schema的功能。
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional
 import logging
 
 from ...impl.base_impl import BaseSchemaGenerator
-from src.interfaces.config.provider import IConfigProvider
+from src.interfaces.config.impl import IConfigImpl
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,11 @@ class WorkflowSchemaGenerator(BaseSchemaGenerator):
     专门用于从工作流配置数据生成JSON Schema。
     """
     
-    def __init__(self, config_provider: Optional['IConfigProvider'] = None):
+    def __init__(self, config_provider: Optional['IConfigImpl'] = None):
         """初始化工作流Schema生成器
         
         Args:
-            config_provider: 配置提供者
+            config_provider: 配置实现
         """
         super().__init__("workflow", config_provider)
         

@@ -27,8 +27,8 @@ from .validator import (
 # 导入模式相关接口
 from .schema import IConfigSchema, ISchemaRegistry, ISchemaGenerator
 
-# 导入提供者相关接口
-from .provider import IConfigProvider
+# 导入实现相关接口
+from .impl import IConfigImpl
 
 # 导入管理器相关接口
 from .manager import IConfigManager, IConfigManager, IConfigManagerFactory
@@ -95,8 +95,8 @@ __all__ = [
     "ISchemaRegistry",
     "ISchemaGenerator",
     
-    # 提供者接口
-    "IConfigProvider",
+    # 实现接口
+    "IConfigImpl",
     
     # 管理器接口
     "IConfigManager",

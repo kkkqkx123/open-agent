@@ -19,11 +19,14 @@ if TYPE_CHECKING:
         ReferenceProcessor
     )
     from src.core.config.adapter_factory import AdapterFactory
+    from src.services.config.manager import ConfigManagerService
+    from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
+    from src.infrastructure.cache.core.cache_manager import CacheManager
 
 # 接口导入 - 集中化的接口定义
 from src.interfaces.container import IDependencyContainer
 from src.interfaces.container.core import ServiceLifetime
-from src.interfaces.config import IConfigValidator, IConfigLoader
+from src.interfaces.config import IConfigValidator, IConfigLoader, IConfigProcessor
 from src.infrastructure.config.validation import BaseConfigValidator
 from src.services.container.core.base_service_bindings import BaseServiceBindings
 
@@ -37,6 +40,8 @@ class ConfigServiceBindings(BaseServiceBindings):
     - 配置处理器链
     - 适配器工厂
     - 配置加载器接口
+    - 配置缓存相关服务
+    - 新的配置管理服务
     """
     
     def _validate_config(self, config: Dict[str, Any]) -> None:
@@ -51,6 +56,14 @@ class ConfigServiceBindings(BaseServiceBindings):
         environment: str = "default"
     ) -> None:
         """执行配置服务注册"""
+        # 注册配置缓存相关服务
+        _register_config_cache_config(container, config, environment)
+        _register_config_cache_manager(container, config, environment)
+        
+        # 注册新的配置管理服务
+        _register_config_manager_service(container, config, environment)
+        
+        # 注册传统配置服务（向后兼容）
         _register_config_manager(container, config, environment)
         _register_config_manager_factory(container, config, environment)
         _register_config_validator(container, config, environment)
@@ -80,6 +93,9 @@ class ConfigServiceBindings(BaseServiceBindings):
                     ReferenceProcessor
                 )
                 from src.core.config.adapter_factory import AdapterFactory
+                from src.services.config.manager import ConfigManagerService
+                from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
+                from src.infrastructure.cache.core.cache_manager import CacheManager
                 
                 return [
                     ConfigManager,
@@ -88,7 +104,10 @@ class ConfigServiceBindings(BaseServiceBindings):
                     ConfigProcessorChain,
                     InheritanceProcessor,
                     ReferenceProcessor,
-                    AdapterFactory
+                    AdapterFactory,
+                    ConfigManagerService,
+                    ConfigCacheConfig,
+                    CacheManager
                 ]
             
             service_types = get_service_types()
@@ -306,4 +325,69 @@ def _register_config_loader(container: IDependencyContainer, config: Dict[str, A
         lifetime=ServiceLifetime.SINGLETON
     )
     print(f"[DEBUG] 已注册 IConfigLoader", file=sys.stdout)
+
+
+def _register_config_cache_config(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册配置缓存配置"""
+    # 延迟导入具体实现
+    def create_config_cache_config() -> ConfigCacheConfig:
+        from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
+        
+        # 从配置中获取缓存配置
+        cache_config_data = config.get("cache", {})
+        return ConfigCacheConfig(**cache_config_data)
+    
+    container.register_factory(
+        ConfigCacheConfig,
+        create_config_cache_config,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    print(f"[DEBUG] 已注册 ConfigCacheConfig", file=sys.stdout)
+
+
+def _register_config_cache_manager(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册配置缓存管理器"""
+    # 延迟导入具体实现
+    def create_config_cache_manager() -> CacheManager:
+        from src.infrastructure.cache.core.cache_manager import CacheManager
+        from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
+        
+        cache_config = container.get(ConfigCacheConfig)
+        return CacheManager(cache_config)
+    
+    container.register_factory(
+        CacheManager,
+        create_config_cache_manager,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    print(f"[DEBUG] 已注册 ConfigCacheManager", file=sys.stdout)
+
+
+def _register_config_manager_service(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册配置管理服务"""
+    # 延迟导入具体实现
+    def create_config_manager_service() -> ConfigManagerService:
+        from src.services.config.manager import ConfigManagerService
+        
+        config_loader = container.get(IConfigLoader)
+        config_processor = container.get(IConfigProcessor)
+        config_validator = container.get(IConfigValidator)
+        cache_config = container.get(ConfigCacheConfig, optional=True)
+        
+        return ConfigManagerService(
+            config_loader=config_loader,
+            config_processor=config_processor,
+            config_validator=config_validator,
+            cache_config=cache_config
+        )
+    
+    container.register_factory(
+        ConfigManagerService,
+        create_config_manager_service,
+        environment=environment,
+        lifetime=ServiceLifetime.SINGLETON
+    )
+    print(f"[DEBUG] 已注册 ConfigManagerService", file=sys.stdout)
 

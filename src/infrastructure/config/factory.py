@@ -13,6 +13,7 @@ from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain
 from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.processor import IConfigProcessor
 from src.interfaces.config.schema import ISchemaGenerator
+from src.interfaces.config.impl import IConfigImpl
 from .processor.validation_processor import ValidationProcessor, SchemaRegistry
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor.environment_processor import EnvironmentProcessor
@@ -94,7 +95,7 @@ class ConfigFactory:
                                    module_type: str,
                                    config_loader: Optional[ConfigLoader] = None,
                                    processor_chain: Optional[ConfigProcessorChain] = None,
-                                   schema: Optional[IConfigSchema] = None) -> BaseConfigImpl:
+                                   schema: Optional[IConfigSchema] = None) -> IConfigImpl:
         """创建配置实现
         
         Args:
@@ -125,8 +126,8 @@ class ConfigFactory:
             from .impl.workflow_config_impl import WorkflowConfigImpl
             impl = WorkflowConfigImpl(loader, chain, schema)
         elif module_type == "state":
-            from .impl import StateConfigImpl
-            impl = StateConfigImpl(loader, chain, schema)
+            # 状态配置使用基础实现
+            impl = BaseConfigImpl("state", loader, chain, schema)
         elif module_type == "node":
             from .impl.node_config_impl import NodeConfigImpl
             impl = NodeConfigImpl(loader, chain, schema)
@@ -146,7 +147,7 @@ class ConfigFactory:
         logger.debug(f"创建{module_type}模块配置实现")
         return impl
     
-    def get_config_implementation(self, module_type: str) -> Optional[BaseConfigImpl]:
+    def get_config_implementation(self, module_type: str) -> Optional[IConfigImpl]:
         """获取配置实现
         
         Args:
@@ -191,7 +192,7 @@ class ConfigFactory:
         
         logger.info(f"注册{module_type}模块配置")
     
-    def setup_llm_config(self) -> BaseConfigImpl:
+    def setup_llm_config(self) -> IConfigImpl:
         """设置LLM配置
         
         Returns:
@@ -211,7 +212,7 @@ class ConfigFactory:
             raise RuntimeError("Failed to create LLM config implementation")
         return impl
     
-    def setup_workflow_config(self) -> BaseConfigImpl:
+    def setup_workflow_config(self) -> IConfigImpl:
         """设置工作流配置
         
         Returns:
@@ -231,7 +232,7 @@ class ConfigFactory:
             raise RuntimeError("Failed to create workflow config implementation")
         return impl
     
-    def setup_tools_config(self) -> BaseConfigImpl:
+    def setup_tools_config(self) -> IConfigImpl:
         """设置工具配置
         
         Returns:
@@ -253,7 +254,7 @@ class ConfigFactory:
         logger.info("设置工具配置完成")
         return impl
     
-    def setup_state_config(self) -> BaseConfigImpl:
+    def setup_state_config(self) -> IConfigImpl:
         """设置状态配置
         
         Returns:
@@ -273,7 +274,7 @@ class ConfigFactory:
             raise RuntimeError("Failed to create state config implementation")
         return impl
     
-    def setup_all_configs(self) -> Dict[str, BaseConfigImpl]:
+    def setup_all_configs(self) -> Dict[str, IConfigImpl]:
         """设置所有模块配置
         
         Returns:

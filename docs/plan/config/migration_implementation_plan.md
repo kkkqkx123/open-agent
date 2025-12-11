@@ -24,44 +24,23 @@
 ### 第一阶段：基础设施准备（第1-2周）
 
 #### 第1周：接口和基础设施建立
-**目标**: 建立新的配置架构基础设施
+**目标**: 建立新的配置架构
 
 **任务清单**:
-- [ ] **周一**: 创建配置接口定义
-  - `src/interfaces/config/models.py` - 配置模型接口
-  - `src/interfaces/config/provider.py` - 配置提供者接口
-  - `src/interfaces/config/validator.py` - 配置验证器接口
 
-- [ ] **周二**: 创建Infrastructure层配置模型
-  - `src/infrastructure/config/models/base.py` - 基础配置模型
-  - `src/infrastructure/config/models/global.py` - 全局配置模型
-  - `src/infrastructure/config/models/llm.py` - LLM配置模型
-
-- [ ] **周三**: 创建配置加载器和处理器
-  - `src/infrastructure/config/loaders/` - 配置加载器实现
-  - `src/infrastructure/config/processors/` - 配置处理器实现
-  - `src/infrastructure/config/validators/` - 配置验证器实现
-
-- [ ] **周四**: 创建配置服务层
+- [ ] 创建配置服务层
   - `src/services/config/manager.py` - 配置管理服务
-  - `src/services/config/facade.py` - 配置门面
   - `src/services/config/` - 其他配置服务
-
-- [ ] **周五**: 创建配置适配器
-  - `src/adapters/config/core_adapter.py` - Core层适配器
-  - `src/adapters/config/legacy_adapter.py` - 遗留系统适配器
-  - 依赖注入配置更新
 
 **验收标准**:
 - [ ] 新配置架构可以正常工作
-- [ ] 基础测试通过（覆盖率>80%）
-- [ ] 接口文档完整
+- [ ] 接口文档完整(写入docs\config目录)
 
 #### 第2周：核心配置模型迁移
 **目标**: 迁移核心配置模型到Infrastructure层
 
 **任务清单**:
-- [ ] **周一**: 迁移基础配置模型
+- [ ] **周一**: 迁移基础配置模型(可以考虑)
   - `src/core/config/models/base.py` → `src/infrastructure/config/models/base.py`
   - `src/core/config/models/global_config.py` → `src/infrastructure/config/models/global.py`
   - 更新相关导入

@@ -11,50 +11,10 @@ import logging
 from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationResult
 from src.interfaces.common_domain import ValidationResult as CommonValidationResult
 from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
-from src.interfaces.config.provider import IConfigProvider
+from src.interfaces.config.impl import IConfigImpl
 from .shared import CacheManager, DiscoveryManager, ValidationHelper
 
 logger = logging.getLogger(__name__)
-
-
-class IConfigImpl(ABC):
-    """配置实现接口"""
-    
-    @abstractmethod
-    def load_config(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件
-        
-        Args:
-            config_path: 配置文件路径
-            
-        Returns:
-            处理后的配置数据
-        """
-        pass
-    
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> CommonValidationResult:
-        """验证配置数据
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证结果
-        """
-        pass
-    
-    @abstractmethod
-    def transform_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """转换配置为模块特定格式
-        
-        Args:
-            config: 原始配置数据
-            
-        Returns:
-            转换后的配置数据
-        """
-        pass
 
 
 class IConfigProcessorChain(ABC):
@@ -390,12 +350,12 @@ class BaseSchemaGenerator(ISchemaGenerator):
     提供Schema生成的通用功能和缓存机制。
     """
     
-    def __init__(self, generator_type: str, config_provider: Optional['IConfigProvider'] = None):
+    def __init__(self, generator_type: str, config_provider: Optional['IConfigImpl'] = None):
         """初始化Schema生成器
         
         Args:
             generator_type: 生成器类型
-            config_provider: 配置提供者
+            config_provider: 配置实现
         """
         self.generator_type = generator_type
         self.config_provider = config_provider
@@ -415,8 +375,8 @@ class BaseSchemaGenerator(ISchemaGenerator):
         """从配置类型生成Schema
         
         Args:
-            config_type: 配置类型
-            
+            config_type: 配置类型（注：此实现中忽略此参数，使用config_provider获取配置）
+        
         Returns:
             Dict[str, Any]: JSON Schema
             
@@ -427,7 +387,7 @@ class BaseSchemaGenerator(ISchemaGenerator):
             raise ValueError("config_provider is required for this method")
         
         # 获取配置数据
-        config_data = self.config_provider.get_config(config_type)
+        config_data = self.config_provider.get_config()
         return self.generate_schema_from_config(config_data)
     
     def _get_cached_schema(self, cache_key: str) -> Optional[Dict[str, Any]]:

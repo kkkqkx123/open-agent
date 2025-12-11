@@ -5,11 +5,11 @@
 """
 
 from pathlib import Path
-from typing import Dict, Any, Optional, Type, TypeVar, List
+from typing import Dict, Any, Optional, TypeVar, List
 
 import logging
 from src.interfaces.config import (
-    IConfigLoader, IConfigProcessor, IConfigValidator, IConfigManager,
+    IConfigLoader, IConfigValidator, IConfigManager,
     IConfigInheritanceHandler, IModuleConfigRegistry, IConfigMapperRegistry,
     ICrossModuleResolver, IModuleConfigLoader, ModuleConfig
 )
@@ -20,8 +20,8 @@ from src.interfaces.config import (
     ConfigurationValidationError as ConfigValidationError
 )
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
-from src.infrastructure.config.validation import BaseConfigValidator
-from src.core.tools.mappers.config_mapper import get_tools_config_mapper
+from src.infrastructure.config.validation.base_validator import GenericConfigValidator
+from src.interfaces.config.mapper import IConfigMapper
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ class ConfigManager(IConfigManager):
         self._module_validators: Dict[str, IConfigValidator] = {}
         
         # 默认验证器
-        self._default_validator = BaseConfigValidator("DefaultValidator")
+        self._default_validator = GenericConfigValidator(name="DefaultValidator")
         
         # 统一配置系统组件
         self.validator_registry = validator_registry
@@ -80,9 +80,6 @@ class ConfigManager(IConfigManager):
         
         # 模块特定加载器
         self._module_loaders: Dict[str, IModuleConfigLoader] = {}
-        
-        # 注册工具配置映射器
-        self._register_default_mappers()
         
         logger.info("统一配置管理器初始化完成")
     
@@ -202,7 +199,21 @@ class ConfigManager(IConfigManager):
         Returns:
             验证结果
         """
-        return self._default_validator.validate(config)
+        # 使用验证器验证配置，返回ValidationResult
+        validation_result = self._default_validator.validate(config)
+        
+        # 确保返回的是ValidationResult类型
+        if isinstance(validation_result, ValidationResult):
+            return validation_result
+        
+        # 如果返回其他类型，转换为ValidationResult
+        return ValidationResult(
+            is_valid=getattr(validation_result, 'is_valid', True),
+            errors=getattr(validation_result, 'errors', []),
+            warnings=getattr(validation_result, 'warnings', []),
+            info=getattr(validation_result, 'info', []),
+            metadata=getattr(validation_result, 'metadata', {})
+        )
     
     def register_module_validator(self, module_type: str, validator: IConfigValidator) -> None:
         """注册模块特定验证器
@@ -223,14 +234,9 @@ class ConfigManager(IConfigManager):
         """
         if self.module_registry:
             self.module_registry.register_module(module_type, config)
-            # 注册处理器
-            if hasattr(self.processor_chain, 'register_processors'):
-                self.processor_chain.register_processors(module_type, config.processors)
-            # 注册验证器
-            if config.validator:
-                # 这里需要根据validator名称获取实际的验证器实例
-                # 简化实现，实际应该通过工厂模式创建
-                pass
+            # 注记：处理器和验证器通过名称存储，具体创建延迟到使用时进行
+            # config.processors 是处理器名称列表，config.validator 是验证器名称
+            # 实际的处理器对象应通过工厂或容器模式创建
         logger.info(f"已注册模块配置: {module_type}")
     
     def register_module_loader(self, module_type: str, loader: IModuleConfigLoader) -> None:

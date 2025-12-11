@@ -3,11 +3,12 @@
 提供配置系统的缓存管理功能，基于现有的缓存基础设施。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 import logging
 
-from src.infrastructure.cache.core.cache_manager import CacheManager as BaseCacheManager
-from src.infrastructure.cache.config.cache_config import BaseCacheConfig
+if TYPE_CHECKING:
+    from src.infrastructure.cache.core.cache_manager import CacheManager as BaseCacheManager
+    from src.infrastructure.cache.config.cache_config import BaseCacheConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,16 @@ class CacheManager:
     提供配置系统的缓存管理功能，封装现有的缓存基础设施。
     """
     
-    def __init__(self, config: Optional[BaseCacheConfig] = None):
+    def __init__(self, config: Optional['BaseCacheConfig'] = None):
         """初始化缓存管理器
         
         Args:
             config: 缓存配置，如果为None则使用默认配置
         """
+        # 延迟导入避免循环依赖
+        from src.infrastructure.cache.core.cache_manager import CacheManager as BaseCacheManager
+        from src.infrastructure.cache.config.cache_config import BaseCacheConfig
+        
         if config is None:
             # 创建默认配置
             config = BaseCacheConfig(

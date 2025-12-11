@@ -4,7 +4,7 @@
 """
 
 # LLM配置模型
-from .llm_models import (
+from .llm import (
     LLMClientConfig,
     OpenAIConfig,
     MockConfig,
