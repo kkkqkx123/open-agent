@@ -48,13 +48,13 @@ from .execution.services.execution_manager import ExecutionManager
 from .execution.services.execution_monitor import ExecutionMonitor
 from .execution.services.execution_scheduler import ExecutionScheduler
 
-# 配置模块
-from .config.config import (
-    GraphConfig,
-    NodeConfig,
-    EdgeConfig,
-    StateFieldConfig,
-    GraphStateConfig,
+# 图实体模块
+from .graph_entities import (
+    Graph,
+    Node,
+    Edge,
+    StateField,
+    GraphState,
     EdgeType
 )
 
@@ -73,16 +73,16 @@ from .graph.extensions import (
 )
 
 # 便捷函数
-def create_workflow(config: GraphConfig) -> Workflow:
+def create_workflow(graph: Graph) -> Workflow:
     """创建工作流实例
     
     Args:
-        config: 工作流配置
+        graph: 工作流图实体
         
     Returns:
         Workflow: 工作流实例
     """
-    return Workflow(config)
+    return Workflow(graph)
 
 
 def create_workflow_manager() -> WorkflowManager:
@@ -172,16 +172,16 @@ def create_workflow_coordinator_simple(builder: WorkflowBuilder,
     )
 
 
-def create_lifecycle_manager(config: GraphConfig) -> WorkflowLifecycleManager:
+def create_lifecycle_manager(graph: Graph) -> WorkflowLifecycleManager:
     """创建生命周期管理器
     
     Args:
-        config: 图配置
+        graph: 图实体
         
     Returns:
         WorkflowLifecycleManager: 生命周期管理器实例
     """
-    return WorkflowLifecycleManager(config)
+    return WorkflowLifecycleManager(graph)
 
 
 # 版本信息
@@ -224,12 +224,12 @@ __all__ = [
     "ExecutionMonitor",
     "ExecutionScheduler",
     
-    # 配置模块
-    "GraphConfig",
-    "NodeConfig",
-    "EdgeConfig",
-    "StateFieldConfig",
-    "GraphStateConfig",
+    # 图实体模块
+    "Graph",
+    "Node",
+    "Edge",
+    "StateField",
+    "GraphState",
     "EdgeType",
     
     # 图服务模块

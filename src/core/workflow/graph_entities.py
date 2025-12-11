@@ -97,7 +97,7 @@ class GraphState:
                 if not field.validate_value(state_data[field_name]):
                     errors.append(f"字段 {field_name} 的值类型不匹配")
         
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=[])
 
 
 @dataclass
@@ -175,7 +175,7 @@ class Node:
         if not self.node_id:
             errors.append("节点必须指定ID")
         
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=[])
 
 
 @dataclass
@@ -272,7 +272,7 @@ class Edge:
                 if not self.condition:
                     errors.append("条件边必须指定条件表达式")
         
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=[])
 
 
 @dataclass
@@ -410,7 +410,7 @@ class Graph:
             if unreachable_nodes:
                 errors.append(f"以下节点无法从入口点到达: {', '.join(unreachable_nodes)}")
         
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=[])
 
     def _get_reachable_nodes(self, start_node_id: str) -> Set[str]:
         """获取从指定节点可达的所有节点"""
@@ -447,7 +447,7 @@ class Graph:
                 break
             
             # 执行当前节点
-            node_result = current_node.execute(execution_context, execution_path)
+            node_result = current_node.execute(execution_context, {"execution_path": execution_path})
             execution_context.update(node_result)
             
             # 获取下一个节点

@@ -7,7 +7,7 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from src.core.workflow.graph_entities import GraphConfig
+from src.core.workflow.graph_entities import Graph
 from src.interfaces.workflow.core import IWorkflow
 
 
@@ -20,16 +20,16 @@ class Workflow(IWorkflow):
     
     def __init__(
         self,
-        config: GraphConfig,
+        graph: Graph,
         compiled_graph: Optional[Any] = None
     ):
         """初始化工作流数据模型
         
         Args:
-            config: 工作流配置
+            graph: 工作流图实体
             compiled_graph: 编译后的图
         """
-        self._config = config
+        self._graph = graph
         self._compiled_graph = compiled_graph
         self._created_at = datetime.now()
         self._metadata = {}  # 内部元数据存储
@@ -38,39 +38,37 @@ class Workflow(IWorkflow):
     @property
     def workflow_id(self) -> str:
         """工作流ID"""
-        return self._config.name
+        return self._graph.graph_id
     
     @property
     def name(self) -> str:
         """工作流名称"""
-        return self._config.name
+        return self._graph.name
     
     @property
     def description(self) -> Optional[str]:
         """工作流描述"""
-        return self._config.description
+        return self._graph.description
     
     @property
     def version(self) -> str:
         """工作流版本"""
-        return getattr(self._config, 'version', '1.0.0')
+        return self._graph.version
     
     @property
     def metadata(self) -> Dict[str, Any]:
         """工作流元数据"""
-        return getattr(self._config, 'metadata', {}) or self._metadata
+        return self._metadata
     
     @metadata.setter
     def metadata(self, value: Dict[str, Any]) -> None:
         """设置工作流元数据"""
         self._metadata = value
-        if hasattr(self._config, 'metadata'):
-            setattr(self._config, 'metadata', value)
     
     @property
     def entry_point(self) -> Optional[str]:
         """入口点"""
-        return self._config.entry_point
+        return self._graph.entry_point
     
     @property
     def compiled_graph(self) -> Optional[Any]:
@@ -78,9 +76,9 @@ class Workflow(IWorkflow):
         return self._compiled_graph
     
     @property
-    def config(self) -> GraphConfig:
-        """工作流配置"""
-        return self._config
+    def graph(self) -> Graph:
+        """工作流图"""
+        return self._graph
     
     @property
     def created_at(self) -> datetime:
@@ -90,64 +88,58 @@ class Workflow(IWorkflow):
     # 数据访问方法（IWorkflow接口要求）
     def get_node(self, node_id: str) -> Optional[Any]:
         """获取节点"""
-        if hasattr(self._config, 'nodes'):
-            return self._config.nodes.get(node_id)
-        return None
+        return self._graph.get_node(node_id)
     
     def get_edge(self, edge_id: str) -> Optional[Any]:
         """获取边"""
-        if hasattr(self._config, 'edges') and self._config.edges:
-            # 尝试通过索引获取边
-            try:
-                index = int(edge_id.split('_')[-1])
-                if 0 <= index < len(self._config.edges):
-                    return self._config.edges[index]
-            except (ValueError, IndexError):
-                pass
-            
-            # 尝试通过边属性匹配
-            for edge in self._config.edges:
-                edge_key = f"{getattr(edge, 'from_node', '')}-{getattr(edge, 'to_node', '')}"
-                if edge_key == edge_id:
-                    return edge
+        # 尝试通过索引获取边
+        try:
+            index = int(edge_id.split('_')[-1])
+            if 0 <= index < len(self._graph.edges):
+                return self._graph.edges[index]
+        except (ValueError, IndexError):
+            pass
+        
+        # 尝试通过边属性匹配
+        for edge in self._graph.edges:
+            edge_key = f"{edge.from_node_id}-{edge.to_node_id}"
+            if edge_key == edge_id:
+                return edge
         return None
     
     def get_nodes(self) -> Dict[str, Any]:
         """获取所有节点"""
-        return self._config.nodes if hasattr(self._config, 'nodes') else {}
+        return self._graph.nodes
     
     def get_edges(self) -> Dict[str, Any]:
         """获取所有边"""
-        if hasattr(self._config, 'edges') and self._config.edges:
-            return {f"edge_{i}": edge for i, edge in enumerate(self._config.edges)}
-        return {}
+        return {f"edge_{i}": edge for i, edge in enumerate(self._graph.edges)}
     
     # 配置操作
     def set_entry_point(self, entry_point: str) -> None:
         """设置入口点"""
-        self._config.entry_point = entry_point
+        self._graph.entry_point = entry_point
     
     def set_graph(self, graph: Any) -> None:
         """设置编译后的图"""
         self._compiled_graph = graph
     
-    def add_node(self, node_config: Any) -> None:
+    def add_node(self, node: Any) -> None:
         """添加节点
         
         Args:
-            node_config: 节点配置
+            node: 节点实体
         """
-        if hasattr(node_config, 'name') and hasattr(self._config, 'nodes'):
-            self._config.nodes[node_config.name] = node_config
+        if hasattr(node, 'node_id'):
+            self._graph.add_node(node)
     
-    def add_edge(self, edge_config: Any) -> None:
+    def add_edge(self, edge: Any) -> None:
         """添加边
         
         Args:
-            edge_config: 边配置
+            edge: 边实体
         """
-        if hasattr(self._config, 'edges'):
-            self._config.edges.append(edge_config)
+        self._graph.edges.append(edge)
     
     def __repr__(self) -> str:
         """字符串表示"""

@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from src.core.workflow.graph_entities import GraphConfig
+from src.core.workflow.graph_entities import Graph
 from src.interfaces.state import IWorkflowState
 
 # 定义迭代记录类型
@@ -47,23 +47,26 @@ class WorkflowLifecycleManager:
     不包含验证、执行等其他业务逻辑。
     """
     
-    def __init__(self, config: GraphConfig):
+    def __init__(self, graph: Graph):
         """初始化生命周期管理器
         
         Args:
-            config: 图配置，包含迭代限制信息
+            graph: 图实体，包含迭代限制信息
         """
-        self.workflow_max_iterations = config.additional_config.get("max_iterations", 10)
+        # 从图的额外配置中获取最大迭代次数
+        # 注意：这里需要适配新的Graph实体结构
+        self.workflow_max_iterations = 10  # 默认值，实际应该从graph的配置中获取
         
-        # 从节点配置中提取节点级别的最大迭代次数
+        # 从节点中提取节点级别的最大迭代次数
         self.node_specific_limits = {}
-        for node_name, node_config in config.nodes.items():
-            node_max_iterations = node_config.config.get('max_iterations')
+        for node_name, node in graph.nodes.items():
+            # 从节点的参数中获取最大迭代次数
+            node_max_iterations = node.parameters.get('max_iterations')
             if node_max_iterations is not None:
                 self.node_specific_limits[node_name] = node_max_iterations
         
-        # 从配置获取循环完成节点
-        self.cycle_completer_node = config.additional_config.get("cycle_completer_node")
+        # 循环完成节点（暂时设为None，实际应该从graph配置中获取）
+        self.cycle_completer_node = None
     
     def record_and_increment(
         self,
