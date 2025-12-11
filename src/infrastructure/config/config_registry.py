@@ -10,7 +10,6 @@ from pathlib import Path
 from .impl.base_impl import IConfigImpl, ConfigProcessorChain
 from .schema.base_schema import IConfigSchema
 from .processor.base_processor import IConfigProcessor
-from .provider.base_provider import IConfigProvider
 from .processor.validation_processor import SchemaRegistry
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ConfigRegistry:
     """配置注册中心
     
-    管理所有配置实现、处理器、提供者和模式的注册和获取。
+    管理所有配置实现、处理器和模式的注册和获取。
     """
     
     def __init__(self):
@@ -29,9 +28,6 @@ class ConfigRegistry:
         
         # 处理器注册表
         self._processors: Dict[str, IConfigProcessor] = {}
-        
-        # 提供者注册表
-        self._providers: Dict[str, IConfigProvider] = {}
         
         # 模式注册表
         self.schema_registry = SchemaRegistry()
@@ -207,62 +203,6 @@ class ConfigRegistry:
         """
         return module_type in self._processor_chains
     
-    # ==================== 提供者管理 ====================
-    
-    def register_provider(self, module_type: str, provider: IConfigProvider) -> None:
-        """注册配置提供者
-        
-        Args:
-            module_type: 模块类型
-            provider: 配置提供者
-        """
-        self._providers[module_type] = provider
-        logger.debug(f"注册{module_type}模块配置提供者")
-    
-    def get_provider(self, module_type: str) -> Optional[IConfigProvider]:
-        """获取配置提供者
-        
-        Args:
-            module_type: 模块类型
-            
-        Returns:
-            配置提供者
-        """
-        return self._providers.get(module_type)
-    
-    def has_provider(self, module_type: str) -> bool:
-        """检查是否存在配置提供者
-        
-        Args:
-            module_type: 模块类型
-            
-        Returns:
-            是否存在
-        """
-        return module_type in self._providers
-    
-    def unregister_provider(self, module_type: str) -> bool:
-        """注销配置提供者
-        
-        Args:
-            module_type: 模块类型
-            
-        Returns:
-            是否成功注销
-        """
-        if module_type in self._providers:
-            del self._providers[module_type]
-            logger.debug(f"注销{module_type}模块配置提供者")
-            return True
-        return False
-    
-    def get_registered_providers(self) -> List[str]:
-        """获取已注册的提供者列表
-        
-        Returns:
-            模块类型列表
-        """
-        return list(self._providers.keys())
     
     # ==================== 模式管理 ====================
     
@@ -356,10 +296,6 @@ class ConfigRegistry:
                 "count": len(self._processors),
                 "names": list(self._processors.keys())
             },
-            "providers": {
-                "count": len(self._providers),
-                "modules": list(self._providers.keys())
-            },
             "processor_chains": {
                 "count": len(self._processor_chains),
                 "modules": list(self._processor_chains.keys())
@@ -383,16 +319,6 @@ class ConfigRegistry:
         issues = []
         warnings = []
         
-        # 检查实现是否有对应的提供者
-        for module_type in self._implementations:
-            if module_type not in self._providers:
-                warnings.append(f"模块{module_type}有实现但无提供者")
-        
-        # 检查提供者是否有对应的实现
-        for module_type in self._providers:
-            if module_type not in self._implementations:
-                warnings.append(f"模块{module_type}有提供者但无实现")
-        
         # 检查处理器链是否有有效的处理器
         for module_type, chain in self._processor_chains.items():
             if not chain.get_processors():
@@ -414,7 +340,6 @@ class ConfigRegistry:
         """清空注册中心"""
         self._implementations.clear()
         self._processors.clear()
-        self._providers.clear()
         self._processor_chains.clear()
         self._factories.clear()
         

@@ -12,6 +12,7 @@ from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationRes
 from src.interfaces.common_domain import ValidationResult as CommonValidationResult
 from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
 from src.interfaces.config.provider import IConfigProvider
+from .shared import CacheManager, DiscoveryManager, ValidationHelper
 
 logger = logging.getLogger(__name__)
 
@@ -100,13 +101,19 @@ class BaseConfigImpl(IConfigImpl):
         self.schema = schema
         self._base_path = Path("configs")
         
+        # 整合的共享组件
+        self.cache_manager = CacheManager()
+        self.discovery_manager = DiscoveryManager(config_loader)
+        self.validation_helper = ValidationHelper()
+        
         logger.debug(f"初始化{module_type}模块配置实现")
     
-    def load_config(self, config_path: str) -> Dict[str, Any]:
+    def load_config(self, config_path: str, use_cache: bool = True) -> Dict[str, Any]:
         """加载配置的通用流程
         
         Args:
             config_path: 配置文件路径
+            use_cache: 是否使用缓存
             
         Returns:
             处理后的配置数据
@@ -114,15 +121,23 @@ class BaseConfigImpl(IConfigImpl):
         logger.debug(f"开始加载{self.module_type}模块配置: {config_path}")
         
         try:
-            # 1. 加载原始配置
+            # 1. 检查缓存
+            cache_key = f"{self.module_type}:{config_path}"
+            if use_cache:
+                cached_config = self.cache_manager.get(cache_key)
+                if cached_config is not None:
+                    logger.debug(f"从缓存加载{self.module_type}模块配置: {config_path}")
+                    return cached_config
+            
+            # 2. 加载原始配置
             logger.debug(f"加载原始配置文件: {config_path}")
             raw_config = self.config_loader.load(config_path)
             
-            # 2. 应用处理器链
+            # 3. 应用处理器链
             logger.debug(f"应用处理器链处理配置")
             processed_config = self.processor_chain.process(raw_config, config_path)
             
-            # 3. 验证配置
+            # 4. 验证配置
             logger.debug(f"验证配置数据")
             validation_result = self.validate_config(processed_config)
             
@@ -131,9 +146,13 @@ class BaseConfigImpl(IConfigImpl):
                 logger.error(error_msg)
                 raise ValueError(error_msg)
             
-            # 4. 转换为模块特定格式
+            # 5. 转换为模块特定格式
             logger.debug(f"转换为{self.module_type}模块特定格式")
             final_config = self.transform_config(processed_config)
+            
+            # 6. 缓存结果
+            if use_cache:
+                self.cache_manager.set(cache_key, final_config)
             
             logger.info(f"{self.module_type}模块配置加载成功: {config_path}")
             return final_config
@@ -211,16 +230,74 @@ class BaseConfigImpl(IConfigImpl):
         logger.info(f"重新加载{self.module_type}模块配置: {config_path}")
         return self.load_config(config_path)
     
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self, use_cache: bool = True) -> Dict[str, Any]:
         """获取当前配置
         
+        Args:
+            use_cache: 是否使用缓存
+            
         Returns:
             当前配置数据
         """
         # 获取默认配置路径
         config_name = f"{self.module_type}"
         config_path = self.get_config_path(config_name)
-        return self.load_config(config_path)
+        return self.load_config(config_path, use_cache)
+    
+    def discover_configs(self, pattern: str = "*") -> list[str]:
+        """发现配置文件
+        
+        Args:
+            pattern: 文件模式（支持通配符）
+            
+        Returns:
+            配置文件路径列表
+        """
+        return self.discovery_manager.discover_module_configs(self.module_type, pattern)
+    
+    def get_config_info(self, config_path: str) -> Dict[str, Any]:
+        """获取配置文件信息
+        
+        Args:
+            config_path: 配置文件路径
+            
+        Returns:
+            配置文件信息
+        """
+        return self.discovery_manager.get_config_info(config_path)
+    
+    def invalidate_cache(self, config_path: Optional[str] = None) -> None:
+        """清除缓存
+        
+        Args:
+            config_path: 配置文件路径，如果为None则清除所有缓存
+        """
+        if config_path:
+            cache_key = f"{self.module_type}:{config_path}"
+            self.cache_manager.delete(cache_key)
+        else:
+            # 清除模块相关的所有缓存
+            self.cache_manager.clear()
+    
+    def validate_config_structure(self, config: Dict[str, Any], required_keys: list[str]) -> ValidationResult:
+        """验证配置结构
+        
+        Args:
+            config: 配置数据
+            required_keys: 必需的键列表
+            
+        Returns:
+            验证结果
+        """
+        return self.validation_helper.validate_structure(config, required_keys)
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息
+        
+        Returns:
+            缓存统计信息
+        """
+        return self.cache_manager.get_stats()
 
 
 class ConfigProcessorChain(IConfigProcessorChain):

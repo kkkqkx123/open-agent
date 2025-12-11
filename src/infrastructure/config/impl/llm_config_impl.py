@@ -240,54 +240,105 @@ class LLMConfigImpl(BaseConfigImpl):
         
         return config
     
-    def get_client_config(self, model_name: str) -> Optional[Dict[str, Any]]:
+    def get_client_config(self, model_name: str, use_cache: bool = True) -> Optional[Dict[str, Any]]:
         """获取客户端配置
         
         Args:
             model_name: 模型名称
+            use_cache: 是否使用缓存
             
         Returns:
             客户端配置，如果不存在则返回None
         """
-        config = self.get_config()
+        # 检查缓存
+        cache_key = f"client_config:{model_name}"
+        if use_cache:
+            cached_config = self.cache_manager.get(cache_key)
+            if cached_config is not None:
+                logger.debug(f"从缓存获取客户端配置: {model_name}")
+                return cached_config
+        
+        # 从主配置获取
+        config = self.get_config(use_cache=False)
         
         # 查找匹配的客户端配置
-        for client_name, client_config in config.get("clients", {}).items():
-            if client_config.get("model_name") == model_name:
-                return client_config.copy()
+        client_config = None
+        for client_name, config_data in config.get("clients", {}).items():
+            if config_data.get("model_name") == model_name:
+                client_config = config_data.copy()
+                break
         
         # 如果没有找到，尝试使用默认模型
-        default_model = config.get("module", {}).get("default_model")
-        if default_model and default_model == model_name:
-            # 返回第一个可用的配置
-            clients = config.get("clients", {})
-            if clients:
-                return list(clients.values())[0].copy()
+        if client_config is None:
+            default_model = config.get("module", {}).get("default_model")
+            if default_model and default_model == model_name:
+                # 返回第一个可用的配置
+                clients = config.get("clients", {})
+                if clients:
+                    client_config = list(clients.values())[0].copy()
         
-        return None
+        # 缓存结果
+        if client_config and use_cache:
+            self.cache_manager.set(cache_key, client_config)
+        
+        return client_config
     
-    def get_module_config(self) -> Dict[str, Any]:
+    def get_module_config(self, use_cache: bool = True) -> Dict[str, Any]:
         """获取模块配置
         
+        Args:
+            use_cache: 是否使用缓存
+            
         Returns:
             模块配置
         """
-        config = self.get_config()
-        return config.get("module", {}).copy()
+        # 检查缓存
+        cache_key = "module_config"
+        if use_cache:
+            cached_config = self.cache_manager.get(cache_key)
+            if cached_config is not None:
+                logger.debug("从缓存获取模块配置")
+                return cached_config
+        
+        # 从主配置获取
+        config = self.get_config(use_cache=False)
+        module_config = config.get("module", {}).copy()
+        
+        # 缓存结果
+        if use_cache:
+            self.cache_manager.set(cache_key, module_config)
+        
+        return module_config
     
-    def list_available_models(self) -> List[str]:
+    def list_available_models(self, use_cache: bool = True) -> List[str]:
         """列出可用的模型
         
+        Args:
+            use_cache: 是否使用缓存
+            
         Returns:
             可用模型列表
         """
-        config = self.get_config()
+        # 检查缓存
+        cache_key = "available_models"
+        if use_cache:
+            cached_models = self.cache_manager.get(cache_key)
+            if cached_models is not None:
+                logger.debug("从缓存获取可用模型列表")
+                return cached_models
+        
+        # 从主配置获取
+        config = self.get_config(use_cache=False)
         models = []
         
         for client_config in config.get("clients", {}).values():
             model_name = client_config.get("model_name")
             if model_name:
                 models.append(model_name)
+        
+        # 缓存结果
+        if use_cache:
+            self.cache_manager.set(cache_key, models)
         
         return models
     
@@ -337,13 +388,25 @@ class LLMConfigImpl(BaseConfigImpl):
         
         return True
     
-    def get_config_summary(self) -> Dict[str, Any]:
+    def get_config_summary(self, use_cache: bool = True) -> Dict[str, Any]:
         """获取配置摘要
         
+        Args:
+            use_cache: 是否使用缓存
+            
         Returns:
             配置摘要信息
         """
-        config = self.get_config()
+        # 检查缓存
+        cache_key = "config_summary"
+        if use_cache:
+            cached_summary = self.cache_manager.get(cache_key)
+            if cached_summary is not None:
+                logger.debug("从缓存获取配置摘要")
+                return cached_summary
+        
+        # 从主配置获取
+        config = self.get_config(use_cache=False)
         
         summary = {
             "version": config.get("version", "unknown"),
@@ -359,4 +422,42 @@ class LLMConfigImpl(BaseConfigImpl):
             model_type = client_config.get("model_type", "unknown")
             summary["model_types"][model_type] = summary["model_types"].get(model_type, 0) + 1
         
+        # 缓存结果
+        if use_cache:
+            self.cache_manager.set(cache_key, summary)
+        
         return summary
+    
+    def invalidate_cache(self, cache_key: Optional[str] = None) -> None:
+        """清除缓存
+        
+        Args:
+            cache_key: 缓存键，如果为None则清除所有相关缓存
+        """
+        if cache_key:
+            self.cache_manager.delete(cache_key)
+        else:
+            # 清除LLM相关的所有缓存
+            cache_keys = [
+                "module_config",
+                "available_models",
+                "config_summary"
+            ]
+            
+            # 清除客户端配置缓存
+            models = self.list_available_models(use_cache=False)
+            for model in models:
+                cache_keys.append(f"client_config:{model}")
+            
+            for key in cache_keys:
+                self.cache_manager.delete(key)
+            
+            logger.debug("清除LLM模块所有缓存")
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息
+        
+        Returns:
+            缓存统计信息
+        """
+        return self.cache_manager.get_stats()

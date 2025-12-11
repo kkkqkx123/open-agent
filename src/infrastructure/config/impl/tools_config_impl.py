@@ -52,12 +52,13 @@ class ToolsConfigImpl(BaseConfigImpl):
         
         logger.debug("初始化工具配置实现")
     
-    def load_tool_config(self, tool_name: str, tool_type: Optional[str] = None) -> Dict[str, Any]:
+    def load_tool_config(self, tool_name: str, tool_type: Optional[str] = None, use_cache: bool = True) -> Dict[str, Any]:
         """加载特定工具的配置
         
         Args:
             tool_name: 工具名称
             tool_type: 工具类型（可选）
+            use_cache: 是否使用缓存
             
         Returns:
             工具配置数据
@@ -73,18 +74,33 @@ class ToolsConfigImpl(BaseConfigImpl):
                 # 尝试在不同类型目录中查找
                 config_path = self._find_tool_config(tool_name)
             
+            # 检查缓存
+            cache_key = f"tool_config:{config_path}"
+            if use_cache:
+                cached_config = self.cache_manager.get(cache_key)
+                if cached_config is not None:
+                    logger.debug(f"从缓存加载工具配置: {config_path}")
+                    return cached_config
+            
             logger.debug(f"加载工具配置: {config_path}")
-            return self.load_config(config_path)
+            config = self.load_config(config_path, use_cache=False)
+            
+            # 缓存结果
+            if use_cache:
+                self.cache_manager.set(cache_key, config)
+            
+            return config
             
         except Exception as e:
             logger.error(f"加载工具配置失败 {tool_name}: {e}")
             raise ConfigError(f"加载工具配置失败 {tool_name}: {e}")
     
-    def load_tools_by_type(self, tool_type: str) -> List[Dict[str, Any]]:
+    def load_tools_by_type(self, tool_type: str, use_cache: bool = True) -> List[Dict[str, Any]]:
         """按类型加载所有工具配置
         
         Args:
             tool_type: 工具类型
+            use_cache: 是否使用缓存
             
         Returns:
             工具配置列表
@@ -96,14 +112,21 @@ class ToolsConfigImpl(BaseConfigImpl):
             if tool_type not in self._supported_tool_types:
                 raise ConfigError(f"不支持的工具类型: {tool_type}")
             
-            # 获取指定类型的所有配置文件
-            config_files = self._get_tool_config_files(tool_type)
+            # 检查缓存
+            cache_key = f"tools_by_type:{tool_type}"
+            if use_cache:
+                cached_tools = self.cache_manager.get(cache_key)
+                if cached_tools is not None:
+                    logger.debug(f"从缓存加载 {tool_type} 类型工具配置")
+                    return cached_tools
+            
+            # 使用发现管理器获取配置文件
+            config_files = self.discovery_manager.discover_module_configs("tools", f"{tool_type}/*")
             
             tools = []
             for config_file in config_files:
                 try:
-                    config_path = f"tools/{tool_type}/{config_file}"
-                    tool_config = self.load_config(config_path)
+                    tool_config = self.load_config(config_file, use_cache=False)
                     
                     # 确保工具类型正确
                     tool_config["tool_type"] = tool_type
@@ -112,6 +135,10 @@ class ToolsConfigImpl(BaseConfigImpl):
                 except Exception as e:
                     logger.warning(f"加载工具配置失败 {config_file}: {e}")
                     continue
+            
+            # 缓存结果
+            if use_cache:
+                self.cache_manager.set(cache_key, tools)
             
             logger.info(f"加载了 {len(tools)} 个 {tool_type} 类型工具配置")
             return tools
@@ -144,9 +171,12 @@ class ToolsConfigImpl(BaseConfigImpl):
             logger.error(f"加载所有工具配置失败: {e}")
             raise ConfigError(f"加载所有工具配置失败: {e}")
     
-    def load_tool_registry_config(self) -> Dict[str, Any]:
+    def load_tool_registry_config(self, use_cache: bool = True) -> Dict[str, Any]:
         """加载工具注册表配置
         
+        Args:
+            use_cache: 是否使用缓存
+            
         Returns:
             工具注册表配置数据
             
@@ -154,12 +184,26 @@ class ToolsConfigImpl(BaseConfigImpl):
             ConfigError: 配置加载失败
         """
         try:
-            return self.load_config("tools/registry")
+            # 检查缓存
+            cache_key = "tool_registry_config"
+            if use_cache:
+                cached_config = self.cache_manager.get(cache_key)
+                if cached_config is not None:
+                    logger.debug("从缓存加载工具注册表配置")
+                    return cached_config
+            
+            config = self.load_config("tools/registry", use_cache=False)
+            
+            # 缓存结果
+            if use_cache:
+                self.cache_manager.set(cache_key, config)
+            
+            return config
             
         except Exception as e:
             logger.warning(f"加载工具注册表配置失败，使用默认配置: {e}")
             # 返回默认配置
-            return {
+            default_config = {
                 "auto_discover": True,
                 "discovery_paths": [],
                 "reload_on_change": False,
@@ -171,6 +215,12 @@ class ToolsConfigImpl(BaseConfigImpl):
                 "validate_schemas": True,
                 "sandbox_mode": False
             }
+            
+            # 缓存默认配置
+            if use_cache:
+                self.cache_manager.set(cache_key, default_config)
+            
+            return default_config
     
     def validate_tool_config(self, tool_config: Dict[str, Any]) -> bool:
         """验证工具配置
@@ -182,12 +232,26 @@ class ToolsConfigImpl(BaseConfigImpl):
             是否有效
         """
         try:
-            # 基础字段验证
+            # 使用验证辅助器进行基础结构验证
             required_fields = ["name", "description", "parameters_schema"]
-            for field in required_fields:
-                if field not in tool_config:
-                    logger.error(f"工具配置缺少必需字段: {field}")
-                    return False
+            structure_result = self.validation_helper.validate_structure(tool_config, required_fields)
+            
+            if not structure_result.is_valid:
+                logger.error(f"工具配置结构验证失败: {structure_result.errors}")
+                return False
+            
+            # 类型验证
+            type_schema = {
+                "name": str,
+                "description": str,
+                "parameters_schema": dict,
+                "tool_type": str
+            }
+            type_result = self.validation_helper.validate_types(tool_config, type_schema)
+            
+            if not type_result.is_valid:
+                logger.error(f"工具配置类型验证失败: {type_result.errors}")
+                return False
             
             # 工具类型验证
             tool_type = tool_config.get("tool_type")
@@ -195,18 +259,19 @@ class ToolsConfigImpl(BaseConfigImpl):
                 logger.error(f"不支持的工具类型: {tool_type}")
                 return False
             
-            # 类型特定验证
+            # 值约束验证
+            value_constraints = {}
             if tool_type == "rest":
-                if "api_url" not in tool_config:
-                    logger.error("REST工具缺少api_url字段")
-                    return False
+                value_constraints["api_url"] = {"required": True}
             elif tool_type == "mcp":
-                if "mcp_server_url" not in tool_config:
-                    logger.error("MCP工具缺少mcp_server_url字段")
-                    return False
+                value_constraints["mcp_server_url"] = {"required": True}
             elif tool_type in ["builtin", "native"]:
-                if "function_path" not in tool_config:
-                    logger.error(f"{tool_type}工具缺少function_path字段")
+                value_constraints["function_path"] = {"required": True}
+            
+            if value_constraints:
+                value_result = self.validation_helper.validate_values(tool_config, value_constraints)
+                if not value_result.is_valid:
+                    logger.error(f"工具配置值验证失败: {value_result.errors}")
                     return False
             
             return True
@@ -214,6 +279,56 @@ class ToolsConfigImpl(BaseConfigImpl):
         except Exception as e:
             logger.error(f"验证工具配置失败: {e}")
             return False
+    
+    def discover_tool_configs(self, pattern: str = "*") -> List[str]:
+        """发现工具配置文件
+        
+        Args:
+            pattern: 文件模式（支持通配符）
+            
+        Returns:
+            配置文件路径列表
+        """
+        return self.discovery_manager.discover_module_configs("tools", pattern)
+    
+    def invalidate_cache(self, cache_key: Optional[str] = None) -> None:
+        """清除缓存
+        
+        Args:
+            cache_key: 缓存键，如果为None则清除所有相关缓存
+        """
+        if cache_key:
+            self.cache_manager.delete(cache_key)
+        else:
+            # 清除工具相关的所有缓存
+            cache_keys = [
+                "tool_registry_config"
+            ]
+            
+            # 清除按类型缓存的工具配置
+            for tool_type in self._supported_tool_types:
+                cache_keys.append(f"tools_by_type:{tool_type}")
+            
+            # 清除特定工具配置缓存（需要发现所有工具）
+            try:
+                all_configs = self.discover_tool_configs("**/*")
+                for config_path in all_configs:
+                    cache_keys.append(f"tool_config:{config_path}")
+            except Exception:
+                pass  # 忽略发现错误
+            
+            for key in cache_keys:
+                self.cache_manager.delete(key)
+            
+            logger.debug("清除工具模块所有缓存")
+    
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """获取缓存统计信息
+        
+        Returns:
+            缓存统计信息
+        """
+        return self.cache_manager.get_stats()
     
     def _find_tool_config(self, tool_name: str) -> str:
         """查找工具配置文件
@@ -224,15 +339,13 @@ class ToolsConfigImpl(BaseConfigImpl):
         Returns:
             配置文件路径
         """
-        # 在不同类型目录中查找
+        # 使用发现管理器查找配置文件
         for tool_type in self._supported_tool_types:
-            config_path = f"tools/{tool_type}/{tool_name}"
-            try:
-                # 尝试加载配置来检查是否存在
-                self.config_loader.load(config_path)
-                return config_path
-            except Exception:
-                continue
+            pattern = f"{tool_type}/{tool_name}"
+            configs = self.discovery_manager.discover_module_configs("tools", pattern)
+            
+            if configs:
+                return configs[0]  # 返回第一个匹配的配置
         
         # 如果找不到，返回默认路径
         return f"tools/native/{tool_name}"
@@ -247,8 +360,8 @@ class ToolsConfigImpl(BaseConfigImpl):
             配置文件名列表
         """
         try:
-            # 使用list_configs方法获取配置文件列表
-            config_files = self.config_loader.list_configs(f"tools/{tool_type}")
+            # 使用发现管理器获取配置文件列表
+            config_files = self.discovery_manager.discover_module_configs("tools", f"{tool_type}/*")
             
             # 提取文件名（不含扩展名和路径）
             file_names = []

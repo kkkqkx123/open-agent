@@ -13,13 +13,11 @@ from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain
 from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.processor import IConfigProcessor
 from src.interfaces.config.schema import ISchemaGenerator
-from src.interfaces.config.provider import IConfigProvider
 from .processor.validation_processor import ValidationProcessor, SchemaRegistry
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor.environment_processor import EnvironmentProcessor
 from .processor.inheritance_processor import InheritanceProcessor
 from .processor.reference_processor import ReferenceProcessor
-from .provider.base_provider import BaseConfigProvider
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +114,31 @@ class ConfigFactory:
             from .schema.base_schema import BaseSchema
             schema = BaseSchema()
         
-        impl = BaseConfigImpl(module_type, loader, chain, schema)
+        # 根据模块类型创建特定的实现
+        if module_type == "llm":
+            from .impl.llm_config_impl import LLMConfigImpl
+            impl = LLMConfigImpl(loader, chain, schema)
+        elif module_type == "tools":
+            from .impl.tools_config_impl import ToolsConfigImpl
+            impl = ToolsConfigImpl(loader, chain, schema)
+        elif module_type == "workflow":
+            from .impl.workflow_config_impl import WorkflowConfigImpl
+            impl = WorkflowConfigImpl(loader, chain, schema)
+        elif module_type == "state":
+            from .impl.state_config_impl import StateConfigImpl
+            impl = StateConfigImpl(loader, chain, schema)
+        elif module_type == "node":
+            from .impl.node_config_impl import NodeConfigImpl
+            impl = NodeConfigImpl(loader, chain, schema)
+        elif module_type == "edge":
+            from .impl.edge_config_impl import EdgeConfigImpl
+            impl = EdgeConfigImpl(loader, chain, schema)
+        elif module_type == "graph":
+            from .impl.graph_config_impl import GraphConfigImpl
+            impl = GraphConfigImpl(loader, chain, schema)
+        else:
+            # 使用基础实现
+            impl = BaseConfigImpl(module_type, loader, chain, schema)
         
         # 注册到注册表
         self.registry.register_implementation(module_type, impl)
@@ -124,45 +146,27 @@ class ConfigFactory:
         logger.debug(f"创建{module_type}模块配置实现")
         return impl
     
-    def create_config_provider(self,
-                              module_type: str,
-                              config_impl: Optional[BaseConfigImpl] = None,
-                              provider_class: Optional[Type['BaseConfigProvider']] = None,
-                              **kwargs: Any) -> IConfigProvider:
-        """创建配置提供者
+    def get_config_implementation(self, module_type: str) -> Optional[BaseConfigImpl]:
+        """获取配置实现
         
         Args:
             module_type: 模块类型
-            config_impl: 配置实现
-            provider_class: 提供者类
-            **kwargs: 其他参数
             
         Returns:
-            配置提供者
+            配置实现，如果不存在则返回None
         """
-        impl = config_impl or self.registry.get_implementation(module_type)
+        impl = self.registry.get_implementation(module_type)
         
         if not impl:
             # 如果没有实现，创建一个默认的
             impl = self.create_config_implementation(module_type)
         
-        # 使用指定的提供者类或默认的基类提供者
-        if provider_class:
-            provider: IConfigProvider = provider_class(module_type, impl, **kwargs)
-        else:
-            provider = BaseConfigProvider(module_type, impl, **kwargs)
-        
-        # 注册到注册表
-        self.registry.register_provider(module_type, provider)
-        
-        logger.debug(f"创建{module_type}模块配置提供者")
-        return provider
+        return impl
     
     def register_module_config(self,
                                module_type: str,
                                schema: Optional[IConfigSchema] = None,
                                processor_names: Optional[List[str]] = None,
-                               provider_class: Optional[Type['BaseConfigProvider']] = None,
                                **kwargs: Any) -> None:
         """注册模块配置
         
@@ -170,7 +174,6 @@ class ConfigFactory:
             module_type: 模块类型
             schema: 配置模式
             processor_names: 处理器名称列表
-            provider_class: 提供者类
             **kwargs: 其他参数
         """
         # 注册模式
@@ -186,16 +189,13 @@ class ConfigFactory:
         # 创建配置实现
         impl = self.create_config_implementation(module_type, schema=schema, processor_chain=chain)
         
-        # 创建配置提供者
-        self.create_config_provider(module_type, impl, provider_class, **kwargs)
-        
         logger.info(f"注册{module_type}模块配置")
     
-    def setup_llm_config(self) -> IConfigProvider:
+    def setup_llm_config(self) -> BaseConfigImpl:
         """设置LLM配置
         
         Returns:
-            LLM配置提供者
+            LLM配置实现
         """
         # 创建LLM特定的处理器链
         processor_names = ["inheritance", "environment", "transformation", "validation"]
@@ -203,21 +203,19 @@ class ConfigFactory:
         # 注册LLM配置
         self.register_module_config(
             "llm",
-            processor_names=processor_names,
-            cache_enabled=True,
-            cache_ttl=300
+            processor_names=processor_names
         )
         
-        provider = self.registry.get_provider("llm")
-        if provider is None:
-            raise RuntimeError("Failed to create LLM config provider")
-        return provider
+        impl = self.registry.get_implementation("llm")
+        if impl is None:
+            raise RuntimeError("Failed to create LLM config implementation")
+        return impl
     
-    def setup_workflow_config(self) -> IConfigProvider:
+    def setup_workflow_config(self) -> BaseConfigImpl:
         """设置工作流配置
         
         Returns:
-            工作流配置提供者
+            工作流配置实现
         """
         # 创建工作流特定的处理器链
         processor_names = ["inheritance", "reference", "transformation", "validation"]
@@ -225,58 +223,41 @@ class ConfigFactory:
         # 注册工作流配置
         self.register_module_config(
             "workflow",
-            processor_names=processor_names,
-            cache_enabled=True,
-            cache_ttl=600
+            processor_names=processor_names
         )
         
-        provider = self.registry.get_provider("workflow")
-        if provider is None:
-            raise RuntimeError("Failed to create workflow config provider")
-        return provider
+        impl = self.registry.get_implementation("workflow")
+        if impl is None:
+            raise RuntimeError("Failed to create workflow config implementation")
+        return impl
     
-    def setup_tools_config(self) -> IConfigProvider:
+    def setup_tools_config(self) -> BaseConfigImpl:
         """设置工具配置
         
         Returns:
-            工具配置提供者
+            工具配置实现
         """
         # 创建工具特定的处理器链
         processor_names = ["inheritance", "environment", "transformation", "validation"]
         
-        # 创建工具配置实现
-        from .impl.tools_config_impl import ToolsConfigImpl
-        from .provider.tools_config_provider import ToolsConfigProvider
-        
-        # 创建配置加载器
-        loader = self.create_config_loader()
-        
-        # 创建处理器链
-        chain = self.create_processor_chain(processor_names)
-        
-        # 创建工具配置实现
-        tools_impl = ToolsConfigImpl(loader, chain)
-        
-        # 创建工具配置提供者
-        tools_provider = ToolsConfigProvider(
+        # 注册工具配置
+        self.register_module_config(
             "tools",
-            tools_impl,
-            cache_enabled=True,
-            cache_ttl=300
+            processor_names=processor_names
         )
         
-        # 注册到注册表
-        self.registry.register_implementation("tools", tools_impl)
-        self.registry.register_provider("tools", tools_provider)
+        impl = self.registry.get_implementation("tools")
+        if impl is None:
+            raise RuntimeError("Failed to create tools config implementation")
         
         logger.info("设置工具配置完成")
-        return tools_provider
+        return impl
     
-    def setup_state_config(self) -> IConfigProvider:
+    def setup_state_config(self) -> BaseConfigImpl:
         """设置状态配置
         
         Returns:
-            状态配置提供者
+            状态配置实现
         """
         # 创建状态特定的处理器链
         processor_names = ["environment", "transformation", "validation"]
@@ -284,32 +265,30 @@ class ConfigFactory:
         # 注册状态配置
         self.register_module_config(
             "state",
-            processor_names=processor_names,
-            cache_enabled=True,
-            cache_ttl=600
+            processor_names=processor_names
         )
         
-        provider = self.registry.get_provider("state")
-        if provider is None:
-            raise RuntimeError("Failed to create state config provider")
-        return provider
+        impl = self.registry.get_implementation("state")
+        if impl is None:
+            raise RuntimeError("Failed to create state config implementation")
+        return impl
     
-    def setup_all_configs(self) -> Dict[str, IConfigProvider]:
+    def setup_all_configs(self) -> Dict[str, BaseConfigImpl]:
         """设置所有模块配置
         
         Returns:
-            模块类型到提供者的映射
+            模块类型到实现的映射
         """
-        providers = {}
+        implementations = {}
         
         # 设置各模块配置
-        providers["llm"] = self.setup_llm_config()
-        providers["workflow"] = self.setup_workflow_config()
-        providers["tools"] = self.setup_tools_config()
-        providers["state"] = self.setup_state_config()
+        implementations["llm"] = self.setup_llm_config()
+        implementations["workflow"] = self.setup_workflow_config()
+        implementations["tools"] = self.setup_tools_config()
+        implementations["state"] = self.setup_state_config()
         
         logger.info("设置所有模块配置完成")
-        return providers
+        return implementations
     
     def set_base_path(self, base_path: Path) -> None:
         """设置基础路径
@@ -365,12 +344,12 @@ class ConfigFactory:
             "registry_validation": self.registry.validate_registry()
         }
     
-    def create_schema_generator(self, generator_type: str, config_provider: Optional['IConfigProvider'] = None) -> ISchemaGenerator:
+    def create_schema_generator(self, generator_type: str, config_impl: Optional[BaseConfigImpl] = None) -> ISchemaGenerator:
         """创建Schema生成器
         
         Args:
             generator_type: 生成器类型 (workflow, graph, node)
-            config_provider: 配置提供者
+            config_impl: 配置实现
             
         Returns:
             ISchemaGenerator: Schema生成器实例
@@ -382,12 +361,12 @@ class ConfigFactory:
         
         if generator_type == "workflow":
             from .schema.generators.workflow_schema_generator import WorkflowSchemaGenerator
-            return WorkflowSchemaGenerator(config_provider)
+            return WorkflowSchemaGenerator(config_impl)
         elif generator_type == "graph":
             from .schema.generators.graph_schema_generator import GraphSchemaGenerator
-            return GraphSchemaGenerator(config_provider)
+            return GraphSchemaGenerator(config_impl)
         elif generator_type == "node":
             from .schema.generators.node_schema_generator import NodeSchemaGenerator
-            return NodeSchemaGenerator(config_provider)
+            return NodeSchemaGenerator(config_impl)
         else:
             raise ValueError(f"不支持的Schema生成器类型: {generator_type}")

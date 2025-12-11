@@ -10,11 +10,12 @@ from src.interfaces.messages import IBaseMessage
 
 from ..config.cache_config import BaseCacheConfig
 from src.interfaces.llm import ICacheProvider, ICacheKeyGenerator
+from src.interfaces.cache import ICacheAdapter
 from .key_generator import DefaultCacheKeyGenerator
 from ..providers.memory.memory_provider import MemoryCacheProvider
 
 
-class CacheManager:
+class CacheManager(ICacheAdapter):
     """统一缓存管理器，支持通用缓存功能"""
     
     def __init__(self,
@@ -265,3 +266,17 @@ class CacheManager:
         }
         
         return config_info
+    
+    def get_all_keys(self) -> List[str]:
+        """获取所有缓存键"""
+        if not self.is_enabled() or not self._client_provider:
+            return []
+        
+        try:
+            # 如果提供者支持获取所有键
+            if hasattr(self._client_provider, "get_all_keys"):
+                return self._client_provider.get_all_keys()
+            # 否则返回空列表
+            return []
+        except Exception:
+            return []
