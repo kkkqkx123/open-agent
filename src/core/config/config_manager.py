@@ -21,6 +21,7 @@ from src.interfaces.config import (
 )
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.validation import BaseConfigValidator
+from src.core.tools.mappers.config_mapper import get_tools_config_mapper
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,9 @@ class ConfigManager(IConfigManager):
         
         # 模块特定加载器
         self._module_loaders: Dict[str, IModuleConfigLoader] = {}
+        
+        # 注册工具配置映射器
+        self._register_default_mappers()
         
         logger.info("统一配置管理器初始化完成")
     

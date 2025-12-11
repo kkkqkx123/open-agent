@@ -3,7 +3,7 @@
 提供配置数据的类型转换和格式转换功能。
 """
 
-from typing import Dict, Any, Optional, List, Union, Callable
+from typing import Dict, Any, Optional, List, Callable
 import logging
 from pathlib import Path
 

@@ -142,10 +142,11 @@ class AnthropicConfig(LLMClientConfig):
     """Anthropic客户端配置"""
     
     # Anthropic特定参数
-    max_tokens: int = 1000
+    anthropic_max_tokens: int = 1000
     stop_sequences: Optional[List[str]] = None
-    temperature: float = 0.7
-    top_p: float = 0.95
+    # 使用父类的temperature和top_p，无需重新定义
+    # temperature: float = 0.7  # 来自父类
+    # top_p: float = 0.95  # 来自父类
     top_k: int = 40
     
     def __post_init__(self) -> None:

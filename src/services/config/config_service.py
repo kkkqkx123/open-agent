@@ -376,9 +376,24 @@ def create_config_service(config_manager: IConfigManager,
     Returns:
         ConfigService: 配置服务实例
     """
+    from src.services.tools.config_service import get_tools_config_service
+    
     global default_config_service
+    
+    # 创建模块服务字典
+    module_services = {}
+    
+    # 注册工具配置服务
+    try:
+        tools_service = get_tools_config_service(config_manager, mapper_registry)
+        module_services["tools"] = tools_service
+        logger.info("已注册工具配置服务")
+    except Exception as e:
+        logger.warning(f"注册工具配置服务失败: {e}")
+    
     default_config_service = ConfigService(
         config_manager=config_manager,
+        module_services=module_services,
         mapper_registry=mapper_registry
     )
     return default_config_service

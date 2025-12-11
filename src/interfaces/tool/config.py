@@ -40,6 +40,27 @@ class ToolConfig:
 
 
 @dataclass(kw_only=True)
+class BuiltinToolConfig(ToolConfig):
+    """内置工具配置 - 项目内置工具"""
+
+    # 内置工具的配置
+    function_path: Optional[str] = None  # 函数路径（用于动态加载）
+
+    def __post_init__(self) -> None:
+        """初始化后处理"""
+        # 设置tool_type
+        self.tool_type = "builtin"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典"""
+        data = super().to_dict()
+        data.update({
+            'function_path': self.function_path,
+        })
+        return data
+
+
+@dataclass(kw_only=True)
 class NativeToolConfig(ToolConfig):
     """原生工具配置 (原rest) - 项目内实现"""
 

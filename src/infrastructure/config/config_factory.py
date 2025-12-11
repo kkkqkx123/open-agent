@@ -243,18 +243,33 @@ class ConfigFactory:
         # 创建工具特定的处理器链
         processor_names = ["inheritance", "environment", "transformation", "validation"]
         
-        # 注册工具配置
-        self.register_module_config(
+        # 创建工具配置实现
+        from .impl.tools_config_impl import ToolsConfigImpl
+        from .provider.tools_config_provider import ToolsConfigProvider
+        
+        # 创建配置加载器
+        loader = self.create_config_loader()
+        
+        # 创建处理器链
+        chain = self.create_processor_chain(processor_names)
+        
+        # 创建工具配置实现
+        tools_impl = ToolsConfigImpl(loader, chain)
+        
+        # 创建工具配置提供者
+        tools_provider = ToolsConfigProvider(
             "tools",
-            processor_names=processor_names,
+            tools_impl,
             cache_enabled=True,
             cache_ttl=300
         )
         
-        provider = self.registry.get_provider("tools")
-        if provider is None:
-            raise RuntimeError("Failed to create tools config provider")
-        return provider
+        # 注册到注册表
+        self.registry.register_implementation("tools", tools_impl)
+        self.registry.register_provider("tools", tools_provider)
+        
+        logger.info("设置工具配置完成")
+        return tools_provider
     
     def setup_state_config(self) -> IConfigProvider:
         """设置状态配置

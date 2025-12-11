@@ -6,13 +6,13 @@
 from typing import Dict, Any, List
 import logging
 
-from ..impl.base_impl import ConfigSchema
+from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
 
 logger = logging.getLogger(__name__)
 
 
-class NodeSchema(ConfigSchema):
+class NodeSchema(BaseSchema):
     """Node配置模式
     
     定义Node模块的配置验证规则和模式。

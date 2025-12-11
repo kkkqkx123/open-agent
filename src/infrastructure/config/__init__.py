@@ -17,7 +17,7 @@ from .impl import (
     BaseConfigImpl, IConfigImpl, IConfigSchema, IConfigProcessorChain,
     ConfigProcessorChain, ConfigSchema,
     LLMConfigImpl, WorkflowConfigImpl, GraphConfigImpl,
-    NodeConfigImpl, EdgeConfigImpl
+    NodeConfigImpl, EdgeConfigImpl, ToolsConfigImpl
 )
 
 # 配置处理器层
@@ -30,12 +30,12 @@ from .processor import EnvironmentProcessor, InheritanceProcessor, ReferenceProc
 from .provider import (
     BaseConfigProvider, IConfigProvider, CommonConfigProvider,
     LLMConfigProvider, WorkflowConfigProvider, GraphConfigProvider,
-    NodeConfigProvider, EdgeConfigProvider
+    NodeConfigProvider, EdgeConfigProvider, ToolsConfigProvider
 )
 
 # 配置模式层
 from .schema import (
-    LLMSchema, WorkflowSchema, GraphSchema, NodeSchema, EdgeSchema
+    LLMSchema, WorkflowSchema, GraphSchema, NodeSchema, EdgeSchema, ToolsSchema
 )
 
 __all__ = [
@@ -60,6 +60,7 @@ __all__ = [
     "GraphConfigImpl",
     "NodeConfigImpl",
     "EdgeConfigImpl",
+    "ToolsConfigImpl",
     
     # 配置处理器层
     "BaseConfigProcessor",
@@ -81,6 +82,7 @@ __all__ = [
     "GraphConfigProvider",
     "NodeConfigProvider",
     "EdgeConfigProvider",
+    "ToolsConfigProvider",
     
     # 配置模式层
     "LLMSchema",
@@ -88,4 +90,5 @@ __all__ = [
     "GraphSchema",
     "NodeSchema",
     "EdgeSchema",
+    "ToolsSchema",
 ]

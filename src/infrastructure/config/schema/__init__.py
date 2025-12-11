@@ -18,6 +18,9 @@ from .node_schema import NodeSchema
 # Edge相关模式
 from .edge_schema import EdgeSchema
 
+# Tools相关模式
+from .tools_schema import ToolsSchema
+
 __all__ = [
     # 基础模式
     "LLMSchema",
@@ -33,4 +36,7 @@ __all__ = [
     
     # Edge相关模式
     "EdgeSchema",
+    
+    # Tools相关模式
+    "ToolsSchema",
 ]

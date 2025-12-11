@@ -21,6 +21,9 @@ from .node_config_impl import NodeConfigImpl
 # Edge配置实现
 from .edge_config_impl import EdgeConfigImpl
 
+# Tools配置实现
+from .tools_config_impl import ToolsConfigImpl
+
 __all__ = [
     # 基础实现
     "BaseConfigImpl",
@@ -44,4 +47,7 @@ __all__ = [
     
     # Edge配置实现
     "EdgeConfigImpl",
+    
+    # Tools配置实现
+    "ToolsConfigImpl",
 ]

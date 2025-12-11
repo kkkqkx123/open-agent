@@ -6,13 +6,13 @@
 from typing import Dict, Any, List, Optional
 import logging
 
-from ..impl.base_impl import IConfigSchema
+from .base_schema import BaseSchema
 from src.interfaces.common_domain import ValidationResult
 
 logger = logging.getLogger(__name__)
 
 
-class LLMSchema(IConfigSchema):
+class LLMSchema(BaseSchema):
     """LLM配置模式
     
     定义LLM模块配置的验证规则和模式。

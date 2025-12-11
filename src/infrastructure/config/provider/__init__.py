@@ -24,6 +24,9 @@ from .node_config_provider import NodeConfigProvider
 # Edge配置提供者
 from .edge_config_provider import EdgeConfigProvider
 
+# Tools配置提供者
+from .tools_config_provider import ToolsConfigProvider
+
 __all__ = [
     # 基础提供者
     "BaseConfigProvider",
@@ -46,4 +49,7 @@ __all__ = [
     
     # Edge配置提供者
     "EdgeConfigProvider",
+    
+    # Tools配置提供者
+    "ToolsConfigProvider",
 ]

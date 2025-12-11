@@ -20,6 +20,9 @@ from .config import (
     BusinessStateConfig
 )
 
+# 导出配置映射器
+from .mappers import ToolsConfigMapper, get_tools_config_mapper
+
 # 导出工具类型
 from .types.builtin_tool import BuiltinTool
 from .types.native_tool import NativeTool
@@ -48,6 +51,10 @@ __all__ = [
     'StateManagerConfig',
     'ConnectionStateConfig',
     'BusinessStateConfig',
+    
+    # 配置映射器
+    'ToolsConfigMapper',
+    'get_tools_config_mapper',
     
     # 工具类型
     'BuiltinTool',

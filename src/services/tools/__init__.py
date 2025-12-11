@@ -5,7 +5,10 @@
 """
 
 from .manager import ToolManager
+from .config_service import ToolsConfigService, get_tools_config_service
 
 __all__ = [
     "ToolManager",
+    "ToolsConfigService",
+    "get_tools_config_service",
 ]
