@@ -3,15 +3,24 @@
 提供配置的业务逻辑验证，处理复杂的业务规则和跨模块验证。
 """
 
-from typing import Dict, Any, Protocol
+from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
-from .validation_context import ValidationContext
+from src.interfaces.config.validation import ValidationContext, IBusinessValidator
+from src.interfaces.common_domain import IValidationResult
 from src.infrastructure.validation.result import ValidationResult
 
 
-class IBusinessValidator(Protocol):
-    """业务验证器接口"""
+class BaseBusinessValidator(ABC, IBusinessValidator):
+    """业务验证器基类"""
+    
+    def __init__(self, config_type: str):
+        """初始化业务验证器
+        
+        Args:
+            config_type: 配置类型
+        """
+        self.config_type = config_type
     
     def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
         """执行业务验证
@@ -23,23 +32,11 @@ class IBusinessValidator(Protocol):
         Returns:
             验证结果
         """
-        ...
-
-
-class BaseBusinessValidator(ABC):
-    """业务验证器基类"""
-    
-    def __init__(self, config_type: str):
-        """初始化业务验证器
-        
-        Args:
-            config_type: 配置类型
-        """
-        self.config_type = config_type
+        return self.validate_with_context(config, context)
     
     @abstractmethod
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
-        """执行业务验证
+    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+        """带上下文的业务验证
         
         Args:
             config: 配置数据
@@ -73,7 +70,7 @@ class GlobalConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("global")
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
         """验证全局配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -134,7 +131,7 @@ class LLMConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("llm")
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
         """验证LLM配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -206,7 +203,7 @@ class ToolConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("tool")
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
         """验证工具配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -266,7 +263,7 @@ class TokenCounterConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("token_counter")
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
         """验证Token计数器配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         

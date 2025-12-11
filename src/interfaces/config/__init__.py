@@ -10,20 +10,14 @@ from .loader import IConfigLoader, IConfigInheritanceHandler, IHotReloadManager
 from .processor import IConfigProcessor
 
 # 导入验证器相关接口
-from .validator import (
+from .validation import (
     IConfigValidator,
-    IEnhancedConfigValidator,
     IConfigValidationService,
     IValidationRule,
     IValidationRuleRegistry,
     IBusinessValidator,
     IValidationReport,
-    ConfigValidationResult,
-    ValidationContext
-)
-
-# 导入验证框架定义
-from .validation import (
+    ValidationContext,
     ValidationLevel,
     ValidationSeverity,
     IFixSuggestion
@@ -84,16 +78,12 @@ __all__ = [
     
     # 验证器接口
     "IConfigValidator",
-    "IEnhancedConfigValidator",
     "IConfigValidationService",
     "IValidationRule",
     "IValidationRuleRegistry",
     "IBusinessValidator",
     "IValidationReport",
-    "ConfigValidationResult",
     "ValidationContext",
-    
-    # 验证框架定义
     "ValidationLevel",
     "ValidationSeverity",
     "IFixSuggestion",

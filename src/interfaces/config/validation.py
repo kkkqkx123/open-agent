@@ -5,8 +5,13 @@
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Protocol
+from typing import Dict, Any, List, Optional, Protocol, Tuple
 from datetime import datetime
+from abc import ABC, abstractmethod
+from typing import runtime_checkable
+
+# 从通用领域接口导入IValidationResult
+from ..common_domain import IValidationResult
 
 
 class ValidationLevel(Enum):
@@ -24,6 +29,218 @@ class ValidationSeverity(Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
+
+
+@dataclass
+class ValidationContext:
+    """验证上下文
+    
+    提供验证过程中需要的上下文信息。
+    """
+    config_type: str
+    config_path: Optional[str] = None
+    operation_id: Optional[str] = None
+    strict_mode: bool = False
+    enable_business_rules: bool = True
+    enable_cross_module_validation: bool = True
+    environment: str = "development"
+    enable_cache: bool = True
+    cache_key: Optional[str] = None
+    dependent_configs: Dict[str, Any] = None
+    metadata: Dict[str, Any] = None
+    created_at: datetime = None
+    validation_history: List[Dict[str, Any]] = None
+    
+    def __post_init__(self):
+        if self.dependent_configs is None:
+            self.dependent_configs = {}
+        if self.metadata is None:
+            self.metadata = {}
+        if self.validation_history is None:
+            self.validation_history = []
+        if self.created_at is None:
+            self.created_at = datetime.now()
+    
+    def add_dependency(self, config_type: str, config_data: Dict[str, Any]) -> None:
+        """添加依赖配置
+        
+        Args:
+            config_type: 配置类型
+            config_data: 配置数据
+        """
+        self.dependent_configs[config_type] = config_data
+    
+    def get_dependency(self, config_type: str) -> Optional[Dict[str, Any]]:
+        """获取依赖配置
+        
+        Args:
+            config_type: 配置类型
+            
+        Returns:
+            配置数据或None
+        """
+        return self.dependent_configs.get(config_type)
+    
+    def add_metadata(self, key: str, value: Any) -> None:
+        """添加元数据
+        
+        Args:
+            key: 键
+            value: 值
+        """
+        self.metadata[key] = value
+    
+    def get_metadata(self, key: str, default: Any = None) -> Any:
+        """获取元数据
+        
+        Args:
+            key: 键
+            default: 默认值
+            
+        Returns:
+            元数据值
+        """
+        return self.metadata.get(key, default)
+    
+    def add_validation_step(self, step_name: str, result: Dict[str, Any]) -> None:
+        """添加验证步骤记录
+        
+        Args:
+            step_name: 步骤名称
+            result: 验证结果
+        """
+        step_record = {
+            "step": step_name,
+            "timestamp": datetime.now().isoformat(),
+            "result": result
+        }
+        self.validation_history.append(step_record)
+
+
+class IValidationReport(Protocol):
+    """验证报告接口"""
+    
+    @property
+    def config_type(self) -> str:
+        """配置类型"""
+        ...
+    
+    @property
+    def config_path(self) -> str:
+        """配置路径"""
+        ...
+    
+    @property
+    def timestamp(self) -> datetime:
+        """时间戳"""
+        ...
+    
+    def is_valid(self, min_severity: ValidationSeverity = ValidationSeverity.ERROR) -> bool:
+        """检查配置是否有效"""
+        ...
+    
+    def get_fix_suggestions(self) -> List[Any]:
+        """获取修复建议"""
+        ...
+
+
+@runtime_checkable
+class IValidationRule(Protocol):
+    """验证规则接口"""
+    
+    @property
+    def rule_id(self) -> str:
+        """规则ID"""
+        ...
+    
+    @property
+    def config_type(self) -> str:
+        """适用的配置类型"""
+        ...
+    
+    @property
+    def priority(self) -> int:
+        """优先级"""
+        ...
+    
+    def validate(self, config: Dict[str, Any], context: ValidationContext) -> IValidationResult:
+        """执行验证"""
+        ...
+
+
+class IValidationRuleRegistry(Protocol):
+    """验证规则注册表接口"""
+    
+    def register_rule(self, rule: IValidationRule) -> None:
+        """注册验证规则"""
+        ...
+    
+    def get_rules(self, config_type: str) -> List[IValidationRule]:
+        """获取指定配置类型的所有规则"""
+        ...
+    
+    def validate_config(self, config_type: str, config: Dict[str, Any],
+                       context: ValidationContext) -> IValidationResult:
+        """使用所有适用的规则验证配置"""
+        ...
+
+
+class IBusinessValidator(Protocol):
+    """业务验证器接口"""
+    
+    def validate(self, config: Dict[str, Any], context: ValidationContext) -> IValidationResult:
+        """执行业务验证"""
+        ...
+
+
+class IConfigValidator(ABC):
+    """配置验证器接口"""
+    
+    @abstractmethod
+    def validate(self, config: Dict[str, Any]) -> IValidationResult:
+        """验证配置
+        
+        Args:
+            config: 配置数据
+            
+        Returns:
+            验证结果
+        """
+        pass
+    
+    @abstractmethod
+    def supports_module_type(self, module_type: str) -> bool:
+        """检查是否支持指定模块类型
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            是否支持
+        """
+        pass
+
+
+class IConfigValidationService(Protocol):
+    """配置验证服务接口"""
+    
+    def validate_config_complete(self,
+                               config_type: str,
+                               config: Dict[str, Any],
+                               context: Optional[ValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
+        """完整验证配置"""
+        ...
+    
+    def validate_config_file(self,
+                           config_path: str,
+                           config_type: str,
+                           context: Optional[ValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
+        """验证配置文件"""
+        ...
+    
+    def get_supported_config_types(self) -> List[str]:
+        """获取支持的配置类型"""
+        ...
 
 
 class IFixSuggestion(Protocol):

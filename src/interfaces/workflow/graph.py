@@ -4,7 +4,7 @@ This module contains interfaces related to workflow graphs, nodes, and edges.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Type, Optional, Callable, TYPE_CHECKING
+from typing import Dict, Any, List, Type, Optional, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:

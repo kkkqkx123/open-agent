@@ -6,7 +6,7 @@
 from typing import Dict, Any, List, Optional
 import re
 
-from src.interfaces.config.validator import IValidationRule, ValidationContext
+from src.interfaces.config.validation import IValidationRule, ValidationContext
 from src.infrastructure.validation.result import ValidationResult
 
 

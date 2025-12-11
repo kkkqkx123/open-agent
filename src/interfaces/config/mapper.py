@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-from ..common_domain import ValidationResult
+from ..common_domain import IValidationResult
 
 
 class IConfigMapper(ABC):
@@ -40,14 +40,14 @@ class IConfigMapper(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config_data: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config_data: Dict[str, Any]) -> IValidationResult:
         """验证配置数据
         
         Args:
             config_data: 配置字典数据
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 
@@ -81,14 +81,14 @@ class IModuleConfigService(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Any) -> ValidationResult:
+    def validate_config(self, config: Any) -> IValidationResult:
         """验证模块配置
         
         Args:
             config: 配置实体
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 
@@ -260,7 +260,7 @@ class IUnifiedConfigService(ABC):
         pass
     
     @abstractmethod
-    def validate_module_config(self, module_type: str, config: Any) -> ValidationResult:
+    def validate_module_config(self, module_type: str, config: Any) -> IValidationResult:
         """验证模块配置
         
         Args:
@@ -268,7 +268,7 @@ class IUnifiedConfigService(ABC):
             config: 配置实体
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 

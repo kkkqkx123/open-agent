@@ -10,9 +10,9 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from .core import IWorkflow
-    from ...core.workflow.graph_entities import GraphConfig
+    from .config import IGraphConfig
 
-from ..common_domain import ValidationResult
+from ..common_domain import IValidationResult
 
 
 class CompositionStrategyType(Enum):
@@ -27,14 +27,14 @@ class IWorkflowComposition(ABC):
     """工作流组合接口"""
     
     @abstractmethod
-    def compose_workflows(self, workflow_configs: List['GraphConfig']) -> 'GraphConfig':
+    def compose_workflows(self, workflow_configs: List['IGraphConfig']) -> 'IGraphConfig':
         """组合多个工作流配置
         
         Args:
             workflow_configs: 工作流配置列表
             
         Returns:
-            GraphConfig: 组合后的工作流配置
+            IGraphConfig: 组合后的工作流配置
         """
         pass
 

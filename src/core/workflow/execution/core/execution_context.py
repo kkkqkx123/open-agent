@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List, TYPE_CHECKING, Literal
 from enum import Enum
 
-from src.interfaces.common_domain import WorkflowExecutionContext
+from src.core.common import WorkflowExecutionContext
 
 if TYPE_CHECKING:
     from src.interfaces.state import IWorkflowState

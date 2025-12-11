@@ -8,7 +8,7 @@ from .core import (
     IWorkflow
 )
 
-from ..common_domain import WorkflowExecutionContext as ExecutionContext
+from ...core.common import WorkflowExecutionContext as ExecutionContext
 
 from .execution import (
     IWorkflowExecutor

@@ -21,11 +21,21 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-from src.interfaces.common_types import BaseStatus, BaseNumericPriority
+class TaskStatus(str, Enum):
+    """任务状态枚举"""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
-# 直接使用统一的枚举类型
-TaskPriority = BaseNumericPriority
-TaskStatus = BaseStatus
+
+class TaskPriority(int, Enum):
+    """任务优先级枚举"""
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+    URGENT = 4
 
 
 @dataclass

@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
-from ..common_domain import ValidationResult
+from ..common_domain import IValidationResult
 
 
 class IConfigSchema(ABC):
@@ -15,14 +15,14 @@ class IConfigSchema(ABC):
     """
     
     @abstractmethod
-    def validate(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate(self, config: Dict[str, Any]) -> IValidationResult:
         """验证配置
         
         Args:
             config: 配置数据
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
     

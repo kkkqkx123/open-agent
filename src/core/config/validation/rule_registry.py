@@ -4,13 +4,12 @@
 """
 
 from typing import Dict, List, Type, Any, Optional, Callable
-from abc import ABC, abstractmethod
 
 from src.infrastructure.validation.result import ValidationResult
-from src.interfaces.config.validator import IValidationRule, ValidationContext
+from src.interfaces.config.validation import IValidationRule, ValidationContext, IValidationRuleRegistry
 
 
-class ValidationRuleRegistry:
+class ValidationRuleRegistry(IValidationRuleRegistry):
     """验证规则注册表
     
     管理所有配置验证规则的注册和查找。

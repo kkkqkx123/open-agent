@@ -3,8 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
-from ..common_domain import ValidationResult
-from .validator import IConfigValidator
+from ..common_domain import IValidationResult
+from .validation import IConfigValidator
 
 
 class IConfigManager(ABC):
@@ -70,7 +70,7 @@ class IConfigManager(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> IValidationResult:
         """验证配置
         
         Args:

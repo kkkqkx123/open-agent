@@ -10,10 +10,10 @@ from typing import Dict, Any, List, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..state import IWorkflowState
     from .graph import IGraph, INode, IEdge
-    from ...core.workflow.graph_entities import GraphConfig
+    from .config import IGraphConfig
 
-from ..common_domain import ValidationResult, WorkflowExecutionContext
-
+from ..common_domain import IValidationResult
+from ...core.common import WorkflowExecutionContext
 
 class IWorkflow(ABC):
     """工作流接口 - 纯数据容器"""
@@ -56,7 +56,7 @@ class IWorkflow(ABC):
 
     @property
     @abstractmethod
-    def config(self) -> 'GraphConfig':
+    def config(self) -> 'IGraphConfig':
         """工作流配置"""
         pass
 
@@ -126,7 +126,7 @@ class IWorkflowManager(ABC):
     """工作流管理器接口 - 统一管理工作流生命周期"""
 
     @abstractmethod
-    def create_workflow(self, config: 'GraphConfig') -> IWorkflow:
+    def create_workflow(self, config: 'IGraphConfig') -> IWorkflow:
         """创建工作流
         
         Args:
@@ -176,14 +176,14 @@ class IWorkflowManager(ABC):
         pass
 
     @abstractmethod
-    def validate_workflow(self, workflow: IWorkflow) -> ValidationResult:
+    def validate_workflow(self, workflow: IWorkflow) -> IValidationResult:
         """验证工作流
         
         Args:
             workflow: 工作流实例
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 
@@ -213,26 +213,26 @@ class IWorkflowValidator(ABC):
     """工作流验证器接口"""
 
     @abstractmethod
-    def validate(self, workflow: IWorkflow) -> ValidationResult:
+    def validate(self, workflow: IWorkflow) -> IValidationResult:
         """验证工作流
         
         Args:
             workflow: 工作流实例
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 
     @abstractmethod
-    def validate_config(self, config: 'GraphConfig') -> ValidationResult:
+    def validate_config(self, config: 'IGraphConfig') -> IValidationResult:
         """验证工作流配置
         
         Args:
             config: 工作流配置
             
         Returns:
-            ValidationResult: 验证结果
+            IValidationResult: 验证结果
         """
         pass
 

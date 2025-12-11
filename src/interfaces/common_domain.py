@@ -1,13 +1,12 @@
-"""通用领域层接口定义
+"""通用领域接口定义
 
-提供领域层的通用接口，包括核心业务实体和值对象。
+提供系统中使用的核心接口定义。
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Protocol
+from typing import Dict, Any, Protocol, List
 from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass, field  # field 仅用于 BaseContext 和 ExecutionContext
 
 
 '''
@@ -99,7 +98,6 @@ class AbstractSessionData(ABC):
         pass
 
 
-
 '''
 领域层基础接口
 '''
@@ -136,11 +134,6 @@ class ISerializable(ABC):
         pass
 
 
-
-'''
-通用数据传输对象
-'''
-
 class IValidationResult(Protocol):
     """验证结果接口
     
@@ -172,60 +165,3 @@ class IValidationResult(Protocol):
     def has_warnings(self) -> bool:
         """检查是否有警告"""
         ...
-
-
-
-@dataclass
-class BaseContext:
-    """基础上下文数据类"""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: Optional[datetime] = None
-    
-    def __post_init__(self) -> None:
-        if self.timestamp is None:
-            self.timestamp = datetime.now()
-
-
-@dataclass
-class ExecutionContext(BaseContext):
-    """应用层执行上下文"""
-    operation_id: str = ""
-    user_id: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-
-
-@dataclass
-class WorkflowExecutionContext(BaseContext):
-    """工作流执行上下文"""
-    workflow_id: str = ""
-    execution_id: str = ""
-    config: Dict[str, Any] = field(default_factory=dict)
-
-
-class ITimestamped(ABC):
-    """
-    时间戳接口
-    
-    定义带有时间戳的领域对象契约。
-    """
-    
-    @abstractmethod
-    def get_created_at(self) -> datetime:
-        """
-        获取创建时间
-        
-        Returns:
-            datetime: 创建时间
-        """
-        pass
-    
-    @abstractmethod
-    def get_updated_at(self) -> datetime:
-        """
-        获取更新时间
-        
-        Returns:
-            datetime: 更新时间
-        """
-        pass

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import runtime_checkable
 
-from ..common_domain import ValidationResult
+
 
 
 class ValidationSeverity(Enum):
@@ -262,7 +262,6 @@ class IEnhancedConfigValidator(IConfigValidator):
         result = self.validate_with_context(config, context)
         
         # 创建简单报告
-        from ..common_domain import BaseContext
         simple_report = type('SimpleValidationReport', (), {
             'config_type': context.config_type,
             'config_path': context.config_path or "",
