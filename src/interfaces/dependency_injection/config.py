@@ -15,7 +15,7 @@ from src.infrastructure.config.processor import (
 )
 from src.core.config.adapter_factory import AdapterFactory
 from src.interfaces.common_domain import ValidationResult
-from src.infrastructure.config.config_loader import ConfigLoader
+from src.infrastructure.config.loader import ConfigLoader
 
 
 class _StubConfigManager(IConfigManager):

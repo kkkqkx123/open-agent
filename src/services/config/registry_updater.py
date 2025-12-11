@@ -196,7 +196,7 @@ class RegistryUpdater:
         Returns:
             Dict[str, List[Dict[str, Any]]]: 发现结果
         """
-        from src.infrastructure.config.config_loader import ConfigLoader
+        from src.infrastructure.config.loader import ConfigLoader
         
         loader = ConfigLoader(base_path=Path(self.base_path))
         config_files = loader.get_config_files(recursive=True)

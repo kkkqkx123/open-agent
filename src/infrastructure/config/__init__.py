@@ -6,11 +6,11 @@
 """
 
 # 基础组件
-from .config_loader import ConfigLoader
+from .loader import ConfigLoader
 from .schema_loader import SchemaLoader
 from .fixer import ConfigFixer
-from .config_registry import ConfigRegistry, get_global_registry, set_global_registry
-from .config_factory import ConfigFactory
+from .registry import ConfigRegistry, get_global_registry, set_global_registry
+from .factory import ConfigFactory
 
 # 配置实现层
 from .impl import (

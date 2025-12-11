@@ -88,7 +88,7 @@ def test_workflow_config_service():
     try:
         from src.services.workflow.config_service import WorkflowConfigService
         from src.core.config.config_manager import UnifiedConfigManager
-        from src.infrastructure.config.config_loader import ConfigLoader
+        from src.infrastructure.config.loader import ConfigLoader
         
         # 创建配置管理器
         config_loader = ConfigLoader()

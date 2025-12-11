@@ -37,7 +37,7 @@ class HttpClientFactory:
         """
         self.logger = get_logger(__name__)
         # 使用新的配置系统
-        from src.infrastructure.config.config_factory import ConfigFactory
+        from src.infrastructure.config.factory import ConfigFactory
         from src.infrastructure.config.schema.llm_schema import LLMSchema
         
         factory = ConfigFactory()

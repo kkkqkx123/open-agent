@@ -24,7 +24,7 @@ from src.infrastructure.config.validation import (
     ConfigFixer,
     FixSuggestion
 )
-from src.infrastructure.config.config_loader import load_config_file
+from src.infrastructure.config.loader import load_config_file
 from src.infrastructure.cache.core.cache_manager import CacheManager
 
 # 创建ValidationCache类

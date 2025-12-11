@@ -129,17 +129,13 @@ src/
 │       │   ├── business_validator.py # 业务验证器
 │       │   └── schema_validator.py # 模式验证器
 │       │
-│       ├── providers/             # 配置提供者实现
+│       ├── impl/             # 配置实现
 │       │   ├── __init__.py
-│       │   ├── base_provider.py   # 基础提供者
-│       │   ├── llm_provider.py    # LLM配置提供者
-│       │   ├── tool_provider.py   # 工具配置提供者
-│       │   └── state_provider.py  # 状态配置提供者
+│       │   └── ...
 │       │
 │       ├── cache/                 # 配置缓存实现
 │       │   ├── __init__.py
-│       │   ├── memory_cache.py    # 内存缓存
-│       │   └── file_cache.py      # 文件缓存
+│       │   └── memory_cache.py    # 内存缓存
 │       │
 │       └── factory.py             # 配置工厂
 │

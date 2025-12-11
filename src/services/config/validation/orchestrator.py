@@ -21,7 +21,7 @@ from src.infrastructure.config.validation import (
     ValidationLevel,
     ValidationSeverity
 )
-from src.infrastructure.config.config_loader import load_config_file
+from src.infrastructure.config.loader import load_config_file
 
 
 logger = get_logger(__name__)

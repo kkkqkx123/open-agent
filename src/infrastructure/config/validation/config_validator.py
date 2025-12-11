@@ -14,7 +14,7 @@ from src.infrastructure.common.utils.validator import Validator as UtilsValidato
 from src.infrastructure.common.utils.validator import ValidationResult as UtilsValidationResult
 
 # 导入基础设施层的配置加载器
-from src.infrastructure.config.config_loader import load_config_file
+from src.infrastructure.config.loader import load_config_file
 
 # 导入接口
 from src.interfaces.config import IConfigValidator

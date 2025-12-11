@@ -155,7 +155,7 @@ class ConfigValidationService(IConfigValidator):
         """
         try:
             # 加载配置文件
-            from src.infrastructure.config.config_loader import load_config_file
+            from src.infrastructure.config.loader import load_config_file
             config_data = load_config_file(config_path)
             
             # 更新上下文

@@ -7,8 +7,8 @@ from typing import Dict, Any, Optional, List, Type
 from pathlib import Path
 import logging
 
-from .config_registry import ConfigRegistry
-from .config_loader import ConfigLoader
+from .registry import ConfigRegistry
+from .loader import ConfigLoader
 from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain
 from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.processor import IConfigProcessor
@@ -125,7 +125,7 @@ class ConfigFactory:
             from .impl.workflow_config_impl import WorkflowConfigImpl
             impl = WorkflowConfigImpl(loader, chain, schema)
         elif module_type == "state":
-            from .impl.state_config_impl import StateConfigImpl
+            from .impl import StateConfigImpl
             impl = StateConfigImpl(loader, chain, schema)
         elif module_type == "node":
             from .impl.node_config_impl import NodeConfigImpl

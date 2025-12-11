@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
 from .base_processor import BaseConfigProcessor
-from ..config_loader import ConfigLoader
+from ..loader import ConfigLoader
 from src.interfaces.dependency_injection import get_logger
 
 logger = get_logger(__name__)

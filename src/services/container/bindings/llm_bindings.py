@@ -227,7 +227,7 @@ def register_provider_discovery(
     
     # 延迟导入具体实现
     def create_llm_config_impl() -> 'LLMConfigImpl':
-        from src.infrastructure.config.config_factory import ConfigFactory
+        from src.infrastructure.config.factory import ConfigFactory
         from src.infrastructure.config.schema.llm_schema import LLMSchema
         
         factory = ConfigFactory()
