@@ -9,7 +9,7 @@ from threading import RLock
 from src.interfaces.llm import ILLMClient, ILLMClientFactory
 from src.interfaces.llm.exceptions import LLMClientCreationError, UnsupportedModelTypeError
 from src.infrastructure.config import get_global_registry
-from src.infrastructure.config.provider.llm_config_provider import LLMConfigProvider
+from src.infrastructure.config.impl.llm_config_impl import LLMConfigImpl
 
 
 class LLMFactoryNew(ILLMClientFactory):
@@ -18,25 +18,25 @@ class LLMFactoryNew(ILLMClientFactory):
     使用新的集中配置系统，专注于业务逻辑包装。
     """
 
-    def __init__(self, config_provider_name: str = "llm") -> None:
+    def __init__(self, config_impl_name: str = "llm") -> None:
         """
         初始化工厂
 
         Args:
-            config_provider_name: 配置提供者名称
+            config_impl_name: 配置实现名称
         """
-        # 获取配置提供者
+        # 获取配置实现
         self.config_registry = get_global_registry()
-        provider = self.config_registry.get_provider(config_provider_name)
+        impl = self.config_registry.get_implementation(config_impl_name)
         
-        if not provider:
-            raise ValueError(f"配置提供者 '{config_provider_name}' 未找到")
+        if not impl:
+            raise ValueError(f"配置实现 '{config_impl_name}' 未找到")
         
-        # 确保是LLMConfigProvider实例
-        if not isinstance(provider, LLMConfigProvider):
-            raise TypeError(f"配置提供者必须是LLMConfigProvider实例，但得到 {type(provider)}")
+        # 确保是LLMConfigImpl实例
+        if not isinstance(impl, LLMConfigImpl):
+            raise TypeError(f"配置实现必须是LLMConfigImpl实例，但得到 {type(impl)}")
         
-        self.config_provider: LLMConfigProvider = provider
+        self.config_impl: LLMConfigImpl = impl
         
         self._client_cache: Dict[str, ILLMClient] = {}
         self._client_types: Dict[str, Type[ILLMClient]] = {}
@@ -118,10 +118,10 @@ class LLMFactoryNew(ILLMClientFactory):
             LLMClientCreationError: 客户端创建失败
             UnsupportedModelTypeError: 不支持的模型类型
         """
-        # 如果配置只包含model_name，从配置提供者获取完整配置
+        # 如果配置只包含model_name，从配置实现获取完整配置
         if isinstance(config, dict) and "model_name" in config and "model_type" not in config:
             model_name = config["model_name"]
-            client_config = self.config_provider.get_client_config(model_name)
+            client_config = self.config_impl.get_client_config(model_name)
             if not client_config:
                 raise LLMClientCreationError(f"未找到模型 {model_name} 的配置")
             config = client_config
@@ -145,7 +145,7 @@ class LLMFactoryNew(ILLMClientFactory):
             client = self._create_client_with_http_infrastructure(client_class, config)
 
             # 自动缓存客户端
-            module_config = self.config_provider.get_module_config()
+            module_config = self.config_impl.get_module_config()
             if module_config.get("cache_enabled", True):
                 self.cache_client(config["model_name"], client)
 
@@ -199,8 +199,8 @@ class LLMFactoryNew(ILLMClientFactory):
             LLMClientCreationError: 客户端创建失败
             UnsupportedModelTypeError: 不支持的模型类型
         """
-        # 从配置提供者获取客户端配置
-        client_config = self.config_provider.get_client_config(model_name)
+        # 从配置实现获取客户端配置
+        client_config = self.config_impl.get_client_config(model_name)
         if not client_config:
             raise LLMClientCreationError(f"未找到模型 {model_name} 的配置")
         
@@ -229,7 +229,7 @@ class LLMFactoryNew(ILLMClientFactory):
         """
         with self._lock:
             # 检查缓存大小限制
-            module_config = self.config_provider.get_module_config()
+            module_config = self.config_impl.get_module_config()
             max_cache_size = module_config.get("cache_max_size", 100)
             
             if len(self._client_cache) >= max_cache_size:
@@ -247,8 +247,8 @@ class LLMFactoryNew(ILLMClientFactory):
         # 同时清除基础设施层的HTTP客户端缓存
         self._http_factory.clear_cache()
         
-        # 清除配置提供者缓存
-        self.config_provider.clear_cache()
+        # 清除配置实现缓存
+        self.config_impl.invalidate_cache()
 
     def get_or_create_client(self, model_name: str) -> ILLMClient:
         """
@@ -269,7 +269,7 @@ class LLMFactoryNew(ILLMClientFactory):
         client = self.create_client_from_model_name(model_name)
 
         # 缓存客户端
-        module_config = self.config_provider.get_module_config()
+        module_config = self.config_impl.get_module_config()
         if module_config.get("cache_enabled", True):
             self.cache_client(model_name, client)
 
@@ -292,7 +292,7 @@ class LLMFactoryNew(ILLMClientFactory):
         Returns:
             list[str]: 可用模型列表
         """
-        return self.config_provider.list_available_models()
+        return self.config_impl.list_available_models()
 
     def get_cache_info(self) -> Dict[str, Any]:
         """
@@ -302,7 +302,7 @@ class LLMFactoryNew(ILLMClientFactory):
             Dict[str, Any]: 缓存信息
         """
         with self._lock:
-            module_config = self.config_provider.get_module_config()
+            module_config = self.config_impl.get_module_config()
             core_cache_info = {
                 "cache_size": len(self._client_cache),
                 "max_cache_size": module_config.get("cache_max_size", 100),
@@ -322,9 +322,9 @@ class LLMFactoryNew(ILLMClientFactory):
             # 如果获取基础设施层缓存信息失败，忽略错误
             pass
         
-        # 获取配置提供者缓存信息
+        # 获取配置实现缓存信息
         try:
-            config_cache_info = self.config_provider.get_cache_stats()
+            config_cache_info = self.config_impl.get_cache_stats()
             core_cache_info["config_cache"] = config_cache_info
         except Exception:
             pass
@@ -342,7 +342,9 @@ class LLMFactoryNew(ILLMClientFactory):
     def reload_configs(self) -> None:
         """重新加载配置"""
         self._http_factory.reload_configs()
-        self.config_provider.refresh_config()
+        self.config_impl.invalidate_cache()
+        # 重新加载配置数据
+        self.config_impl.get_config(use_cache=False)
     
     def get_config_summary(self) -> Dict[str, Any]:
         """获取配置摘要
@@ -350,7 +352,7 @@ class LLMFactoryNew(ILLMClientFactory):
         Returns:
             Dict[str, Any]: 配置摘要信息
         """
-        return self.config_provider.get_config_summary()
+        return self.config_impl.get_config_summary()
 
 
 # 全局工厂实例

@@ -7,7 +7,7 @@ from typing import Dict, Any, Protocol
 from abc import ABC, abstractmethod
 
 from .validation_context import ValidationContext
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 
 class IBusinessValidator(Protocol):

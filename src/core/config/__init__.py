@@ -32,9 +32,11 @@ from src.infrastructure.config.processor import (
     InheritanceProcessor,
     ReferenceProcessor,
 )
-from src.infrastructure.config.validation import (
+from src.interfaces.config.validation import (
     ValidationLevel,
     ValidationSeverity,
+)
+from src.infrastructure.config.validation import (
     BaseConfigValidator,
 )
 from src.interfaces.config import (

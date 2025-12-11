@@ -216,6 +216,26 @@ class ToolResourceError(ToolError):
             self.details["resource_id"] = resource_id
 
 
+class ValidationReporterError(ToolError):
+    """验证报告器错误异常"""
+    
+    def __init__(
+        self,
+        message: str,
+        reporter_format: Optional[str] = None,
+        reporter_type: Optional[str] = None,
+        **kwargs: Any
+    ):
+        super().__init__(message, "VALIDATION_REPORTER_ERROR", kwargs)
+        self.reporter_format = reporter_format
+        self.reporter_type = reporter_type
+        
+        if reporter_format:
+            self.details["reporter_format"] = reporter_format
+        if reporter_type:
+            self.details["reporter_type"] = reporter_type
+
+
 # 导出所有异常
 __all__ = [
     "ToolError",
@@ -228,4 +248,5 @@ __all__ = [
     "ToolPermissionError",
     "ToolDependencyError",
     "ToolResourceError",
+    "ValidationReporterError",
 ]

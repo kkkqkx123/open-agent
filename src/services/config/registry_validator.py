@@ -6,8 +6,8 @@
 from typing import Dict, List, Any, Optional
 import os
 from src.infrastructure.config.validation import BaseConfigValidator
-from src.interfaces.common_domain import ValidationResult
-from src.infrastructure.config.validation.framework import ValidationSeverity
+from src.infrastructure.validation.result import ValidationResult
+from src.interfaces.config.validation import ValidationSeverity
 
 
 class RegistryConfigValidator(BaseConfigValidator):

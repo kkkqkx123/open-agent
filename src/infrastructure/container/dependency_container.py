@@ -27,7 +27,7 @@ from src.interfaces.container.testing import (
     ITestContainerManager,
     DefaultTestIsolationStrategy
 )
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 # 延迟导入logger以避免循环依赖
 def _get_logger() -> Optional[Any]:

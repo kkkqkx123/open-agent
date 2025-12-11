@@ -12,7 +12,7 @@ from src.interfaces.config import (
     IConfigLoader, IConfigProcessor, IConfigValidator,
     IConfigChangeListener, ConfigChangeEvent
 )
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.infrastructure.cache.core.cache_manager import CacheManager
 from src.infrastructure.cache.config.cache_config import (
     ConfigCacheConfig, ConfigCacheEntry, ConfigDependencyEntry

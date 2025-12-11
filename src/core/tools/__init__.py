@@ -20,14 +20,24 @@ from .config import (
     BusinessStateConfig
 )
 
-# 导出配置映射器
-from .mappers import ToolsConfigMapper, get_tools_config_mapper
+# 导出配置映射器 - 现在已集中到 src/core/config/mappers
+# from .mappers import ToolsConfigMapper, get_tools_config_mapper
 
 # 导出工具类型
 from .types.builtin_tool import BuiltinTool
 from .types.native_tool import NativeTool
 from .types.rest_tool import RestTool
 from .types.mcp_tool import MCPTool
+
+# 导出验证模块
+from .validation import (
+    ValidationStatus,
+    ValidationIssue,
+    ValidationResult,
+    BaseValidator,
+    ValidationEngine,
+    ConfigValidator,
+)
 
 # 导出状态管理器 - 暂时注释掉，因为文件不存在
 # from .state.memory_state_manager import MemoryStateManager
@@ -52,15 +62,23 @@ __all__ = [
     'ConnectionStateConfig',
     'BusinessStateConfig',
     
-    # 配置映射器
-    'ToolsConfigMapper',
-    'get_tools_config_mapper',
+    # 配置映射器 - 现在已集中到 src/core/config/mappers
+    # 'ToolsConfigMapper',
+    # 'get_tools_config_mapper',
     
     # 工具类型
     'BuiltinTool',
     'NativeTool',
     'RestTool',
     'MCPTool',
+    
+    # 验证模块
+    'ValidationStatus',
+    'ValidationIssue',
+    'ValidationResult',
+    'BaseValidator',
+    'ValidationEngine',
+    'ConfigValidator',
     
     # 状态管理器 - 暂时注释掉，因为文件不存在
     # 'MemoryStateManager'

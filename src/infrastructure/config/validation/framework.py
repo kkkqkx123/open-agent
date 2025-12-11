@@ -1,57 +1,14 @@
 """验证框架核心
 
-定义验证级别、严重性、结果类型等核心概念。
-只依赖接口层，不依赖其他层。
+提供验证结果、验证报告等框架类型。
+依赖接口层的验证定义。
 """
 
-from enum import Enum
-from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Protocol
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 from src.interfaces.common_domain import IValidationResult
-
-
-class ValidationLevel(Enum):
-    """验证级别"""
-    SYNTAX = "syntax"           # 语法验证：YAML/JSON格式
-    SCHEMA = "schema"           # 模式验证：数据结构
-    SEMANTIC = "semantic"       # 语义验证：业务逻辑
-    DEPENDENCY = "dependency"   # 依赖验证：外部依赖
-    PERFORMANCE = "performance" # 性能验证：性能指标
-
-
-class ValidationSeverity(Enum):
-    """验证严重性级别"""
-    INFO = "info"
-    WARNING = "warning"
-    ERROR = "error"
-    CRITICAL = "critical"
-
-
-class IFixSuggestion(Protocol):
-    """修复建议接口"""
-    
-    @property
-    def description(self) -> str:
-        """修复描述"""
-        ...
-    
-    @property
-    def auto_fixable(self) -> bool:
-        """是否可自动修复"""
-        ...
-    
-    def apply_fix(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """应用修复
-        
-        Args:
-            config: 原始配置
-            
-        Returns:
-            修复后的配置
-        """
-        ...
+from src.interfaces.config.validation import ValidationLevel, ValidationSeverity, IFixSuggestion
 
 
 class FrameworkValidationResult(IValidationResult):

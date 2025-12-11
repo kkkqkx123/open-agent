@@ -6,7 +6,7 @@
 from typing import Dict, List, Type, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.config.validator import IValidationRule, ValidationContext
 
 

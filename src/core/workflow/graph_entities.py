@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional, Set
 from enum import Enum
 from datetime import datetime
 
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 
 class EdgeType(Enum):

@@ -14,7 +14,7 @@ from src.interfaces.workflow.composition import (
 from src.interfaces.workflow.core import IWorkflow
 from src.core.workflow.graph_entities import GraphConfig
 from src.interfaces.workflow.coordinator import IWorkflowCoordinator
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 if TYPE_CHECKING:
     from src.interfaces.workflow.composition import IDataMapper

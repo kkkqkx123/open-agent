@@ -18,7 +18,7 @@ from src.core.config.config_manager import ConfigManager
 from src.services.llm.core.client_manager import LLMClientManager
 from src.services.llm.core.request_executor import LLMRequestExecutor
 from src.services.llm.core.manager_registry import manager_registry, ManagerStatus
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 logger = get_logger(__name__)
 

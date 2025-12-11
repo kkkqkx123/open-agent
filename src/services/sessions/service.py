@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, AsyncGenerator, Callable, TYPE_CHECKING
 from datetime import datetime, timedelta
 
-from src.core.sessions.interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
+from src.core.sessions.core_interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
 from src.core.sessions.entities import SessionStatus, Session, UserRequestEntity, UserInteractionEntity, SessionContext
 from src.interfaces.sessions import ISessionService
 from src.interfaces.sessions.service import ISessionService as ISessionServiceInterface

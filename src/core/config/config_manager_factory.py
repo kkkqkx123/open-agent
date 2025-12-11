@@ -11,7 +11,7 @@ from src.interfaces.config import (
     IConfigLoader, IConfigProcessor, IConfigValidator, IConfigInheritanceHandler,
     IConfigManager, IConfigManagerFactory
 )
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from .config_manager import ConfigManager
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
 from src.infrastructure.config.validation import BaseConfigValidator

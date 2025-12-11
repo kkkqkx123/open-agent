@@ -3,7 +3,7 @@
 提供Session相关的核心功能，包括实体定义、接口、基础类和错误处理。
 """
 
-from .interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
+from .core_interfaces import ISessionCore, ISessionValidator, ISessionStateTransition
 from .entities import (
     Session,
     UserInteractionEntity,

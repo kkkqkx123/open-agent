@@ -8,7 +8,7 @@ import logging
 import re
 from datetime import datetime
 
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 logger = logging.getLogger(__name__)
 

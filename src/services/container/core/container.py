@@ -27,7 +27,7 @@ from src.interfaces.container.testing import (
     ITestContainerManager,
     DefaultTestIsolationStrategy
 )
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.container.core import ServiceLifetime
 
 # 延迟导入logger以避免循环依赖

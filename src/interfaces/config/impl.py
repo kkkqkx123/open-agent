@@ -5,7 +5,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from src.interfaces.common_domain import ValidationResult
+from src.interfaces.common_domain import IValidationResult
 
 
 class IConfigImpl(ABC):
@@ -24,7 +24,7 @@ class IConfigImpl(ABC):
         pass
     
     @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> IValidationResult:
         """验证配置数据
         
         Args:

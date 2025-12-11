@@ -14,7 +14,7 @@ from src.infrastructure.config.processor import (
     ReferenceProcessor,
 )
 from src.core.config.adapter_factory import AdapterFactory
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.infrastructure.config.loader import ConfigLoader
 
 

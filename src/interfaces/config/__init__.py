@@ -19,9 +19,14 @@ from .validator import (
     IBusinessValidator,
     IValidationReport,
     ConfigValidationResult,
-    ValidationSeverity,
-    ValidationLevel,
     ValidationContext
+)
+
+# 导入验证框架定义
+from .validation import (
+    ValidationLevel,
+    ValidationSeverity,
+    IFixSuggestion
 )
 
 # 导入模式相关接口
@@ -66,7 +71,7 @@ from .exceptions import (
 )
 
 # 为了向后兼容，保留原有的导入路径
-from ..common_domain import ValidationResult
+from ...infrastructure.validation.result import ValidationResult
 
 __all__ = [
     # 加载器接口
@@ -86,9 +91,12 @@ __all__ = [
     "IBusinessValidator",
     "IValidationReport",
     "ConfigValidationResult",
-    "ValidationSeverity",
-    "ValidationLevel",
     "ValidationContext",
+    
+    # 验证框架定义
+    "ValidationLevel",
+    "ValidationSeverity",
+    "IFixSuggestion",
     
     # 模式接口
     "IConfigSchema",

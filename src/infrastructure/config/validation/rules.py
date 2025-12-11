@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 import re
 
-from .framework import ValidationLevel, ValidationSeverity, FrameworkValidationResult
+from src.interfaces.config.validation import ValidationLevel, ValidationSeverity
+from .framework import FrameworkValidationResult
 
 
 class ValidationRule(ABC):

@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 import re
 
 from src.interfaces.config.validator import IValidationRule, ValidationContext
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 
 class BaseValidationRule(IValidationRule):

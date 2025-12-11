@@ -6,10 +6,14 @@
 
 # 导入验证框架核心类
 from .framework import (
+    ValidationReport,
+    FrameworkValidationResult
+)
+
+# 从接口层导入验证级别和严重性
+from src.interfaces.config.validation import (
     ValidationLevel,
     ValidationSeverity,
-    ValidationReport,
-    FrameworkValidationResult,
     IFixSuggestion
 )
 
@@ -38,8 +42,11 @@ from .config_validator import (
 # 导入兼容性类型
 from .config_validator import UtilsConfigValidationResult
 
-# 导入接口层的验证结果
-from src.interfaces.common_domain import ValidationResult
+# 导入基础设施层的验证结果
+from src.infrastructure.validation.result import ValidationResult
+
+# 导入配置修复相关类
+from src.infrastructure.config.fixer import ConfigFixer, FixSuggestion
 
 __all__ = [
     # 验证框架
@@ -70,6 +77,10 @@ __all__ = [
     # 兼容性类型
     "UtilsConfigValidationResult",
     
+    # 配置修复
+    "ConfigFixer",
+    "FixSuggestion",
+    
     # 接口层类型
-    "IValidationResult"
+    "ValidationResult"
 ]

@@ -6,7 +6,8 @@
 from typing import Dict, Any, List, Optional, Callable, Protocol
 import logging
 
-from .framework import ValidationLevel, ValidationSeverity, ValidationReport, FrameworkValidationResult
+from src.interfaces.config.validation import ValidationLevel, ValidationSeverity
+from .framework import ValidationReport, FrameworkValidationResult
 from .base_validator import BaseConfigValidator, IValidationContext
 
 # 导入通用验证器
@@ -19,7 +20,7 @@ from src.infrastructure.config.loader import load_config_file
 # 导入接口
 from src.interfaces.config import IConfigValidator
 from src.interfaces.common_domain import IValidationResult
-from src.core.validation import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 # 为了兼容性，创建一个别名
 UtilsConfigValidationResult = UtilsValidationResult

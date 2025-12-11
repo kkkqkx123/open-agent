@@ -224,7 +224,7 @@ class ToolManager(IToolManager):
         }
     
     async def validate_tool_config(self, config: "ToolConfig") -> bool:
-        """验证工具配置
+        """验证工具配置（委托给验证服务）
         
         Args:
             config: 工具配置对象
@@ -233,7 +233,9 @@ class ToolManager(IToolManager):
             bool: 验证是否通过
         """
         try:
-            # 尝试创建工具实例来验证配置
+            # 委托给验证服务进行验证
+            # 这里应该通过依赖注入获取验证服务
+            # 暂时通过工厂创建工具来验证
             config_dict: Dict[str, Any] = config.to_dict()  # type: ignore
             tool = self._factory.create_tool(config_dict)
             return tool is not None

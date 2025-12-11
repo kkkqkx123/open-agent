@@ -9,8 +9,8 @@ from typing import Dict, Any, List, Optional, Protocol
 from abc import ABC, abstractmethod
 
 from src.interfaces.common_domain import IValidationResult
-from src.core.validation import ValidationResult
 from src.interfaces.config import IConfigValidator
+from src.infrastructure.validation.result import ValidationResult
 
 
 class IValidationContext(Protocol):

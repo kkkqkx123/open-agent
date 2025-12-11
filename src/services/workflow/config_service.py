@@ -13,7 +13,8 @@ from src.interfaces.config import (
 )
 from src.interfaces.dependency_injection import get_logger
 from src.core.workflow.graph_entities import Graph
-from src.core.workflow.mappers.config_mapper import get_workflow_config_mapper
+from src.core.config.mappers import WorkflowConfigMapper
+from src.infrastructure.config.models.base import ConfigData
 
 logger = get_logger(__name__)
 
@@ -29,7 +30,7 @@ class WorkflowConfigService(IModuleConfigService):
             config_manager: 统一配置管理器
         """
         self.config_manager = config_manager
-        self.mapper = get_workflow_config_mapper()
+        self.mapper = WorkflowConfigMapper()
         
         logger.info("工作流配置服务初始化完成")
     
@@ -46,10 +47,13 @@ class WorkflowConfigService(IModuleConfigService):
             logger.debug(f"加载工作流配置: {config_path}")
             
             # 加载配置数据
-            config_data = self.config_manager.load_config(config_path, "workflow")
+            config_dict = self.config_manager.load_config(config_path, "workflow")
+            
+            # 转换为配置数据
+            config_data = ConfigData(config_dict)
             
             # 转换为图实体
-            graph = self.mapper.dict_to_entity(config_data)
+            graph = self.mapper.config_data_to_graph(config_data)
             
             logger.info(f"工作流配置加载成功: {config_path}")
             return graph
@@ -68,11 +72,11 @@ class WorkflowConfigService(IModuleConfigService):
         try:
             logger.debug(f"保存工作流配置: {config_path}")
             
-            # 转换为配置字典
-            config_data = self.mapper.entity_to_dict(config)
+            # 转换为配置数据
+            config_data = self.mapper.graph_to_config_data(config)
             
             # 保存配置数据
-            self.config_manager.save_config(config_data, config_path)
+            self.config_manager.save_config(config_data.data, config_path)
             
             logger.info(f"工作流配置保存成功: {config_path}")
             

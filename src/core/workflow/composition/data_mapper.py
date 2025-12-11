@@ -8,7 +8,7 @@ import re
 from src.interfaces.dependency_injection import get_logger
 
 from src.interfaces.workflow.composition import IDataMapper
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 
 logger = get_logger(__name__)
 

@@ -327,9 +327,9 @@ def setup_container(config_path: Optional[str] = None) -> None:
     # TODO: 在完成WorkflowCoordinator实现后重新启用此部分
     
     # 注册会话核心服务
-    from src.core.sessions.interfaces import ISessionCore
+    from src.core.sessions.core_interfaces import ISessionCore
     if not container.has_service(ISessionCore):
-        from src.core.sessions.interfaces import ISessionCore
+        from src.core.sessions.core_interfaces import ISessionCore
         from src.core.sessions.entities import Session, UserRequestEntity, UserInteractionEntity
         from typing import Dict, Any, Optional
         import uuid

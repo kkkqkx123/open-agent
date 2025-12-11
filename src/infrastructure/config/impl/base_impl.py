@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 import logging
 
-from src.interfaces.config import IConfigLoader, IConfigProcessor, ValidationResult
-from src.interfaces.common_domain import ValidationResult as CommonValidationResult
+from src.interfaces.config import IConfigLoader, IConfigProcessor
+from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
 from src.interfaces.config.impl import IConfigImpl
 from .shared import CacheManager, DiscoveryManager, ValidationHelper

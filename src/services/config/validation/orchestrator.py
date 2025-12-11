@@ -17,7 +17,9 @@ from src.core.config.validation import (
 )
 from src.infrastructure.config.validation import (
     ConfigValidator,
-    ValidationReport,
+    ValidationReport
+)
+from src.interfaces.config.validation import (
     ValidationLevel,
     ValidationSeverity
 )

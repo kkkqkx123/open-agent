@@ -1,37 +1,31 @@
 """验证结果实现
 
-提供IValidationResult接口的默认实现。
+提供IValidationResult接口的基础设施实现。
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from src.interfaces.common_domain import IValidationResult
 
 
 class ValidationResult(IValidationResult):
-    """验证结果默认实现
+    """验证结果基础设施实现
     
     提供IValidationResult接口的标准实现，适用于大多数验证场景。
     """
     
-    def __init__(self, is_valid: bool, errors: List[str] = None, warnings: List[str] = None,
-                 info: List[str] = None, metadata: Dict[str, Any] = None):
-        self._is_valid = is_valid
+    def __init__(self, is_valid: bool, errors: Optional[List[str]] = None, warnings: Optional[List[str]] = None,
+                 info: Optional[List[str]] = None, metadata: Optional[Dict[str, Any]] = None):
+        self.is_valid = is_valid
         self.errors = errors or []
         self.warnings = warnings or []
         self.info = info or []
         self.metadata = metadata or {}
     
-    @property
-    def is_valid(self) -> bool:
-        """是否验证通过"""
-        return self._is_valid
-    
     def add_error(self, message: str) -> None:
         """添加错误信息"""
         self.errors.append(message)
-        self._is_valid = False
+        self.is_valid = False
     
     def add_warning(self, message: str) -> None:
         """添加警告信息"""

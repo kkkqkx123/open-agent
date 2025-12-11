@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional
 import logging
 
 from .base_schema import BaseSchema
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)

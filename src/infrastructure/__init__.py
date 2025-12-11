@@ -8,4 +8,14 @@
 - 配置相关：from src.infrastructure.config import ConfigLoader
 - 存储相关：from src.infrastructure.storage import BaseStorage
 - 容器相关：from src.infrastructure.container import DependencyContainer
+- 验证相关：from src.infrastructure.validation import ValidationCache
 """
+
+# 导出验证模块
+from .validation import (
+    IRuleLoader,
+    FileRuleLoader,
+    MemoryRuleLoader,
+    ValidationCache,
+    ValidationCacheKeyGenerator,
+)

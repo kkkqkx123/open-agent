@@ -13,7 +13,7 @@ from src.interfaces.config import (
     IConfigInheritanceHandler, IModuleConfigRegistry, IConfigMapperRegistry,
     ICrossModuleResolver, IModuleConfigLoader, ModuleConfig
 )
-from src.interfaces.common_domain import ValidationResult
+from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.config import (
     ConfigError,
     ConfigurationLoadError as ConfigNotFoundError,
