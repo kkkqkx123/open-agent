@@ -175,6 +175,40 @@ class IValidationResult(Protocol):
 
 
 @dataclass
+class ValidationResult:
+    """验证结果实现
+    
+    提供IValidationResult接口的标准实现。
+    """
+    is_valid: bool = True
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    info: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def add_error(self, message: str) -> None:
+        """添加错误信息"""
+        self.errors.append(message)
+        self.is_valid = False
+    
+    def add_warning(self, message: str) -> None:
+        """添加警告信息"""
+        self.warnings.append(message)
+    
+    def add_info(self, message: str) -> None:
+        """添加信息"""
+        self.info.append(message)
+    
+    def has_errors(self) -> bool:
+        """检查是否有错误"""
+        return len(self.errors) > 0
+    
+    def has_warnings(self) -> bool:
+        """检查是否有警告"""
+        return len(self.warnings) > 0
+
+
+@dataclass
 class BaseContext:
     """基础上下文数据类"""
     metadata: Dict[str, Any] = field(default_factory=dict)

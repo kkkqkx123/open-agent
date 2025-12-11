@@ -10,7 +10,7 @@ from src.interfaces.dependency_injection import get_logger
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
 from src.interfaces.messages import IBaseMessage
 from src.core.llm.factory import LLMFactory
-from src.infrastructure.llm.config.models import LLMClientConfig
+from src.infrastructure.config.models import LLMClientConfig
 from src.interfaces.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService

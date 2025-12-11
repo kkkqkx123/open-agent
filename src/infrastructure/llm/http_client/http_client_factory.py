@@ -11,7 +11,7 @@ from src.infrastructure.llm.http_client.base_http_client import BaseHttpClient
 from src.infrastructure.llm.http_client.openai_http_client import OpenAIHttpClient
 from src.infrastructure.llm.http_client.gemini_http_client import GeminiHttpClient
 from src.infrastructure.llm.http_client.anthropic_http_client import AnthropicHttpClient
-from src.infrastructure.llm.config.config_discovery import ConfigDiscovery
+from src.infrastructure.config.impl.llm_config_impl import LLMConfigImpl
 from src.interfaces.dependency_injection import get_logger
 
 
@@ -36,7 +36,19 @@ class HttpClientFactory:
             config_dir: 配置目录路径
         """
         self.logger = get_logger(__name__)
-        self.config_discovery = ConfigDiscovery(config_dir)
+        # 使用新的配置系统
+        from src.infrastructure.config.config_factory import ConfigFactory
+        from src.infrastructure.config.schema.llm_schema import LLMSchema
+        
+        factory = ConfigFactory()
+        if config_dir:
+            factory.set_base_path(Path(config_dir))
+        
+        loader = factory.create_config_loader()
+        processor_chain = factory.create_default_processor_chain()
+        schema = LLMSchema()
+        
+        self.config_impl = LLMConfigImpl(loader, processor_chain, schema)
         self._client_cache: Dict[str, ILLMHttpClient] = {}
         
         self.logger.info("初始化HTTP客户端工厂")
@@ -146,7 +158,7 @@ class HttpClientFactory:
         
         清除配置缓存并重新发现配置文件。
         """
-        self.config_discovery.reload_configs()
+        self.config_impl.invalidate_cache()
         self.logger.info("配置已重新加载")
     
     def _load_client_config(self, provider: str, model: Optional[str] = None) -> Dict[str, Any]:
@@ -160,23 +172,13 @@ class HttpClientFactory:
             Dict[str, Any]: 配置数据
         """
         if model:
-            return self.config_discovery.load_provider_config(provider, model)
+            return self.config_impl.get_provider_config(provider, model)
         else:
             # 如果没有指定模型，尝试获取提供商的通用配置
-            # 查找名为 common.yaml 的配置文件作为默认配置
-            configs = self.config_discovery.discover_configs(provider)
-            if configs:
-                # 优先查找 common 配置作为默认配置
-                common_config = next((c for c in configs if c.path.stem == 'common'), None)
-                if common_config:
-                    return self.config_discovery._load_config_file(common_config.path)
-                else:
-                    # 如果没有 common 配置，使用第一个配置
-                    config_info = configs[0]
-                    return self.config_discovery._load_config_file(config_info.path)
-            else:
-                # 返回默认配置
-                return self.config_discovery._get_default_config(provider)
+            config = self.config_impl.get_config()
+            providers = config.get("providers", {})
+            provider_config = providers.get(provider, {})
+            return provider_config.get("common", {})
     
     def _merge_config_with_params(
         self,

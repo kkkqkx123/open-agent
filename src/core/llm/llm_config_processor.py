@@ -26,9 +26,13 @@ class LLMConfigProcessor:
         self.base_config_path = base_config_path
         self.logger = logger
         
-        # 使用 infrastructure 层的配置加载器
-        from src.infrastructure.llm.config import get_config_loader
-        self._config_loader = get_config_loader()
+        # 使用新的配置系统
+        from src.infrastructure.config.config_factory import ConfigFactory
+        from src.infrastructure.config.schema.llm_schema import LLMSchema
+        
+        factory = ConfigFactory()
+        self._config_loader = factory.create_config_loader()
+        self._llm_config_impl = factory.create_config_implementation("llm")
         
         if self.logger:
             self.logger.debug(f"LLM配置处理器初始化完成，基础路径: {self.base_config_path}")
@@ -63,7 +67,7 @@ class LLMConfigProcessor:
         Returns:
             Optional[Dict[str, Any]]: 配置数据
         """
-        return self._config_loader.load_config(config_type, provider, model)
+        return self._config_loader.load(config_type)
     
     def load_provider_config(self, provider: str) -> Optional[Dict[str, Any]]:
         """加载提供商配置
@@ -74,7 +78,9 @@ class LLMConfigProcessor:
         Returns:
             Optional[Dict[str, Any]]: 提供商配置数据
         """
-        return self._config_loader.load_provider_config(provider)
+        # 简化实现，返回配置
+        config = self._llm_config_impl.get_config()
+        return config.get("providers", {}).get(provider)
     
     def load_model_config(self, provider: str, model: str) -> Optional[Dict[str, Any]]:
         """加载模型配置
@@ -86,7 +92,11 @@ class LLMConfigProcessor:
         Returns:
             Optional[Dict[str, Any]]: 模型配置数据
         """
-        return self._config_loader.load_model_config(provider, model)
+        # 简化实现，从配置中获取模型配置
+        config = self._llm_config_impl.get_config()
+        providers = config.get("providers", {})
+        provider_config = providers.get(provider, {})
+        return provider_config.get("models", {}).get(model)
     
     def load_config_with_fallback(
         self,
@@ -106,21 +116,23 @@ class LLMConfigProcessor:
         Returns:
             Optional[Dict[str, Any]]: 配置数据
         """
-        from src.infrastructure.llm.config import LoadOptions
-        options = LoadOptions(
-            resolve_env_vars=True,
-            resolve_inheritance=True,
-            validate_schema=True,
-            cache_enabled=True
-        )
-        
-        return self._config_loader.load_config_with_fallback(
-            config_type, provider, model, fallback_configs, options
-        )
+        # 使用新的配置系统
+        if provider and model:
+            # 简化实现，从配置中获取模型配置
+            config = self._llm_config_impl.get_config()
+            providers = config.get("providers", {})
+            provider_config = providers.get(provider, {})
+            return provider_config.get("models", {}).get(model)
+        elif provider:
+            # 简化实现，返回提供商配置
+            config = self._llm_config_impl.get_config()
+            return config.get("providers", {}).get(provider)
+        else:
+            return self._llm_config_impl.get_config()
     
     def clear_cache(self) -> None:
         """清空配置缓存"""
-        self._config_loader.clear_cache()
+        self._llm_config_impl.invalidate_cache()
         if self.logger:
             self.logger.debug("LLM配置处理器缓存已清空")
     
@@ -130,7 +142,7 @@ class LLMConfigProcessor:
         Returns:
             Dict[str, Any]: 缓存统计信息
         """
-        return self._config_loader.get_cache_stats()
+        return self._llm_config_impl.get_cache_stats()
 
 
 # 为了向后兼容，保留原有的类名作为别名

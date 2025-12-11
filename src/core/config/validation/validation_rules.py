@@ -6,8 +6,7 @@
 from typing import Dict, Any, List, Optional
 import re
 
-from .rule_registry import IValidationRule
-from .validation_context import ValidationContext
+from src.interfaces.config.validator import IValidationRule, ValidationContext
 from src.interfaces.common_domain import ValidationResult
 
 

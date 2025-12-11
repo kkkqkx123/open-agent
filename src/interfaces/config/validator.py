@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional, Tuple, Protocol
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
+from typing import runtime_checkable
 
 from ..common_domain import ValidationResult
 
@@ -47,14 +48,31 @@ class ValidationContext:
     dependent_configs: Dict[str, Any] = None
     metadata: Dict[str, Any] = None
     created_at: datetime = None
+    validation_history: List[Dict[str, Any]] = None
     
     def __post_init__(self):
         if self.dependent_configs is None:
             self.dependent_configs = {}
         if self.metadata is None:
             self.metadata = {}
+        if self.validation_history is None:
+            self.validation_history = []
         if self.created_at is None:
             self.created_at = datetime.now()
+    
+    def add_validation_step(self, step_name: str, result: Dict[str, Any]) -> None:
+        """添加验证步骤记录
+        
+        Args:
+            step_name: 步骤名称
+            result: 验证结果
+        """
+        step_record = {
+            "step": step_name,
+            "timestamp": datetime.now().isoformat(),
+            "result": result
+        }
+        self.validation_history.append(step_record)
 
 
 class IValidationReport(Protocol):
@@ -84,6 +102,7 @@ class IValidationReport(Protocol):
         ...
 
 
+@runtime_checkable
 class IValidationRule(Protocol):
     """验证规则接口"""
     
@@ -102,7 +121,7 @@ class IValidationRule(Protocol):
         """优先级"""
         ...
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate(self, config: Dict[str, Any], context: "ValidationContext") -> ValidationResult:
         """执行验证"""
         ...
 

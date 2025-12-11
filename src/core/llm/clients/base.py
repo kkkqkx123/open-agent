@@ -12,7 +12,7 @@ from src.infrastructure.llm.models import TokenUsage, LLMError, ModelInfo
 from typing import Dict, Any, Optional
 
 # 使用infrastructure层的配置
-from src.infrastructure.llm.config import LLMClientConfig
+from src.infrastructure.config.models import LLMClientConfig
 from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMModelNotFoundError,

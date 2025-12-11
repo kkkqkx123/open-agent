@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from src.services.llm.retry.strategies import DefaultRetryLogger
     from src.services.llm.fallback_system.strategies import ConditionalFallback
     from src.core.config.config_manager import ConfigManager as LLMConfigManager
-    from src.infrastructure.llm.config import ConfigDiscovery
+    from src.infrastructure.config.impl.llm_config_impl import LLMConfigImpl
     from src.infrastructure.llm.retry import RetryConfig
     from src.infrastructure.llm.fallback import FallbackConfig
     from src.core.config.config_loader import ConfigLoader
@@ -226,13 +226,20 @@ def register_provider_discovery(
     base_path = config_manager_config.get("base_path", "configs/llms")
     
     # 延迟导入具体实现
-    def create_config_discovery() -> 'ConfigDiscovery':
-        from src.infrastructure.llm.config import ConfigDiscovery
-        return ConfigDiscovery(config_dir=base_path)
+    def create_llm_config_impl() -> 'LLMConfigImpl':
+        from src.infrastructure.config.config_factory import ConfigFactory
+        from src.infrastructure.config.schema.llm_schema import LLMSchema
+        
+        factory = ConfigFactory()
+        loader = factory.create_config_loader()
+        processor_chain = factory.create_default_processor_chain()
+        schema = LLMSchema()
+        
+        return LLMConfigImpl(loader, processor_chain, schema)
     
     container.register_factory(
-        ConfigDiscovery,
-        create_config_discovery,
+        LLMConfigImpl,
+        create_llm_config_impl,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
@@ -257,7 +264,7 @@ def register_token_config_provider(
         def create_token_config_provider() -> 'ProviderConfigTokenConfigProvider':
             from src.services.llm.config import ProviderConfigTokenConfigProvider
             return ProviderConfigTokenConfigProvider(
-                config_discovery=container.get(ConfigDiscovery)
+                llm_config_impl=container.get(LLMConfigImpl)
             )
         
         container.register_factory(

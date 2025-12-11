@@ -12,7 +12,8 @@ from src.interfaces.llm import (
     TokenCalculationConfig,
     TokenCostInfo
 )
-from src.infrastructure.llm.config import ConfigDiscovery, ProviderInfo
+from src.infrastructure.config.impl.llm_config_impl import LLMConfigImpl
+from src.infrastructure.config.impl.llm_config_impl import ProviderInfo
 from src.services.llm.utils.config_extractor import TokenConfigExtractor, create_config_key
 from src.infrastructure.common.cache import ConfigCache
 
@@ -25,14 +26,14 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
     从配置发现器中获取Token计算相关配置。
     """
     
-    def __init__(self, config_discovery: ConfigDiscovery):
+    def __init__(self, llm_config_impl: LLMConfigImpl):
         """
         初始化配置提供者
         
         Args:
-            config_discovery: 配置发现器
+            llm_config_impl: LLM配置实现
         """
-        self._config_discovery = config_discovery
+        self._llm_config_impl = llm_config_impl
         self._config_cache = ConfigCache()
         
         logger.debug("ProviderConfigTokenConfigProvider初始化完成")
@@ -77,7 +78,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         """
         try:
             # 获取Provider配置
-            provider_config = self._config_discovery.get_provider_config(model_type, model_name)
+            provider_config = self._llm_config_impl.get_provider_config(model_type, model_name)
             
             if not provider_config:
                 logger.debug(f"未找到Provider配置: {model_type}:{model_name}")
@@ -117,7 +118,11 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
             Dict[str, List[str]]: 按提供商分组的模型列表
         """
         try:
-            return self._provider_discovery.list_all_models()
+            providers = self._llm_config_impl.discover_providers()
+            result = {}
+            for provider_name, provider_info in providers.items():
+                result[provider_name] = provider_info.models
+            return result
         except Exception as e:
             logger.error(f"获取支持的模型列表失败: {e}")
             return {}
@@ -134,7 +139,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
             bool: 是否支持该模型
         """
         try:
-            return self._provider_discovery.validate_provider_config(model_type, model_name)
+            return self._llm_config_impl.validate_client_config(model_name)
         except Exception as e:
             logger.error(f"验证模型支持失败 {model_type}:{model_name}: {e}")
             return False
@@ -144,7 +149,7 @@ class ProviderConfigTokenConfigProvider(ITokenConfigProvider):
         刷新配置缓存
         """
         self._config_cache.clear()
-        self._provider_discovery.refresh_cache()
+        self._llm_config_impl.invalidate_cache()
         
         logger.info("Token配置缓存已刷新")
 

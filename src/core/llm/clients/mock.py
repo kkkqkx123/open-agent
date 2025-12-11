@@ -11,7 +11,7 @@ from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMes
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
-from src.infrastructure.llm.config import MockConfig, LLMClientConfig
+from src.infrastructure.config.models import MockConfig, LLMClientConfig
 from src.interfaces.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,

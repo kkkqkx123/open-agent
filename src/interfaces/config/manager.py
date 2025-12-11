@@ -8,67 +8,6 @@ from .validator import IConfigValidator
 
 
 class IConfigManager(ABC):
-    """配置管理器接口"""
-    
-    @abstractmethod
-    def load_config(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件
-        
-        Args:
-            config_path: 配置文件路径
-            
-        Returns:
-            Dict[str, Any]: 配置字典
-        """
-        pass
-    
-    @abstractmethod
-    def save_config(self, config: Dict[str, Any], config_path: str) -> None:
-        """保存配置文件
-        
-        Args:
-            config: 配置字典
-            config_path: 配置文件路径
-        """
-        pass
-    
-    @abstractmethod
-    def get_config(self, key: str, default: Any = None) -> Any:
-        """获取配置值
-        
-        Args:
-            key: 配置键
-            default: 默认值
-            
-        Returns:
-            Any: 配置值
-        """
-        pass
-    
-    @abstractmethod
-    def set_config(self, key: str, value: Any) -> None:
-        """设置配置值
-        
-        Args:
-            key: 配置键
-            value: 配置值
-        """
-        pass
-    
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> ValidationResult:
-        """验证配置
-        
-        Args:
-            config: 配置字典
-            
-        Returns:
-            ValidationResult: 验证结果
-        """
-        pass
-
-
-class IConfigManager:
     """统一配置管理器接口"""
     
     @abstractmethod

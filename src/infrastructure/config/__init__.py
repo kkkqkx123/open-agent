@@ -38,6 +38,12 @@ from .schema import (
     LLMSchema, WorkflowSchema, GraphSchema, NodeSchema, EdgeSchema, ToolsSchema
 )
 
+# 配置模型层
+from .models import (
+    LLMClientConfig, OpenAIConfig, MockConfig, GeminiConfig,
+    AnthropicConfig, HumanRelayConfig
+)
+
 __all__ = [
     # 基础组件
     "ConfigLoader",
@@ -88,4 +94,12 @@ __all__ = [
     "NodeSchema",
     "EdgeSchema",
     "ToolsSchema",
+    
+    # 配置模型层
+    "LLMClientConfig",
+    "OpenAIConfig",
+    "MockConfig",
+    "GeminiConfig",
+    "AnthropicConfig",
+    "HumanRelayConfig",
 ]

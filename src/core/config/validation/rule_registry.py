@@ -7,41 +7,7 @@ from typing import Dict, List, Type, Any, Optional, Callable
 from abc import ABC, abstractmethod
 
 from src.interfaces.common_domain import ValidationResult
-
-
-class IValidationRule(ABC):
-    """验证规则接口"""
-    
-    @property
-    @abstractmethod
-    def rule_id(self) -> str:
-        """规则ID"""
-        pass
-    
-    @property
-    @abstractmethod
-    def config_type(self) -> str:
-        """适用的配置类型"""
-        pass
-    
-    @property
-    @abstractmethod
-    def priority(self) -> int:
-        """优先级，数值越小优先级越高"""
-        pass
-    
-    @abstractmethod
-    def validate(self, config: Dict[str, Any], context: 'ValidationContext') -> ValidationResult:
-        """执行验证
-        
-        Args:
-            config: 配置数据
-            context: 验证上下文
-            
-        Returns:
-            验证结果
-        """
-        pass
+from src.interfaces.config.validator import IValidationRule, ValidationContext
 
 
 class ValidationRuleRegistry:
@@ -124,7 +90,7 @@ class ValidationRuleRegistry:
         return None
     
     def validate_config(self, config_type: str, config: Dict[str, Any], 
-                       context: 'ValidationContext') -> ValidationResult:
+                       context: ValidationContext) -> ValidationResult:
         """使用所有适用的规则验证配置
         
         Args:
@@ -202,8 +168,6 @@ class ValidationRuleRegistry:
         for config_type in config_types:
             try:
                 rule_instance = rule_class()
-                if hasattr(rule_instance, 'config_type'):
-                    rule_instance.config_type = config_type
                 self.register_rule(rule_instance)
             except Exception as e:
                 raise ValueError(f"无法实例化规则类 {rule_class.__name__} 用于配置类型 {config_type}: {e}")
@@ -222,16 +186,24 @@ class ValidationRuleRegistry:
             # 查找模块中的验证规则类
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if (isinstance(attr, type) and 
-                    issubclass(attr, IValidationRule) and 
-                    attr != IValidationRule):
-                    
-                    # 尝试实例化并注册
+                if isinstance(attr, type):
+                    # 检查是否符合IValidationRule协议
                     try:
-                        rule_instance = attr()
-                        self.register_rule(rule_instance)
-                    except Exception as e:
-                        # 跳过无法实例化的规则
+                        if isinstance(attr, IValidationRule) or (
+                            hasattr(attr, 'rule_id') and 
+                            hasattr(attr, 'config_type') and 
+                            hasattr(attr, 'priority') and 
+                            hasattr(attr, 'validate')
+                        ):
+                            # 尝试实例化并注册
+                            try:
+                                rule_instance = attr()
+                                self.register_rule(rule_instance)
+                            except Exception:
+                                # 跳过无法实例化的规则
+                                continue
+                    except Exception:
+                        # 跳过类检查失败的属性
                         continue
                         
         except ImportError as e:

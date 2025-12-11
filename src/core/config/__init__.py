@@ -28,7 +28,6 @@ from src.infrastructure.config.processor import (
     ReferenceProcessor,
 )
 from src.infrastructure.config.validation import (
-    ValidationResult,
     ValidationLevel,
     ValidationSeverity,
     BaseConfigValidator,
@@ -67,7 +66,6 @@ __all__ = [
     "ConfigProcessorChain",
     "InheritanceProcessor",
     "ReferenceProcessor",
-    "ValidationResult",
     "ValidationLevel",
     "ValidationSeverity",
     "BaseConfigValidator",
