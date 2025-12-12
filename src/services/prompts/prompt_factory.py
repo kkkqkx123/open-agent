@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 from src.interfaces.dependency_injection import get_logger
 
-from ...core.config.config_manager import ConfigManager
+from ...core.config.config_facade import ConfigFacade
 from .registry import PromptRegistry
 from .loader import PromptLoader
 from .injector import PromptInjector
@@ -26,14 +26,14 @@ class PromptSystemFactory:
     
     @staticmethod
     async def create_prompt_system(
-        config_manager: Optional[ConfigManager] = None,
+        config_facade: Optional[ConfigFacade] = None,
         prompts_directory: str = "configs/prompts",
         auto_discover: bool = True
     ) -> Dict[str, Any]:
         """创建提示词系统
         
         Args:
-            config_manager: 配置管理器实例
+            config_facade: 配置门面实例
             prompts_directory: 提示词目录路径
             auto_discover: 是否自动发现提示词文件
             
@@ -41,10 +41,12 @@ class PromptSystemFactory:
             Dict[str, Any]: 包含 registry, loader, injector 的字典
         """
         try:
-            # 1. 准备配置管理器
-            if config_manager is None:
-                from ..config.config_factory import create_config_manager
-                config_manager = create_config_manager()
+            # 1. 准备配置门面
+            if config_facade is None:
+                from ...core.config.config_facade import initialize_config_facade
+                from ...infrastructure.config import ConfigLoader
+                config_loader = ConfigLoader()
+                config_facade = initialize_config_facade(config_loader)
             
             # 2. 创建提示词配置管理器
             prompt_config_manager = get_global_config_manager()
@@ -232,14 +234,14 @@ class PromptSystemFactory:
 
 # 便捷函数
 async def create_prompt_system(
-    config_manager: Optional[ConfigManager] = None,
+    config_facade: Optional[ConfigFacade] = None,
     prompts_directory: str = "configs/prompts",
     auto_discover: bool = True
 ) -> Dict[str, Any]:
     """创建提示词系统的便捷函数
     
     Args:
-        config_manager: 配置管理器实例
+        config_facade: 配置门面实例
         prompts_directory: 提示词目录路径
         auto_discover: 是否自动发现提示词文件
         
@@ -247,7 +249,7 @@ async def create_prompt_system(
         Dict[str, Any]: 包含 registry, loader, injector 的字典
     """
     return await PromptSystemFactory.create_prompt_system(
-        config_manager=config_manager,
+        config_facade=config_facade,
         prompts_directory=prompts_directory,
         auto_discover=auto_discover
     )

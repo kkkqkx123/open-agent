@@ -352,7 +352,11 @@ class BaseSchemaGenerator(ISchemaGenerator):
         """
         self.generator_type = generator_type
         self.config_provider = config_provider
-        self._schema_cache: Dict[str, Dict[str, Any]] = {}
+        
+        # 使用统一的缓存管理器和键生成器
+        self.cache_manager = CacheManager()
+        from src.infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator
+        self.key_generator = DefaultCacheKeyGenerator()
         
         logger.debug(f"初始化{generator_type} Schema生成器")
     
@@ -383,42 +387,3 @@ class BaseSchemaGenerator(ISchemaGenerator):
         config_data = self.config_provider.get_config()
         return self.generate_schema_from_config(config_data)
     
-    def _get_cached_schema(self, cache_key: str) -> Optional[Dict[str, Any]]:
-        """获取缓存的Schema
-        
-        Args:
-            cache_key: 缓存键
-            
-        Returns:
-            Optional[Dict[str, Any]]: 缓存的Schema，如果不存在则返回None
-        """
-        return self._schema_cache.get(cache_key)
-    
-    def _cache_schema(self, cache_key: str, schema: Dict[str, Any]) -> None:
-        """缓存Schema
-        
-        Args:
-            cache_key: 缓存键
-            schema: Schema数据
-        """
-        self._schema_cache[cache_key] = schema
-        logger.debug(f"缓存Schema: {cache_key}")
-    
-    def _clear_cache(self) -> None:
-        """清除缓存"""
-        self._schema_cache.clear()
-        logger.debug("清除Schema缓存")
-    
-    def _generate_cache_key(self, config_data: Dict[str, Any]) -> str:
-        """生成缓存键
-        
-        Args:
-            config_data: 配置数据
-            
-        Returns:
-            str: 缓存键
-        """
-        import hashlib
-        import json
-        config_str = json.dumps(config_data, sort_keys=True)
-        return hashlib.md5(config_str.encode()).hexdigest()

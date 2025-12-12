@@ -7,7 +7,7 @@ from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Tuple
 
 from src.interfaces.llm import ITaskGroupManager
-from src.core.config.managers.llm_config_manager import LLMConfigManager
+from src.core.config.config_facade import ConfigFacade
 
 logger = get_logger(__name__)
 
@@ -23,27 +23,30 @@ class TaskGroupManager(ITaskGroupManager):
     配置加载和管理委托给LLMConfigManager。
     """
     
-    def __init__(self, config_manager: LLMConfigManager):
+    def __init__(self, config_facade: ConfigFacade):
         """
         初始化任务组管理器
         
         Args:
-            config_manager: LLM配置管理器
+            config_facade: 配置门面
         """
-        self._config_manager = config_manager
+        self._config_facade = config_facade
     
     def load_config(self) -> Any:
         """加载任务组配置
         
         委托给ConfigManager处理
         """
+        # 从配置门面获取LLM配置
+        llm_config = self._config_facade.get_llm_config()
+        
         # 创建任务组总配置
         config_data = {
-            "task_groups": self._config_manager.get_task_groups(),
-            "polling_pools": self._config_manager.get_polling_pools(),
-            "global_fallback": self._config_manager.get_global_fallback(),
-            "concurrency_control": self._config_manager.get_concurrency_control(),
-            "rate_limiting": self._config_manager.get_rate_limiting()
+            "task_groups": llm_config.get("task_groups", {}),
+            "polling_pools": llm_config.get("polling_pools", {}),
+            "global_fallback": llm_config.get("global_fallback", {}),
+            "concurrency_control": llm_config.get("concurrency_control", {}),
+            "rate_limiting": llm_config.get("rate_limiting", {})
         }
         
         logger.info("任务组配置加载完成")
@@ -62,7 +65,8 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             Optional[Dict[str, Any]]: 任务组配置，如果不存在则返回None
         """
-        task_groups = self._config_manager.get_task_groups()
+        llm_config = self._config_facade.get_llm_config()
+        task_groups = llm_config.get("task_groups", {})
         return task_groups.get(name)
     
     def get_polling_pool(self, name: str) -> Optional[Dict[str, Any]]:
@@ -74,7 +78,8 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             Optional[Dict[str, Any]]: 轮询池配置，如果不存在则返回None
         """
-        polling_pools = self._config_manager.get_polling_pools()
+        llm_config = self._config_facade.get_llm_config()
+        polling_pools = llm_config.get("polling_pools", {})
         return polling_pools.get(name)
     
     def get_echelon_config(self, group_name: str, echelon_name: str) -> Optional[Dict[str, Any]]:
@@ -282,7 +287,8 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             List[str]: 任务组名称列表
         """
-        task_groups = self._config_manager.get_task_groups()
+        llm_config = self._config_facade.get_llm_config()
+        task_groups = llm_config.get("task_groups", {})
         return list(task_groups.keys())
     
     def list_polling_pools(self) -> List[str]:
@@ -291,7 +297,8 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             List[str]: 轮询池名称列表
         """
-        polling_pools = self._config_manager.get_polling_pools()
+        llm_config = self._config_facade.get_llm_config()
+        polling_pools = llm_config.get("polling_pools", {})
         return list(polling_pools.keys())
     
     def get_group_models_by_priority(self, group_name: str) -> List[Tuple[str, int, List[str]]]:
@@ -328,14 +335,15 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             Dict[str, Any]: 全局降级配置
         """
-        return self._config_manager.get_global_fallback()
+        llm_config = self._config_facade.get_llm_config()
+        return llm_config.get("global_fallback", {})
     
     def reload_config(self) -> Any:
         """重新加载配置
         
         委托给LLMConfigManager处理
         """
-        self._config_manager.reload_config()
+        self._config_facade.reload_config("llm")
         return self.load_config()
     
     def get_config_status(self) -> Dict[str, Any]:
@@ -346,4 +354,13 @@ class TaskGroupManager(ITaskGroupManager):
         Returns:
             Dict[str, Any]: 配置状态信息
         """
-        return self._config_manager.get_config_status()
+        # 返回配置状态信息
+        llm_config = self._config_facade.get_llm_config()
+        return {
+            "loaded": True,
+            "task_groups_count": len(llm_config.get("task_groups", {})),
+            "polling_pools_count": len(llm_config.get("polling_pools", {})),
+            "has_global_fallback": len(llm_config.get("global_fallback", {})) > 0,
+            "has_concurrency_control": len(llm_config.get("concurrency_control", {})) > 0,
+            "has_rate_limiting": len(llm_config.get("rate_limiting", {})) > 0
+        }

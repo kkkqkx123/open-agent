@@ -1,4 +1,4 @@
-"""配置发现处理器 V2
+"""配置发现处理器
 
 提供配置文件的自动发现功能，专注于发现逻辑，不包含加载和处理。
 """
@@ -6,7 +6,6 @@
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union, Protocol
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
 
 from .base_processor import BaseConfigProcessor
 from ..loader import ConfigLoader

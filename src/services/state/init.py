@@ -6,7 +6,7 @@
 from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from src.core.config.config_manager import ConfigManager
+from src.core.config.config_facade import ConfigFacade
 from .config import (
     get_state_service_config,
     validate_state_configuration,
@@ -47,8 +47,8 @@ def initialize_state_services(container: Optional[Any] = None,
         actual_config = config
         if actual_config is None:
             try:
-                config_manager = actual_container.get(ConfigManager)
-                actual_config = config_manager.load_config("state_management")
+                config_facade = actual_container.get(ConfigFacade)
+                actual_config = config_facade.get_config("state", "state_management")
             except Exception:
                 actual_config = get_state_service_config()
         

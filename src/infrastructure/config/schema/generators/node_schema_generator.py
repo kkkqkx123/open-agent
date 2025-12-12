@@ -54,10 +54,12 @@ class NodeSchemaGenerator(BaseSchemaGenerator):
         Returns:
             Dict[str, Any]: JSON Schema
         """
-        cache_key = self._generate_cache_key(config_data)
+        # 使用统一的缓存键生成
+        from src.infrastructure.cache.core.key_generator import DefaultCacheKeyGenerator
+        cache_key = f"schema:node:{DefaultCacheKeyGenerator.generate_params_key(config_data)}"
         
         # 检查缓存
-        cached_schema = self._get_cached_schema(cache_key)
+        cached_schema = self.cache_manager.get(cache_key)
         if cached_schema:
             logger.debug(f"从缓存获取节点Schema: {cache_key}")
             return cached_schema
@@ -68,7 +70,7 @@ class NodeSchemaGenerator(BaseSchemaGenerator):
         schema = self._generate_node_schema(config_data)
         
         # 缓存Schema
-        self._cache_schema(cache_key, schema)
+        self.cache_manager.set(cache_key, schema)
         
         logger.debug(f"节点Schema生成完成: {cache_key}")
         return schema

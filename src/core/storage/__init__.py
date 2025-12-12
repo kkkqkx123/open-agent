@@ -69,8 +69,7 @@ from .models import (
 
 from src.infrastructure.error_management.impl.storage import StorageErrorHandler
 
-# 从Core配置管理器导入
-from src.core.config.managers.storage_config_manager import StorageConfigManager
+# 从基础设施层导入
 from src.infrastructure.config.models.storage import StorageType
 
 __all__ = [
@@ -141,5 +140,4 @@ __all__ = [
     
     # 配置管理
     "StorageType",
-    "StorageConfigManager",
 ]

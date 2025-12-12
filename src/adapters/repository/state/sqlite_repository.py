@@ -5,10 +5,8 @@ from typing import Dict, Any, List, Optional
 
 from src.adapters.repository.utils.sqlite_utils import SQLiteUtils
 from src.interfaces.repository.state import IStateRepository
-from src.interfaces.state.base import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..base import BaseRepository
-from src.core.config.managers.storage_config_manager import StorageConfigManager
 
 
 class SQLiteStateRepository(BaseRepository, IStateRepository):
@@ -21,9 +19,6 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             config=config,
             repository_type="state"
         )
-        
-        # 获取配置管理器
-        self.config_manager = StorageConfigManager(None)
     
     def _create_additional_tables(self, snapshots_sql: str, history_sql: str) -> None:
         """创建额外的表"""

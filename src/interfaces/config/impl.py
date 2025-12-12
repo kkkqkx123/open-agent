@@ -60,6 +60,18 @@ class IConfigImpl(ABC):
         pass
     
     @abstractmethod
+    def get_config_path(self, config_name: str) -> str:
+        """获取配置文件完整路径
+        
+        Args:
+            config_name: 配置名称
+            
+        Returns:
+            配置文件路径
+        """
+        pass
+    
+    @abstractmethod
     def reload_config(self, config_path: str) -> Dict[str, Any]:
         """重新加载配置
         
