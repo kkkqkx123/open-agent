@@ -3,20 +3,14 @@
 提供Workflow模块的配置加载、转换和管理功能。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List
 from pathlib import Path
 import logging
 
 from .base_impl import BaseConfigImpl
-from .base_impl import IConfigSchema, IConfigProcessorChain
+from .base_impl import IConfigSchema, ConfigProcessorChain
 
-if TYPE_CHECKING:
-    from src.interfaces.config import IConfigLoader
-from ..processor.validation_processor import ValidationProcessor
-from ..processor.transformation_processor import TransformationProcessor
-from ..processor.environment_processor import EnvironmentProcessor
-from ..processor.inheritance_processor import InheritanceProcessor
-from ..processor.reference_processor import ReferenceProcessor
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +24,7 @@ class WorkflowConfigImpl(BaseConfigImpl):
     
     def __init__(self, 
                  config_loader: 'IConfigLoader',
-                 processor_chain: IConfigProcessorChain,
+                 processor_chain: ConfigProcessorChain,
                  schema: IConfigSchema):
         """初始化Workflow配置实现
         

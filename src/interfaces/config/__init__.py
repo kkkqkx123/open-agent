@@ -4,7 +4,7 @@
 """
 
 # 导入加载器相关接口
-from .loader import IConfigLoader, IConfigInheritanceHandler, IHotReloadManager
+from .loader import IConfigLoader, IHotReloadManager
 
 # 导入处理器相关接口
 from .processor import IConfigProcessor
@@ -32,26 +32,6 @@ from .impl import IConfigImpl
 # 导入管理器相关接口
 from .manager import IConfigManager, IConfigManager, IConfigManagerFactory
 
-# 导入映射器相关接口
-from .mapper import (
-    IConfigMapper,
-    IModuleConfigService,
-    IModuleConfigRegistry,
-    IConfigMapperRegistry,
-    ICrossModuleResolver,
-    IModuleConfigLoader,
-    IUnifiedConfigService,
-    IConfigChangeListener,
-    IConfigWatcher,
-    IConfigMonitor,
-    IConfigVersionManager,
-    IConfigStorage,
-    ModuleConfig,
-    ModuleDependency,
-    ConfigChangeEvent,
-    ConfigVersion
-)
-
 # 导入异常定义
 from .exceptions import (
     ConfigError,
@@ -64,13 +44,9 @@ from .exceptions import (
     ConfigurationInheritanceError
 )
 
-# 为了向后兼容，保留原有的导入路径
-from ...infrastructure.validation.result import ValidationResult
-
 __all__ = [
     # 加载器接口
     "IConfigLoader",
-    "IConfigInheritanceHandler",
     "IHotReloadManager",
     
     # 处理器接口
@@ -101,26 +77,6 @@ __all__ = [
     "IConfigManager",
     "IConfigManagerFactory",
     
-    # 映射器接口
-    "IConfigMapper",
-    "IModuleConfigService",
-    "IModuleConfigRegistry",
-    "IConfigMapperRegistry",
-    "ICrossModuleResolver",
-    "IModuleConfigLoader",
-    "IUnifiedConfigService",
-    "IConfigChangeListener",
-    "IConfigWatcher",
-    "IConfigMonitor",
-    "IConfigVersionManager",
-    "IConfigStorage",
-    
-    # 数据类
-    "ModuleConfig",
-    "ModuleDependency",
-    "ConfigChangeEvent",
-    "ConfigVersion",
-    
     # 异常定义
     "ConfigError",
     "ConfigurationValidationError",
@@ -130,7 +86,4 @@ __all__ = [
     "ConfigurationMergeError",
     "ConfigurationSchemaError",
     "ConfigurationInheritanceError",
-    
-    # 向后兼容
-    "ValidationResult"
 ]

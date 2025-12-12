@@ -2,7 +2,6 @@
 
 from typing import List
 from pydantic import Field, field_validator
-from dataclasses import dataclass, field as dataclass_field
 
 from .base import BaseConfig
 

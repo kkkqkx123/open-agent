@@ -15,7 +15,7 @@ from .event_manager import ConfigEventManager, CallbackService, create_config_ev
 
 # 配置实现层
 from .impl import (
-    BaseConfigImpl, IConfigProcessorChain,
+    BaseConfigImpl,
     ConfigProcessorChain,
     LLMConfigImpl, WorkflowConfigImpl, GraphConfigImpl,
     NodeConfigImpl, EdgeConfigImpl, ToolsConfigImpl
@@ -48,7 +48,7 @@ __all__ = [
     
     # 配置实现层
     "BaseConfigImpl",
-    "IConfigProcessorChain",
+
     "ConfigProcessorChain",
     "LLMConfigImpl",
     "WorkflowConfigImpl",

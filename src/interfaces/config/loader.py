@@ -145,42 +145,6 @@ class IConfigLoader(ABC):
         pass
 
 
-class IConfigInheritanceHandler(ABC):
-    """
-    配置继承处理器接口
-    
-    负责处理配置文件之间的继承关系。
-    """
-    
-    @abstractmethod
-    def resolve_inheritance(self, config: Dict[str, Any], base_path: Optional[Path] = None) -> Dict[str, Any]:
-        """
-        解析配置继承关系
-        
-        Args:
-            config: 原始配置
-            base_path: 基础路径
-            
-        Returns:
-            Dict[str, Any]: 解析继承后的配置
-        """
-        pass
-    
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any], schema: Optional[object] = None) -> List[str]:
-        """
-        验证配置
-        
-        Args:
-            config: 配置数据
-            schema: 验证模式
-            
-        Returns:
-            List[str]: 验证错误列表
-        """
-        pass
-
-
 class IHotReloadManager(ABC):
     """热重载管理器接口"""
     

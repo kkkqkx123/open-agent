@@ -10,15 +10,18 @@ from typing import Dict, Any, Optional, List, Union
 from pathlib import Path
 
 from src.interfaces.config import ConfigError as ConfigurationError
-from src.interfaces.config import IConfigInheritanceHandler, IConfigLoader
+from src.interfaces.config import IConfigLoader
 from .base_processor import BaseConfigProcessor
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class InheritanceProcessor(IConfigInheritanceHandler, BaseConfigProcessor):
-    """配置继承处理器实现"""
+class InheritanceProcessor(BaseConfigProcessor):
+    """配置继承处理器实现
+    
+    实现 IConfigProcessor 接口，负责处理配置文件之间的继承关系和环境变量解析。
+    """
     
     def __init__(self, config_loader: Optional[IConfigLoader] = None):
         """初始化配置继承处理器

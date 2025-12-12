@@ -34,17 +34,17 @@ class ToolRegistryConfig:
     """工具注册表配置"""
     
     # 基础配置
-    auto_discover: bool
-    discovery_paths: List[str]
-    reload_on_change: bool
-    tools: List[ToolConfig]
+    auto_discover: bool = False
+    discovery_paths: List[str] = field(default_factory=list)
+    reload_on_change: bool = False
+    tools: List[ToolConfig] = field(default_factory=list)
     
     # 工具管理配置
-    max_tools: int
-    enable_caching: bool
-    cache_ttl: int
+    max_tools: int = 100
+    enable_caching: bool = True
+    cache_ttl: int = 3600
     
     # 安全配置
-    allow_dynamic_loading: bool
-    validate_schemas: bool
-    sandbox_mode: bool
+    allow_dynamic_loading: bool = False
+    validate_schemas: bool = True
+    sandbox_mode: bool = False

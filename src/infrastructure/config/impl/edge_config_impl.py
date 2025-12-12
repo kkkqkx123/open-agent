@@ -4,20 +4,12 @@
 专注于边的具体配置，与Graph配置分离。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
-from pathlib import Path
+from typing import Dict, Any, Optional, List
 import logging
 
-from .base_impl import BaseConfigImpl
-from .base_impl import IConfigSchema, IConfigProcessorChain
-
-if TYPE_CHECKING:
-    from src.interfaces.config import IConfigLoader
-from ..processor.validation_processor import ValidationProcessor
-from ..processor.transformation_processor import TransformationProcessor
-from ..processor.environment_processor import EnvironmentProcessor
-from ..processor.inheritance_processor import InheritanceProcessor
-from ..processor.reference_processor import ReferenceProcessor
+from .base_impl import BaseConfigImpl, ConfigProcessorChain
+from .base_impl import IConfigSchema
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +23,7 @@ class EdgeConfigImpl(BaseConfigImpl):
     
     def __init__(self, 
                  config_loader: 'IConfigLoader',
-                 processor_chain: IConfigProcessorChain,
+                 processor_chain: ConfigProcessorChain,
                  schema: IConfigSchema):
         """初始化Edge配置实现
         

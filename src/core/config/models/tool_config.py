@@ -2,12 +2,28 @@
 
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from pydantic import Field, field_validator
+from enum import Enum
 
 from .base import BaseConfig
-from ..mappers.tool import ToolConfigMapper
 
-if TYPE_CHECKING:
-    from src.infrastructure.config.models import ConfigData
+
+class ToolType(Enum):
+    """工具类型枚举
+    
+    基于状态管理的模块化工具系统，支持两种主要类别：
+    
+    1. 无状态工具 (Stateless Tools)
+       - BUILTIN: 简单的、无状态的Python函数实现
+    
+    2. 有状态工具 (Stateful Tools)
+       - NATIVE: 复杂的、有状态的项目内实现工具
+       - REST: 技术上有状态但业务逻辑上无状态的REST API调用工具
+       - MCP: 有状态的MCP服务器工具，适用于需要复杂状态管理的场景
+    """
+    BUILTIN = "builtin"      # 无状态内置工具
+    NATIVE = "native"        # 有状态原生工具
+    REST = "rest"           # REST工具（业务逻辑上无状态，技术上使用状态管理器）
+    MCP = "mcp"            # 有状态MCP工具
 
 
 class ToolConfig(BaseConfig):
@@ -119,26 +135,7 @@ class ToolConfig(BaseConfig):
         """
         return len(self.validate_business_rules()) == 0
     
-    # 转换方法
-    @classmethod
-    def from_config_data(cls, config_data: "ConfigData") -> "ToolConfig":
-        """从基础配置数据创建领域模型
-        
-        Args:
-            config_data: 基础配置数据
-            
-        Returns:
-            Tool领域模型
-        """
-        return ToolConfigMapper.config_data_to_tool_config(config_data)
-    
-    def to_config_data(self) -> "ConfigData":
-        """转换为基础配置数据
-        
-        Returns:
-            基础配置数据
-        """
-        return ToolConfigMapper.tool_config_to_config_data(self)
+
     
     def get_client_config(self) -> Dict[str, Any]:
         """获取客户端配置
@@ -250,26 +247,7 @@ class ToolSetConfig(BaseConfig):
         """
         return len(self.validate_business_rules()) == 0
     
-    # 转换方法
-    @classmethod
-    def from_config_data(cls, config_data: "ConfigData") -> "ToolSetConfig":
-        """从基础配置数据创建领域模型
-        
-        Args:
-            config_data: 基础配置数据
-            
-        Returns:
-            ToolSet领域模型
-        """
-        return ToolConfigMapper.config_data_to_tool_set_config(config_data)
-    
-    def to_config_data(self) -> "ConfigData":
-        """转换为基础配置数据
-        
-        Returns:
-            基础配置数据
-        """
-        return ToolConfigMapper.tool_set_config_to_config_data(self)
+
     
     def get_client_config(self) -> Dict[str, Any]:
         """获取客户端配置
@@ -287,3 +265,53 @@ class ToolSetConfig(BaseConfig):
             "discovery_paths": self.discovery_paths,
             "metadata": self.metadata
         }
+
+
+class ToolRegistryConfig(BaseConfig):
+    """工具注册表配置"""
+    
+    # 基础配置
+    auto_discover: bool = Field(default=False, description="是否自动发现工具")
+    discovery_paths: List[str] = Field(default_factory=list, description="发现路径列表")
+    reload_on_change: bool = Field(default=False, description="配置文件变化时是否自动重新加载")
+    tools: List[Dict[str, Any]] = Field(default_factory=list, description="显式配置的工具列表")
+    
+    # 工具管理配置
+    max_tools: int = Field(default=100, description="允许加载的最大工具数量")
+    enable_caching: bool = Field(default=True, description="是否启用工具配置缓存")
+    cache_ttl: int = Field(default=3600, description="配置缓存的生存时间（秒）")
+    
+    # 安全配置
+    allow_dynamic_loading: bool = Field(default=False, description="是否允许运行时动态加载工具")
+    validate_schemas: bool = Field(default=True, description="是否验证工具参数模式")
+    sandbox_mode: bool = Field(default=False, description="是否在沙盒模式下运行工具")
+    
+    def validate_business_rules(self) -> List[str]:
+        """验证业务规则
+        
+        Returns:
+            验证错误列表，空列表表示验证通过
+        """
+        errors = []
+        
+        # 验证工具数量限制
+        if self.max_tools <= 0:
+            errors.append("最大工具数量必须大于0")
+        
+        # 验证缓存TTL
+        if self.cache_ttl <= 0:
+            errors.append("缓存生存时间必须大于0")
+        
+        # 验证发现路径
+        if self.auto_discover and not self.discovery_paths:
+            errors.append("启用自动发现时必须提供发现路径")
+        
+        return errors
+    
+    def is_valid(self) -> bool:
+        """检查配置是否有效
+        
+        Returns:
+            是否有效
+        """
+        return len(self.validate_business_rules()) == 0

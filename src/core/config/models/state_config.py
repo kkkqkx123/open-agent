@@ -1,6 +1,6 @@
 """状态管理配置模型"""
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from pydantic import Field, field_validator
 
 from .base import BaseConfig

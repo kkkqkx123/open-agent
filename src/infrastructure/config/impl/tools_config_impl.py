@@ -9,7 +9,7 @@ from pathlib import Path
 import logging
 
 from .base_impl import BaseConfigImpl, ConfigProcessorChain
-from src.interfaces.config import IConfigLoader, IConfigProcessor
+from src.interfaces.config import IConfigLoader
 from src.interfaces.config.schema import IConfigSchema
 from src.interfaces.config.exceptions import ConfigError
 

@@ -3,13 +3,14 @@
 定义配置实现的基础接口和抽象类，提供配置加载、处理和转换的通用框架。
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Dict, Any, Optional
 from pathlib import Path
 import logging
 
 from src.interfaces.config import IConfigLoader, IConfigProcessor
 from src.infrastructure.validation.result import ValidationResult
+from src.interfaces.common_domain import IValidationResult
 from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
 from src.interfaces.config.impl import IConfigImpl
 from .shared import CacheManager, DiscoveryManager, ValidationHelper
@@ -17,36 +18,17 @@ from .shared import CacheManager, DiscoveryManager, ValidationHelper
 logger = logging.getLogger(__name__)
 
 
-class IConfigProcessorChain(ABC):
-    """配置处理器链接口"""
-    
-    @abstractmethod
-    def add_processor(self, processor: IConfigProcessor) -> None:
-        """添加处理器"""
-        pass
-    
-    @abstractmethod
-    def process(self, config: Dict[str, Any], config_path: str) -> Dict[str, Any]:
-        """应用处理器链"""
-        pass
-    
-    @abstractmethod
-    def get_processors(self) -> list[IConfigProcessor]:
-        """获取处理器列表"""
-        pass
-
-
 class BaseConfigImpl(IConfigImpl):
     """配置实现基类
-    
+     
     提供配置加载、处理和转换的通用流程。
     """
-    
+     
     def __init__(self,
-                 module_type: str,
-                 config_loader: IConfigLoader,
-                 processor_chain: 'IConfigProcessorChain',
-                 schema: 'IConfigSchema'):
+                  module_type: str,
+                  config_loader: IConfigLoader,
+                  processor_chain: 'ConfigProcessorChain',
+                  schema: 'IConfigSchema'):
         """初始化配置实现
         
         Args:
@@ -121,7 +103,7 @@ class BaseConfigImpl(IConfigImpl):
             logger.error(f"加载{self.module_type}模块配置失败: {e}")
             raise
     
-    def validate_config(self, config: Dict[str, Any]) -> CommonValidationResult:
+    def validate_config(self, config: Dict[str, Any]) -> IValidationResult:
         """验证配置
         
         Args:
@@ -134,7 +116,7 @@ class BaseConfigImpl(IConfigImpl):
             return self.schema.validate(config)
         
         # 如果没有模式，返回成功
-        return CommonValidationResult(is_valid=True, errors=[], warnings=[])
+        return ValidationResult(is_valid=True, errors=[], warnings=[])
     
     def transform_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """转换为模块特定格式
@@ -260,18 +242,29 @@ class BaseConfigImpl(IConfigImpl):
         return self.cache_manager.get_stats()
 
 
-class ConfigProcessorChain(IConfigProcessorChain):
-    """配置处理器链实现"""
+class ConfigProcessorChain(IConfigProcessor):
+    """配置处理器链实现
+    
+    组合多个处理器，按顺序执行它们。
+    """
     
     def __init__(self) -> None:
         self._processors: list[IConfigProcessor] = []
         logger.debug("配置处理器链初始化完成")
     
+    def get_name(self) -> str:
+        """获取处理器链名称
+        
+        Returns:
+            处理器链名称
+        """
+        return "ConfigProcessorChain"
+    
     def add_processor(self, processor: IConfigProcessor) -> None:
         """添加处理器
         
         Args:
-            processor: 配置处理器
+            processor: 配置处理器（需要实现 IConfigProcessor 接口）
         """
         self._processors.append(processor)
         logger.debug(f"已添加配置处理器: {processor.__class__.__name__}")

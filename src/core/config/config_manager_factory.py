@@ -8,9 +8,10 @@ from pathlib import Path
 import logging
 
 from src.interfaces.config import (
-    IConfigLoader, IConfigProcessor, IConfigValidator, IConfigInheritanceHandler,
+    IConfigLoader, IConfigProcessor, IConfigValidator,
     IConfigManager, IConfigManagerFactory
 )
+from src.infrastructure.config.processor import InheritanceProcessor
 from src.infrastructure.validation.result import ValidationResult
 from .config_manager import ConfigManager
 from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
@@ -26,9 +27,9 @@ class CoreConfigManagerFactory(IConfigManagerFactory):
     """
     
     def __init__(self, 
-                 config_loader: IConfigLoader,
-                 inheritance_handler: Optional[IConfigInheritanceHandler] = None,
-                 base_path: Optional[Path] = None):
+                config_loader: IConfigLoader,
+                inheritance_handler: Optional[InheritanceProcessor] = None,
+                base_path: Optional[Path] = None):
         """初始化配置管理器工厂
         
         Args:

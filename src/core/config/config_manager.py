@@ -10,9 +10,10 @@ from typing import Dict, Any, Optional, TypeVar, List
 import logging
 from src.interfaces.config import (
     IConfigLoader, IConfigValidator, IConfigManager,
-    IConfigInheritanceHandler, IModuleConfigRegistry, IConfigMapperRegistry,
+    IModuleConfigRegistry, IConfigMapperRegistry,
     ICrossModuleResolver, IModuleConfigLoader, ModuleConfig
 )
+from src.infrastructure.config.processor import InheritanceProcessor
 from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.config import (
     ConfigError,
@@ -39,7 +40,7 @@ class ConfigManager(IConfigManager):
                  mapper_registry: Optional[IConfigMapperRegistry] = None,
                  cross_module_resolver: Optional[ICrossModuleResolver] = None,
                  base_path: Optional[Path] = None,
-                 inheritance_handler: Optional[IConfigInheritanceHandler] = None):
+                 inheritance_handler: Optional[InheritanceProcessor] = None):
         """初始化统一配置管理器
         
         Args:

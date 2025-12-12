@@ -4,20 +4,13 @@
 专注于图的结构定义，不包含检查点等thread级概念。
 """
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
-from pathlib import Path
+from typing import Dict, Any, Optional, List
 import logging
 
 from .base_impl import BaseConfigImpl
-from .base_impl import IConfigSchema, IConfigProcessorChain
+from .base_impl import IConfigSchema, ConfigProcessorChain
 
-if TYPE_CHECKING:
-    from src.interfaces.config import IConfigLoader
-from ..processor.validation_processor import ValidationProcessor
-from ..processor.transformation_processor import TransformationProcessor
-from ..processor.environment_processor import EnvironmentProcessor
-from ..processor.inheritance_processor import InheritanceProcessor
-from ..processor.reference_processor import ReferenceProcessor
+from src.interfaces.config import IConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +23,9 @@ class GraphConfigImpl(BaseConfigImpl):
     节点和边的具体配置由独立的配置实现处理。
     """
     
-    def __init__(self,
+    def __init__(self, 
                  config_loader: 'IConfigLoader',
-                 processor_chain: IConfigProcessorChain,
+                 processor_chain: ConfigProcessorChain,
                  schema: IConfigSchema):
         """初始化Graph配置实现
         
