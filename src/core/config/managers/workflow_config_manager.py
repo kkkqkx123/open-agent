@@ -1,4 +1,4 @@
-"""工作流配置服务 - 工作流模块的配置管理
+"""工作流配置管理器 - 工作流模块的配置管理
 
 提供工作流特定的配置加载、保存和验证功能。
 """
@@ -19,12 +19,12 @@ from src.infrastructure.config.models.base import ConfigData
 logger = get_logger(__name__)
 
 
-class WorkflowConfigService(IModuleConfigService):
-    """工作流配置服务"""
+class WorkflowConfigManager(IModuleConfigService):
+    """工作流配置管理器"""
     
     def __init__(self, 
                  config_manager: IConfigManager):
-        """初始化工作流配置服务
+        """初始化工作流配置管理器
         
         Args:
             config_manager: 统一配置管理器
@@ -32,7 +32,7 @@ class WorkflowConfigService(IModuleConfigService):
         self.config_manager = config_manager
         self.mapper = WorkflowConfigMapper()
         
-        logger.info("工作流配置服务初始化完成")
+        logger.info("工作流配置管理器初始化完成")
     
     def load_config(self, config_path: str) -> Graph:
         """加载工作流配置
@@ -186,8 +186,8 @@ class WorkflowConfigService(IModuleConfigService):
             raise
     
     def clone_workflow(self, source_config_path: str, target_config_path: str, 
-                      name_override: Optional[str] = None, 
-                      description_override: Optional[str] = None) -> Graph:
+                       name_override: Optional[str] = None, 
+                       description_override: Optional[str] = None) -> Graph:
         """克隆工作流
         
         Args:
@@ -283,19 +283,19 @@ class WorkflowConfigService(IModuleConfigService):
 
 
 # 创建默认实例
-default_workflow_config_service: Optional[WorkflowConfigService] = None
+default_workflow_config_manager: Optional[WorkflowConfigManager] = None
 
 
-def get_workflow_config_service(config_manager: IConfigManager) -> WorkflowConfigService:
-    """获取工作流配置服务实例
+def get_workflow_config_manager(config_manager: IConfigManager) -> WorkflowConfigManager:
+    """获取工作流配置管理器实例
     
     Args:
         config_manager: 统一配置管理器
         
     Returns:
-        WorkflowConfigService: 工作流配置服务实例
+        WorkflowConfigManager: 工作流配置管理器实例
     """
-    global default_workflow_config_service
-    if default_workflow_config_service is None:
-        default_workflow_config_service = WorkflowConfigService(config_manager)
-    return default_workflow_config_service
+    global default_workflow_config_manager
+    if default_workflow_config_manager is None:
+        default_workflow_config_manager = WorkflowConfigManager(config_manager)
+        return default_workflow_config_manager

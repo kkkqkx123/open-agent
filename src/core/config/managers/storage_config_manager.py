@@ -1,96 +1,74 @@
-"""存储配置服务
+"""存储配置管理器
 
-提供存储的配置服务，包含业务逻辑，基于统一配置系统和基础设施层组件。
+提供存储的配置加载、管理和验证功能，包含业务逻辑。
 """
 
-import os
 from typing import Dict, Any, Optional, List
 
-from src.interfaces.dependency_injection import get_logger
 from src.interfaces.config import IConfigManager
 from src.infrastructure.config.models.storage import StorageConfigData, StorageConfigCollectionData, StorageType
 from src.core.config.validation.impl.storage_validator import StorageConfigValidator
+from src.core.config.managers.base_config_manager import BaseConfigManager
+from src.interfaces.dependency_injection import get_logger
 
 
 logger = get_logger(__name__)
 
 
-class StorageConfigService:
-    """存储配置服务
+class StorageConfigManager(BaseConfigManager):
+    """存储配置管理器
     
-    提供存储的配置加载、管理和验证功能，包含业务逻辑。
+    提供存储的配置加载、管理和验证功能。
     """
     
     def __init__(self, config_manager: IConfigManager, config_path: Optional[str] = None):
-        """初始化存储配置服务
+        """初始化存储配置管理器
         
         Args:
             config_manager: 统一配置管理器
             config_path: 配置文件路径，如果为None则使用默认路径
         """
-        self.config_manager = config_manager
-        self.config_path = config_path or "configs/storage.yaml"
-        self._config_collection: Optional[StorageConfigCollectionData] = None
         self._validator = StorageConfigValidator()
-        
-        # 加载配置
-        self._load_config()
+        super().__init__(config_manager, config_path)
     
-    def _load_config(self) -> None:
-        """加载配置文件"""
-        try:
-            # 检查配置文件是否存在
-            if not self._config_file_exists():
-                logger.warning(f"配置文件不存在: {self.config_path}，使用默认配置")
-                self._config_collection = StorageConfigCollectionData()
-                self._register_default_templates()
-                return
-            
-            # 使用统一配置管理器加载配置
-            config_dict = self.config_manager.load_config(self.config_path, "storage")
-            
-            # 创建存储配置集合数据
-            self._config_collection = StorageConfigCollectionData(config_dict)
-            
-            # 验证配置
-            validation_result = self._validator.validate(config_dict)
-            if not validation_result.is_valid:
-                logger.error(f"配置验证失败: {validation_result.errors}")
-                # 使用默认配置
-                self._config_collection = StorageConfigCollectionData()
-                self._register_default_templates()
-                return
-            
-            logger.info(f"已加载存储配置: {self.config_path}")
-            
-        except Exception as e:
-            logger.error(f"加载配置文件失败: {e}，使用默认配置")
-            self._config_collection = StorageConfigCollectionData()
-            self._register_default_templates()
+    def _get_default_config_path(self) -> str:
+        """获取默认配置文件路径"""
+        return "configs/storage.yaml"
     
-    def _config_file_exists(self) -> bool:
-        """检查配置文件是否存在"""
-        try:
-            # 使用统一配置管理器的加载器检查文件存在性
-            return self.config_manager.loader.exists(self.config_path)
-        except Exception:
-            # 如果统一配置管理器不支持文件存在检查，使用备用方法
-            from pathlib import Path
-            return Path(self.config_path).exists()
+    def _get_config_module(self) -> str:
+        """获取配置模块名"""
+        return "storage"
     
-    def _register_default_templates(self) -> None:
+    def _create_config_data(self, config_dict: Dict[str, Any]) -> StorageConfigCollectionData:
+        """创建配置数据对象"""
+        return StorageConfigCollectionData(config_dict)
+    
+    def _get_validator(self) -> StorageConfigValidator:
+        """获取配置验证器"""
+        return self._validator
+    
+    def _create_default_config(self) -> StorageConfigCollectionData:
+        """创建默认配置"""
+        collection = StorageConfigCollectionData()
+        self._register_default_templates(collection)
+        return collection
+    
+    def _register_default_templates(self, collection: Optional[StorageConfigCollectionData] = None) -> None:
         """注册默认配置模板"""
+        if collection is None:
+            collection = self.get_config_collection()
+        
         # 内存存储默认配置
         memory_config = StorageConfigData.create_memory_config("memory_default")
-        self._config_collection.add_config(memory_config)
+        collection.add_config(memory_config)
         
         # SQLite存储默认配置
         sqlite_config = StorageConfigData.create_sqlite_config("sqlite_default")
-        self._config_collection.add_config(sqlite_config)
+        collection.add_config(sqlite_config)
         
         # 文件存储默认配置
         file_config = StorageConfigData.create_file_config("file_default")
-        self._config_collection.add_config(file_config)
+        collection.add_config(file_config)
     
     def get_config_collection(self) -> StorageConfigCollectionData:
         """获取存储配置集合
@@ -98,9 +76,9 @@ class StorageConfigService:
         Returns:
             存储配置集合实例
         """
-        if self._config_collection is None:
-            self._load_config()
-        return self._config_collection
+        config_data = self.get_config_data()
+        assert isinstance(config_data, StorageConfigCollectionData), "配置数据类型错误"
+        return config_data
     
     def register_config(self, config: StorageConfigData) -> bool:
         """注册存储配置
@@ -163,7 +141,14 @@ class StorageConfigService:
         Returns:
             默认存储配置或None
         """
-        config_dict = self.get_config_collection().get_default_config()
+        collection = self.get_config_collection()
+        # 获取默认配置名称
+        default_name = collection.get_default_config_name()
+        if default_name is None:
+            return None
+        
+        # 获取默认配置
+        config_dict = collection.get_config(default_name)
         if config_dict is None:
             return None
         return StorageConfigData(config_dict)
@@ -249,109 +234,6 @@ class StorageConfigService:
             logger.error(f"从模板创建配置失败 {template_name}: {e}")
             return False
     
-    def _process_env_variables(self, config: StorageConfigData) -> StorageConfigData:
-        """处理环境变量注入
-        
-        Args:
-            config: 存储配置
-            
-        Returns:
-            处理后的存储配置
-        """
-        # 创建配置副本
-        config_dict = config.to_dict()
-        config_data = config_dict.get('config', {}).copy()
-        
-        # 处理配置中的环境变量
-        for key, value in config_data.items():
-            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-                # 解析环境变量格式: ${ENV_VAR:DEFAULT}
-                env_expr = value[2:-1]  # 移除 ${ 和 }
-                
-                if ":" in env_expr:
-                    env_var, default_value = env_expr.split(":", 1)
-                else:
-                    env_var, default_value = env_expr, ""
-                
-                # 获取环境变量值
-                env_value = os.getenv(env_var, default_value)
-                
-                # 尝试转换类型
-                config_data[key] = self._convert_env_value(env_value)
-        
-        config_dict['config'] = config_data
-        return StorageConfigData(config_dict)
-    
-    def _convert_env_value(self, value: str) -> Any:
-        """转换环境变量值类型
-        
-        Args:
-            value: 环境变量值
-            
-        Returns:
-            转换后的值
-        """
-        # 布尔值
-        if value.lower() in ("true", "yes", "1", "on"):
-            return True
-        elif value.lower() in ("false", "no", "0", "off"):
-            return False
-        
-        # 整数
-        try:
-            return int(value)
-        except ValueError:
-            pass
-        
-        # 浮点数
-        try:
-            return float(value)
-        except ValueError:
-            pass
-        
-        # 字符串
-        return value
-    
-    def reload_config(self) -> None:
-        """重新加载配置"""
-        self._load_config()
-        logger.info("存储配置已重新加载")
-    
-    def save_config(self, path: Optional[str] = None) -> None:
-        """保存配置到文件
-        
-        Args:
-            path: 保存路径，如果为None则使用当前配置路径
-        """
-        save_path = path or self.config_path
-        try:
-            # 确保目录存在
-            from pathlib import Path
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            # 保存配置
-            import yaml
-            config_dict = self.get_config_collection().to_dict()
-            with open(save_path, 'w', encoding='utf-8') as f:
-                yaml.dump(config_dict, f, allow_unicode=True, default_flow_style=False)
-            logger.info(f"存储配置已保存到: {save_path}")
-        except Exception as e:
-            logger.error(f"保存配置失败: {e}")
-    
-    def validate_config(self) -> bool:
-        """验证配置
-        
-        Returns:
-            验证是否通过
-        """
-        try:
-            config_dict = self.get_config_collection().to_dict()
-            validation_result = self._validator.validate(config_dict)
-            return validation_result.is_valid
-        except Exception as e:
-            logger.error(f"配置验证失败: {e}")
-            return False
-    
     def export_configs(self, include_defaults: bool = False) -> Dict[str, Any]:
         """导出配置
         
@@ -390,7 +272,7 @@ class StorageConfigService:
         try:
             if not merge:
                 # 清空现有配置
-                self._config_collection = StorageConfigCollectionData()
+                self._config_data = StorageConfigCollectionData()
             
             # 导入默认配置
             if "default_config" in configs_data:
@@ -410,40 +292,43 @@ class StorageConfigService:
             return False
 
 
-# 全局配置服务实例
-_global_storage_config_service: Optional[StorageConfigService] = None
+# 全局配置管理器实例
+_global_storage_config_manager: Optional[StorageConfigManager] = None
 
 
-def get_global_storage_config_service(config_manager: Optional[IConfigManager] = None) -> StorageConfigService:
-    """获取全局存储配置服务实例
+def get_global_storage_config_manager(config_manager: Optional[IConfigManager] = None) -> StorageConfigManager:
+    """获取全局存储配置管理器实例
     
     Args:
         config_manager: 配置管理器，如果为None则使用默认管理器
         
     Returns:
-        全局存储配置服务实例
+        全局存储配置管理器实例
     """
-    global _global_storage_config_service
+    global _global_storage_config_manager
     
-    if _global_storage_config_service is None:
+    if _global_storage_config_manager is None:
         # 如果未提供配置管理器，尝试获取默认管理器
         if config_manager is None:
             try:
-                from src.core.config.config_manager import get_default_manager
-                config_manager = get_default_manager()
-            except ImportError:
+                from src.services.container import get_global_container
+                _container = get_global_container()
+                config_manager = _container.get(IConfigManager)
+            except Exception:
                 raise RuntimeError("无法获取默认配置管理器")
         
-        _global_storage_config_service = StorageConfigService(config_manager)
+        assert config_manager is not None, "配置管理器为None"
+        _global_storage_config_manager = StorageConfigManager(config_manager)
     
-    return _global_storage_config_service
+    return _global_storage_config_manager
 
 
-def set_global_storage_config_service(service: StorageConfigService) -> None:
-    """设置全局存储配置服务实例
+def set_global_storage_config_manager(manager: StorageConfigManager) -> None:
+    """设置全局存储配置管理器实例
     
     Args:
-        service: 存储配置服务实例
+        manager: 存储配置管理器实例
     """
-    global _global_storage_config_service
-    _global_storage_config_service = service
+    global _global_storage_config_manager
+    _global_storage_config_manager = manager
+

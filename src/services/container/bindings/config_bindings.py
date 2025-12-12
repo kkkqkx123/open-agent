@@ -18,8 +18,7 @@ if TYPE_CHECKING:
         InheritanceProcessor,
         ReferenceProcessor
     )
-    from src.core.config.adapter_factory import AdapterFactory
-    from src.services.config.manager import ConfigManagerService
+    # from src.services.config.manager import ConfigManagerService  # 暂未实现
     from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
     from src.infrastructure.cache.core.cache_manager import CacheManager
 
@@ -60,6 +59,9 @@ class ConfigServiceBindings(BaseServiceBindings):
         _register_config_cache_config(container, config, environment)
         _register_config_cache_manager(container, config, environment)
         
+        # 注册配置事件管理器
+        _register_config_event_manager(container, config, environment)
+        
         # 注册新的配置管理服务
         _register_config_manager_service(container, config, environment)
         
@@ -71,7 +73,6 @@ class ConfigServiceBindings(BaseServiceBindings):
         _register_inheritance_processor(container, config, environment)
         # _register_environment_variable_processor 已弃用，因为InheritanceProcessor已包含环境变量处理功能
         _register_reference_processor(container, config, environment)
-        _register_adapter_factory(container, config, environment)
         _register_config_loader(container, config, environment)
     
     def _post_register(
@@ -92,8 +93,7 @@ class ConfigServiceBindings(BaseServiceBindings):
                     InheritanceProcessor,
                     ReferenceProcessor
                 )
-                from src.core.config.adapter_factory import AdapterFactory
-                from src.services.config.manager import ConfigManagerService
+                # from src.services.config.manager import ConfigManagerService  # 暂未实现
                 from src.infrastructure.cache.config.cache_config import ConfigCacheConfig
                 from src.infrastructure.cache.core.cache_manager import CacheManager
                 
@@ -104,8 +104,7 @@ class ConfigServiceBindings(BaseServiceBindings):
                     ConfigProcessorChain,
                     InheritanceProcessor,
                     ReferenceProcessor,
-                    AdapterFactory,
-                    ConfigManagerService,
+                    # ConfigManagerService,  # 暂未实现
                     ConfigCacheConfig,
                     CacheManager
                 ]
@@ -176,8 +175,8 @@ def _register_config_validator(container: IDependencyContainer, config: Dict[str
     """注册默认配置验证器"""
     # 延迟导入具体实现
     def create_config_validator() -> BaseConfigValidator:
-        from src.infrastructure.config.validation import BaseConfigValidator
-        return BaseConfigValidator("DefaultValidator")
+        from src.infrastructure.config.validation.base_validator import GenericConfigValidator
+        return GenericConfigValidator()
 
     from src.infrastructure.config.validation import BaseConfigValidator
     
@@ -249,17 +248,6 @@ def _register_reference_processor(container: IDependencyContainer, config: Dict[
     print(f"[DEBUG] 已注册 ReferenceProcessor", file=sys.stdout)
 
 
-def _register_adapter_factory(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
-    """注册适配器工厂"""
-    container.register_factory(
-        AdapterFactory,
-        lambda: _create_adapter_factory(),
-        environment=environment,
-        lifetime=ServiceLifetime.SINGLETON
-    )
-    print(f"[DEBUG] 已注册 AdapterFactory", file=sys.stdout)
-
-
 def _create_processor_chain() -> ConfigProcessorChain:
     """创建配置处理器链
     
@@ -281,33 +269,6 @@ def _create_processor_chain() -> ConfigProcessorChain:
         
     except Exception as e:
         print(f"[ERROR] 创建配置处理器链失败: {e}", file=sys.stderr)
-        raise
-
-
-def _create_adapter_factory() -> 'AdapterFactory':
-    """创建适配器工厂
-    Returns:
-        适配器工厂实例
-    """
-    try:
-        from src.core.config.config_manager import ConfigManager
-        from src.infrastructure.config import ConfigLoader
-        from src.infrastructure.config.processor import InheritanceProcessor, ReferenceProcessor
-        from src.infrastructure.config.impl.base_impl import ConfigProcessorChain
-        
-        # 创建配置管理器
-        config_loader = ConfigLoader()
-        processor_chain = ConfigProcessorChain()
-        inheritance_processor = InheritanceProcessor(config_loader)
-        processor_chain.add_processor(inheritance_processor)
-        processor_chain.add_processor(ReferenceProcessor())
-        
-        config_manager = ConfigManager(config_loader, processor_chain, inheritance_handler=inheritance_processor)
-        adapter_factory = AdapterFactory(config_manager)
-        print(f"[DEBUG] 适配器工厂创建完成", file=sys.stdout)
-        return adapter_factory
-    except Exception as e:
-        print(f"[ERROR] 创建适配器工厂失败: {e}", file=sys.stderr)
         raise
 
 
@@ -367,27 +328,40 @@ def _register_config_cache_manager(container: IDependencyContainer, config: Dict
 
 def _register_config_manager_service(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
     """注册配置管理服务"""
+    # 注意：ConfigManagerService 不存在，暂时注释掉
+    # 如果需要，可以创建这个服务或使用其他替代方案
+    print(f"[DEBUG] ConfigManagerService 暂未实现，跳过注册", file=sys.stdout)
+
+
+def _register_config_event_manager(container: IDependencyContainer, config: Dict[str, Any], environment: str = "default") -> None:
+    """注册配置事件管理器"""
     # 延迟导入具体实现
-    def create_config_manager_service() -> ConfigManagerService:
-        from src.services.config.manager import ConfigManagerService
-        
-        config_loader = container.get(IConfigLoader)
-        config_processor = container.get(IConfigProcessor)
-        config_validator = container.get(IConfigValidator)
-        cache_config = container.get(ConfigCacheConfig, optional=True)
-        
-        return ConfigManagerService(
-            config_loader=config_loader,
-            config_processor=config_processor,
-            config_validator=config_validator,
-            cache_config=cache_config
-        )
+    def create_config_event_manager() -> 'ConfigEventManager':
+        from src.infrastructure.config import ConfigEventManager
+        return ConfigEventManager()
+
+    from src.infrastructure.config import ConfigEventManager
     
+    # 注册具体类型
     container.register_factory(
-        ConfigManagerService,
-        create_config_manager_service,
+        ConfigEventManager,
+        create_config_event_manager,
         environment=environment,
         lifetime=ServiceLifetime.SINGLETON
     )
-    print(f"[DEBUG] 已注册 ConfigManagerService", file=sys.stdout)
+    
+    # 注册为接口（如果有的话）
+    try:
+        from src.interfaces.config.mapper import IConfigMonitor
+        container.register_factory(
+            IConfigMonitor,
+            create_config_event_manager,
+            environment=environment,
+            lifetime=ServiceLifetime.SINGLETON
+        )
+    except ImportError:
+        # 接口不存在，跳过
+        pass
+    
+    print(f"[DEBUG] 已注册 ConfigEventManager", file=sys.stdout)
 

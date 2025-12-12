@@ -22,7 +22,8 @@ from .config import (
 
 from .state_manager import (
     IToolStateManager,
-    ToolState,
+    StateEntry,
+    StateType,
 )
 
 from .validator import (
@@ -69,7 +70,8 @@ __all__ = [
     
     # 状态管理接口
     "IToolStateManager",
-    "ToolState",
+    "StateEntry",
+    "StateType",
     
     # 验证接口
     "ValidationType",

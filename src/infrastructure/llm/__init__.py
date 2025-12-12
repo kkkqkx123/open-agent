@@ -14,7 +14,6 @@
 
 from .http_client import *
 from .converters import *
-from .config import *
 from .utils import *
 from .token_calculators import *
 from .models import *
@@ -31,11 +30,6 @@ __all__ = [
     
     # 转换器
     "MessageConverter",
-    "RequestConverter",
-    "ResponseConverter",
-    
-    # 配置
-    "ConfigDiscovery",
     
     # 工具
     "HeaderValidator",

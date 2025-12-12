@@ -11,7 +11,7 @@ from src.infrastructure.messages.types import HumanMessage, AIMessage, SystemMes
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
-from src.infrastructure.config.models import MockConfig, LLMClientConfig
+from src.core.config.models import MockConfig, LLMConfig
 from src.interfaces.llm.exceptions import (
     LLMTimeoutError,
     LLMRateLimitError,
@@ -23,7 +23,7 @@ from src.interfaces.llm.exceptions import (
 class MockLLMClient(BaseLLMClient[MockConfig]):
     """Mock LLM客户端实现，用于测试"""
 
-    def __init__(self, config: Union[MockConfig, LLMClientConfig]) -> None:
+    def __init__(self, config: Union[MockConfig, LLMConfig]) -> None:
         """
         初始化Mock客户端
 
@@ -39,7 +39,7 @@ class MockLLMClient(BaseLLMClient[MockConfig]):
             self.error_rate = config.error_rate
             self.error_types = config.error_types
         else:
-            # 从LLMClientConfig中提取Mock特定配置，使用默认值
+            # 从LLMConfig中提取Mock特定配置，使用默认值
             self.response_delay = getattr(config, "response_delay", 0.1)
             self.error_rate = getattr(config, "error_rate", 0.0)
             self.error_types = getattr(config, "error_types", ["timeout", "rate_limit"])

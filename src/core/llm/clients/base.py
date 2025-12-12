@@ -3,7 +3,6 @@
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List, AsyncGenerator, Generator, Sequence, TypeVar, Generic
-from datetime import datetime
 
 from src.interfaces.messages import IBaseMessage
 
@@ -11,8 +10,8 @@ from src.interfaces.llm import ILLMClient, ILLMCallHook, LLMResponse
 from src.infrastructure.llm.models import TokenUsage, LLMError, ModelInfo
 from typing import Dict, Any, Optional
 
-# 使用infrastructure层的配置
-from src.infrastructure.config.models import LLMClientConfig
+# 使用核心层的配置
+from src.core.config.models import LLMConfig
 from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMModelNotFoundError,
@@ -21,7 +20,7 @@ from src.interfaces.llm.exceptions import (
 )
 
 # 定义配置类型变量(服务于范型)
-ConfigType = TypeVar('ConfigType', bound=LLMClientConfig)
+ConfigType = TypeVar('ConfigType', bound=LLMConfig)
 
 
 class BaseLLMClient(ILLMClient, Generic[ConfigType]):

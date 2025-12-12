@@ -1,6 +1,6 @@
-"""配置变更回调服务
+"""配置事件管理器
 
-提供配置变更事件的订阅、发布和管理功能。
+提供配置变更事件的订阅、发布和管理功能，实现基础设施层的事件系统。
 """
 
 import logging
@@ -11,8 +11,12 @@ from datetime import datetime
 from enum import Enum
 from collections import defaultdict
 
-if TYPE_CHECKING:
-    from .config_service import ConfigChangeEvent, ConfigChangeType
+from src.interfaces.config.mapper import (
+    IConfigChangeListener,
+    ConfigChangeEvent,
+    IConfigMonitor
+)
+from src.interfaces.dependency_injection import get_logger
 
 
 class CallbackPriority(Enum):
@@ -40,15 +44,15 @@ class CallbackRegistration:
     last_error: Optional[str] = None
 
 
-class CallbackService:
-    """配置变更回调服务
+class ConfigEventManager(IConfigMonitor):
+    """配置事件管理器
     
-    管理配置变更事件的订阅和分发。
+    管理配置变更事件的订阅和分发，实现IConfigMonitor接口。
     """
     
-    def __init__(self):
-        """初始化回调服务"""
-        self.logger = logging.getLogger(__name__)
+    def __init__(self) -> None:
+        """初始化事件管理器"""
+        self.logger = get_logger(__name__)
         
         # 回调注册表，按优先级分组
         self._callbacks: Dict[CallbackPriority, List[CallbackRegistration]] = defaultdict(list)
@@ -57,6 +61,9 @@ class CallbackService:
         # 回调ID映射
         self._callback_ids: Dict[str, CallbackRegistration] = {}
         self._id_counter = 0
+        
+        # 监听的配置文件
+        self._watched_configs: Dict[str, str] = {}  # {config_path: module_type}
         
         # 统计信息
         self._total_events = 0
@@ -75,6 +82,36 @@ class CallbackService:
         # 启动工作线程
         if self._async_execution:
             self._start_worker_threads()
+    
+    def start_watching(self, module_type: str, config_path: str) -> None:
+        """开始监控配置文件
+        
+        Args:
+            module_type: 模块类型
+            config_path: 配置文件路径
+        """
+        with self._callback_lock:
+            self._watched_configs[config_path] = module_type
+            self.logger.info(f"开始监控配置文件: {module_type}:{config_path}")
+    
+    def add_change_listener(self, listener: IConfigChangeListener) -> None:
+        """添加配置变更监听器
+        
+        Args:
+            listener: 配置变更监听器
+        """
+        # 将IConfigChangeListener包装为回调函数
+        def callback_wrapper(event: ConfigChangeEvent) -> None:
+            try:
+                listener.on_config_changed(event)
+            except Exception as e:
+                self.logger.error(f"配置变更监听器执行失败: {e}")
+        
+        # 注册为最高优先级
+        self.register_callback(
+            callback=callback_wrapper,
+            priority=CallbackPriority.HIGHEST
+        )
     
     def register_callback(
         self,
@@ -172,7 +209,7 @@ class CallbackService:
                 return True
             return False
     
-    def publish_event(self, event: Any) -> None:
+    def publish_event(self, event: ConfigChangeEvent) -> None:
         """发布配置变更事件
         
         Args:
@@ -239,6 +276,7 @@ class CallbackService:
                 'registered_callbacks': len(self._callback_ids),
                 'enabled_callbacks': sum(1 for reg in self._callback_ids.values() if reg.enabled),
                 'disabled_callbacks': sum(1 for reg in self._callback_ids.values() if not reg.enabled),
+                'watched_configs': len(self._watched_configs),
                 'async_execution': self._async_execution,
                 'worker_threads': len(self._worker_threads),
                 'queue_size': len(self._task_queue)
@@ -271,7 +309,7 @@ class CallbackService:
         
         self.logger.info(f"设置异步执行: {async_execution}, 工作线程数: {max_worker_threads}")
     
-    def _execute_callbacks(self, event: Any) -> None:
+    def _execute_callbacks(self, event: ConfigChangeEvent) -> None:
         """执行回调函数
         
         Args:
@@ -300,7 +338,7 @@ class CallbackService:
                         self._total_callback_errors += 1
                         self.logger.error(f"回调执行失败: {e}")
     
-    def _should_execute_callback(self, registration: CallbackRegistration, event: Any) -> bool:
+    def _should_execute_callback(self, registration: CallbackRegistration, event: ConfigChangeEvent) -> bool:
         """检查是否应该执行回调
         
         Args:
@@ -315,14 +353,16 @@ class CallbackService:
             return False
         
         # 检查变更类型过滤
-        if registration.filter_change_types and event.change_type not in registration.filter_change_types:
-            return False
+        if registration.filter_change_types and hasattr(event, 'change_type'):
+            if event.change_type not in registration.filter_change_types:
+                return False
         
         # 检查键路径过滤
-        if registration.filter_key_paths and event.key_path:
-            # 检查是否匹配任何键路径模式
-            if not any(event.key_path.startswith(pattern) for pattern in registration.filter_key_paths):
-                return False
+        if registration.filter_key_paths and hasattr(event, 'key_path'):
+            if event.key_path:
+                # 检查是否匹配任何键路径模式
+                if not any(event.key_path.startswith(pattern) for pattern in registration.filter_key_paths):
+                    return False
         
         return True
     
@@ -379,7 +419,35 @@ class CallbackService:
             except Exception as e:
                 self.logger.error(f"工作线程异常: {e}")
     
-    def __del__(self):
+    def __del__(self) -> None:
         """析构函数"""
         if hasattr(self, '_async_execution') and self._async_execution:
             self._stop_worker_threads()
+
+
+# 为了向后兼容，保留CallbackService类
+class CallbackService(ConfigEventManager):
+    """配置变更回调服务 - 向后兼容别名
+    
+    已弃用，请使用ConfigEventManager
+    """
+    pass
+
+
+# 便捷函数
+def create_config_event_manager() -> ConfigEventManager:
+    """创建配置事件管理器
+    
+    Returns:
+        配置事件管理器实例
+    """
+    return ConfigEventManager()
+
+
+def create_callback_service() -> CallbackService:
+    """创建回调服务 - 向后兼容
+    
+    Returns:
+        回调服务实例
+    """
+    return CallbackService()

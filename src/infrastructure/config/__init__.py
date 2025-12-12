@@ -11,6 +11,7 @@ from .schema_loader import SchemaLoader
 from .fixer import ConfigFixer
 from .registry import ConfigRegistry, get_global_registry, set_global_registry
 from .factory import ConfigFactory
+from .event_manager import ConfigEventManager, CallbackService, create_config_event_manager, create_callback_service
 
 # 配置实现层
 from .impl import (
@@ -31,12 +32,6 @@ from .schema import (
     LLMSchema, WorkflowSchema, GraphSchema, NodeSchema, EdgeSchema, ToolsSchema
 )
 
-# 配置模型层
-from .models import (
-    LLMClientConfig, OpenAIConfig, MockConfig, GeminiConfig,
-    AnthropicConfig, HumanRelayConfig
-)
-
 __all__ = [
     # 基础组件
     "ConfigLoader",
@@ -46,6 +41,10 @@ __all__ = [
     "get_global_registry",
     "set_global_registry",
     "ConfigFactory",
+    "ConfigEventManager",
+    "CallbackService",
+    "create_config_event_manager",
+    "create_callback_service",
     
     # 配置实现层
     "BaseConfigImpl",
@@ -76,12 +75,4 @@ __all__ = [
     "NodeSchema",
     "EdgeSchema",
     "ToolsSchema",
-    
-    # 配置模型层
-    "LLMClientConfig",
-    "OpenAIConfig",
-    "MockConfig",
-    "GeminiConfig",
-    "AnthropicConfig",
-    "HumanRelayConfig",
 ]

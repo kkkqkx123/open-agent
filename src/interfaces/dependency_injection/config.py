@@ -13,7 +13,6 @@ from src.infrastructure.config.processor import (
     EnvironmentProcessor,
     ReferenceProcessor,
 )
-from src.core.config.adapter_factory import AdapterFactory
 from src.infrastructure.validation.result import ValidationResult
 from src.infrastructure.config.loader import ConfigLoader
 
@@ -187,33 +186,6 @@ class _StubReferenceProcessor(ReferenceProcessor):
         return config
 
 
-class _StubAdapterFactory(AdapterFactory):
-    """临时 AdapterFactory 实现（用于极端情况）"""
-    
-    def __init__(self) -> None:
-        # 不调用父类初始化，避免依赖问题
-        pass
-    
-    def create_adapter(self, module_type: str) -> Any:
-        """创建适配器"""
-        # 返回一个虚拟的适配器对象
-        from src.core.config.adapters import BaseConfigAdapter
-        
-        class _StubAdapter(BaseConfigAdapter):
-            def __init__(self, base_manager: Optional[Any] = None) -> None:
-                self.base_manager = base_manager
-            
-            def load_config(self, config_path: str, **kwargs: Any) -> dict:
-                """加载配置"""
-                return {}
-            
-            def validate_config(self, config: dict) -> bool:
-                """验证配置"""
-                return True
-        
-        return _StubAdapter(None)
-
-
 # 全局实例
 _global_config_loader: Optional[ConfigLoader] = None
 _global_config_manager: Optional[IConfigManager] = None
@@ -222,7 +194,6 @@ _global_config_processor_chain: Optional[ConfigProcessorChain] = None
 _global_inheritance_processor: Optional[InheritanceProcessor] = None
 _global_environment_variable_processor: Optional[EnvironmentProcessor] = None
 _global_reference_processor: Optional[ReferenceProcessor] = None
-_global_adapter_factory: Optional[AdapterFactory] = None
 
 
 def get_config_loader() -> ConfigLoader:
@@ -281,14 +252,6 @@ def get_reference_processor() -> ReferenceProcessor:
     return _StubReferenceProcessor()
 
 
-def get_adapter_factory() -> AdapterFactory:
-    """获取适配器工厂实例"""
-    global _global_adapter_factory
-    if _global_adapter_factory is not None:
-        return _global_adapter_factory
-    return _StubAdapterFactory()
-
-
 def set_config_loader_instance(config_loader: ConfigLoader) -> None:
     """设置全局配置加载器实例"""
     global _global_config_loader
@@ -331,12 +294,6 @@ def set_reference_processor_instance(reference_processor: ReferenceProcessor) ->
     _global_reference_processor = reference_processor
 
 
-def set_adapter_factory_instance(adapter_factory: AdapterFactory) -> None:
-    """设置全局适配器工厂实例"""
-    global _global_adapter_factory
-    _global_adapter_factory = adapter_factory
-
-
 def clear_config_loader_instance() -> None:
     """清除全局配置加载器实例"""
     global _global_config_loader
@@ -377,12 +334,6 @@ def clear_reference_processor_instance() -> None:
     """清除全局引用处理器实例"""
     global _global_reference_processor
     _global_reference_processor = None
-
-
-def clear_adapter_factory_instance() -> None:
-    """清除全局适配器工厂实例"""
-    global _global_adapter_factory
-    _global_adapter_factory = None
 
 
 def get_config_loader_status() -> dict:
@@ -441,14 +392,6 @@ def get_reference_processor_status() -> dict:
     }
 
 
-def get_adapter_factory_status() -> dict:
-    """获取适配器工厂状态"""
-    return {
-        "has_instance": _global_adapter_factory is not None,
-        "type": type(_global_adapter_factory).__name__ if _global_adapter_factory else None
-    }
-
-
 __all__ = [
     "get_config_loader",
     "get_config_manager",
@@ -457,7 +400,6 @@ __all__ = [
     "get_inheritance_processor",
     "get_environment_variable_processor",
     "get_reference_processor",
-    "get_adapter_factory",
     "set_config_loader_instance",
     "set_config_manager_instance",
     "set_config_validator_instance",
@@ -465,7 +407,6 @@ __all__ = [
     "set_inheritance_processor_instance",
     "set_environment_variable_processor_instance",
     "set_reference_processor_instance",
-    "set_adapter_factory_instance",
     "clear_config_loader_instance",
     "clear_config_manager_instance",
     "clear_config_validator_instance",
@@ -473,7 +414,6 @@ __all__ = [
     "clear_inheritance_processor_instance",
     "clear_environment_variable_processor_instance",
     "clear_reference_processor_instance",
-    "clear_adapter_factory_instance",
     "get_config_loader_status",
     "get_config_manager_status",
     "get_config_validator_status",
@@ -481,5 +421,4 @@ __all__ = [
     "get_inheritance_processor_status",
     "get_environment_variable_processor_status",
     "get_reference_processor_status",
-    "get_adapter_factory_status",
 ]

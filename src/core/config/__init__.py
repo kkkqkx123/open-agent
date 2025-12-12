@@ -5,7 +5,6 @@
 
 from .config_manager import (
     ConfigManager,
-    ConfigManager,  # 向后兼容
     ModuleConfigRegistry,
     ConfigMapperRegistry,
     CrossModuleResolver,

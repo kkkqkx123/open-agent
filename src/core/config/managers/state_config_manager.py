@@ -1,89 +1,55 @@
-"""状态配置服务
+"""状态配置管理器
 
-提供状态管理的配置服务，包含业务逻辑，基于统一配置系统和基础设施层组件。
+提供状态管理的配置加载、管理和验证功能。
 """
 
-import os
 from typing import Dict, Any, Optional
-from pathlib import Path
 
-from src.interfaces.dependency_injection import get_logger
 from src.interfaces.config import IConfigManager
 from src.infrastructure.config.models.state import StateConfigData
 from src.core.config.validation.impl.state_validator import StateConfigValidator
+from src.core.config.managers.base_config_manager import BaseConfigManager
+from src.interfaces.dependency_injection import get_logger
 
 
 logger = get_logger(__name__)
 
 
-class StateConfigService:
-    """状态配置服务
+class StateConfigManager(BaseConfigManager):
+    """状态配置管理器
     
-    提供状态管理的配置加载、管理和验证功能，包含业务逻辑。
+    提供状态管理的配置加载、管理和验证功能。
     """
     
     def __init__(self, config_manager: IConfigManager, config_path: Optional[str] = None):
-        """初始化状态配置服务
+        """初始化状态配置管理器
         
         Args:
             config_manager: 统一配置管理器
             config_path: 配置文件路径，如果为None则使用默认路径
         """
-        self.config_manager = config_manager
-        self.config_path = config_path or "configs/state_management.yaml"
-        self._config_data: Optional[StateConfigData] = None
         self._validator = StateConfigValidator()
-        
-        # 加载配置
-        self._load_config()
+        super().__init__(config_manager, config_path)
     
-    def _load_config(self) -> None:
-        """加载配置文件"""
-        try:
-            # 检查配置文件是否存在
-            if not self._config_file_exists():
-                logger.warning(f"配置文件不存在: {self.config_path}，使用默认配置")
-                self._config_data = StateConfigData()
-                return
-            
-            # 使用统一配置管理器加载配置
-            config_dict = self.config_manager.load_config(self.config_path, "state")
-            
-            # 创建状态配置数据
-            self._config_data = StateConfigData(config_dict)
-            
-            # 验证配置
-            validation_result = self._validator.validate(config_dict)
-            if not validation_result.is_valid:
-                logger.error(f"配置验证失败: {validation_result.errors}")
-                # 使用默认配置
-                self._config_data = StateConfigData()
-                return
-            
-            logger.info(f"已加载状态管理配置: {self.config_path}")
-            
-        except Exception as e:
-            logger.error(f"加载配置文件失败: {e}，使用默认配置")
-            self._config_data = StateConfigData()
+    def _get_default_config_path(self) -> str:
+        """获取默认配置文件路径"""
+        return "configs/state_management.yaml"
     
-    def _config_file_exists(self) -> bool:
-        """检查配置文件是否存在"""
-        try:
-            # 使用统一配置管理器的加载器检查文件存在性
-            return self.config_manager.loader.exists(self.config_path)
-        except Exception:
-            # 如果统一配置管理器不支持文件存在检查，使用备用方法
-            return Path(self.config_path).exists()
+    def _get_config_module(self) -> str:
+        """获取配置模块名"""
+        return "state"
     
-    def get_config_data(self) -> StateConfigData:
-        """获取状态配置数据
-        
-        Returns:
-            状态配置数据实例
-        """
-        if self._config_data is None:
-            self._load_config()
-        return self._config_data
+    def _create_config_data(self, config_dict: Dict[str, Any]) -> StateConfigData:
+        """创建配置数据对象"""
+        return StateConfigData(config_dict)
+    
+    def _get_validator(self) -> StateConfigValidator:
+        """获取配置验证器"""
+        return self._validator
+    
+    def _create_default_config(self) -> StateConfigData:
+        """创建默认配置"""
+        return StateConfigData()
     
     def get_config_value(self, key: str, default: Any = None) -> Any:
         """获取配置值
@@ -194,45 +160,6 @@ class StateConfigService:
         """
         return self.get_config_value('monitoring.enabled', True)
     
-    def reload_config(self) -> None:
-        """重新加载配置"""
-        self._load_config()
-        logger.info("状态配置已重新加载")
-    
-    def save_config(self, path: Optional[str] = None) -> None:
-        """保存配置到文件
-        
-        Args:
-            path: 保存路径，如果为None则使用当前配置路径
-        """
-        save_path = path or self.config_path
-        try:
-            # 确保目录存在
-            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            # 保存配置
-            import yaml
-            config_dict = self.get_config_data().to_dict()
-            with open(save_path, 'w', encoding='utf-8') as f:
-                yaml.dump(config_dict, f, allow_unicode=True, default_flow_style=False)
-            logger.info(f"状态配置已保存到: {save_path}")
-        except Exception as e:
-            logger.error(f"保存配置失败: {e}")
-    
-    def validate_config(self) -> bool:
-        """验证配置
-        
-        Returns:
-            验证是否通过
-        """
-        try:
-            config_dict = self.get_config_data().to_dict()
-            validation_result = self._validator.validate(config_dict)
-            return validation_result.is_valid
-        except Exception as e:
-            logger.error(f"配置验证失败: {e}")
-            return False
-    
     def update_config(self, updates: Dict[str, Any]) -> None:
         """更新配置
         
@@ -299,40 +226,42 @@ class StateConfigService:
         }
 
 
-# 全局配置服务实例
-_global_state_config_service: Optional[StateConfigService] = None
+# 全局配置管理器实例
+_global_state_config_manager: Optional[StateConfigManager] = None
 
 
-def get_global_state_config_service(config_manager: Optional[IConfigManager] = None) -> StateConfigService:
-    """获取全局状态配置服务实例
+def get_global_state_config_manager(config_manager: Optional[IConfigManager] = None) -> StateConfigManager:
+    """获取全局状态配置管理器实例
     
     Args:
         config_manager: 配置管理器，如果为None则使用默认管理器
         
     Returns:
-        全局状态配置服务实例
+        全局状态配置管理器实例
     """
-    global _global_state_config_service
+    global _global_state_config_manager
     
-    if _global_state_config_service is None:
+    if _global_state_config_manager is None:
         # 如果未提供配置管理器，尝试获取默认管理器
         if config_manager is None:
             try:
-                from src.core.config.config_manager import get_default_manager
-                config_manager = get_default_manager()
-            except ImportError:
+                from src.services.container import get_global_container
+                _container = get_global_container()
+                config_manager = _container.get(IConfigManager)
+            except Exception:
                 raise RuntimeError("无法获取默认配置管理器")
         
-        _global_state_config_service = StateConfigService(config_manager)
+        assert config_manager is not None, "配置管理器为None"
+        _global_state_config_manager = StateConfigManager(config_manager)
     
-    return _global_state_config_service
+    return _global_state_config_manager
 
 
-def set_global_state_config_service(service: StateConfigService) -> None:
-    """设置全局状态配置服务实例
+def set_global_state_config_manager(manager: StateConfigManager) -> None:
+    """设置全局状态配置管理器实例
     
     Args:
-        service: 状态配置服务实例
+        manager: 状态配置管理器实例
     """
-    global _global_state_config_service
-    _global_state_config_service = service
+    global _global_state_config_manager
+    _global_state_config_manager = manager

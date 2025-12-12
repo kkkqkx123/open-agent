@@ -1,8 +1,11 @@
 """基础配置模型"""
 
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, TypeVar, Type
 from pydantic import BaseModel, ConfigDict
+
+
+T = TypeVar("T", bound="BaseConfig")
 
 
 class BaseConfig(BaseModel, ABC):
@@ -19,7 +22,7 @@ class BaseConfig(BaseModel, ABC):
         return self.model_dump(exclude_none=True)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BaseConfig":
+    def from_dict(cls: Type[T], data: Dict[str, Any]) -> T:
         """从字典创建配置"""
         return cls(**data)
 

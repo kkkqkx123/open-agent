@@ -9,7 +9,7 @@ from src.interfaces.llm.http_client import ILLMHttpClient
 from .base import BaseLLMClient
 from src.interfaces.llm import LLMResponse
 from src.infrastructure.llm.models import TokenUsage
-from src.infrastructure.config.models import GeminiConfig
+from src.core.config.models import GeminiConfig
 from src.interfaces.llm.exceptions import (
     LLMCallError,
     LLMTimeoutError,

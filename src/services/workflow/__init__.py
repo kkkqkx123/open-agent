@@ -14,10 +14,6 @@ from .workflow_orchestrator import (
     WorkflowOrchestrator,
     create_workflow_orchestrator
 )
-from .config_service import (
-    WorkflowConfigService,
-    get_workflow_config_service
-)
 
 from .function_registry import (
     FunctionRegistry,
@@ -50,10 +46,6 @@ __all__ = [
     # Orchestrator
     "WorkflowOrchestrator",
     "create_workflow_orchestrator",
-    
-    # Configuration service
-    "WorkflowConfigService",
-    "get_workflow_config_service",
     
     # Newly migrated services
     "FunctionRegistry",

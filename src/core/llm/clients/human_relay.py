@@ -6,7 +6,7 @@ from src.interfaces.messages import IBaseMessage
 from src.infrastructure.messages.types import HumanMessage, AIMessage
 
 from .base import BaseLLMClient
-from src.infrastructure.config.models import HumanRelayConfig
+from src.core.config.models import HumanRelayConfig
 from src.infrastructure.llm.models import TokenUsage
 from src.interfaces.llm.exceptions import LLMTimeoutError, LLMInvalidRequestError
 from src.interfaces.llm import LLMResponse

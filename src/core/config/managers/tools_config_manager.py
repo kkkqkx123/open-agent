@@ -1,7 +1,6 @@
-"""
-工具配置服务
+"""工具配置管理器
 
-提供工具模块的配置管理服务，遵循服务层的职责。
+提供工具模块的配置管理，遵循服务层的职责。
 """
 
 from typing import Dict, Any, Optional, List, Union
@@ -19,8 +18,8 @@ from src.infrastructure.config.models.base import ConfigData
 logger = get_logger(__name__)
 
 
-class ToolsConfigService(IModuleConfigService):
-    """工具配置服务
+class ToolsConfigManager(IModuleConfigService):
+    """工具配置管理器
     
     提供工具模块的配置加载、保存、验证和管理功能。
     """
@@ -28,7 +27,7 @@ class ToolsConfigService(IModuleConfigService):
     def __init__(self,
                  config_manager: Optional[Any] = None,
                  mapper_registry: Optional[IConfigMapperRegistry] = None):
-        """初始化工具配置服务
+        """初始化工具配置管理器
         
         Args:
             config_manager: 配置管理器
@@ -40,7 +39,7 @@ class ToolsConfigService(IModuleConfigService):
         # 获取工具配置映射器
         self._tools_mapper = ToolsConfigMapper()
         
-        logger.debug("初始化工具配置服务")
+        logger.debug("初始化工具配置管理器")
     
     def load_config(self, config_path: str) -> Union[ToolConfig, ToolRegistryConfig]:
         """加载工具配置
@@ -308,15 +307,15 @@ class ToolsConfigService(IModuleConfigService):
 
 
 # 便捷函数
-def get_tools_config_service(config_manager: Optional[Any] = None,
-                           mapper_registry: Optional[IConfigMapperRegistry] = None) -> ToolsConfigService:
-    """获取工具配置服务实例
+def get_tools_config_manager(config_manager: Optional[Any] = None,
+                           mapper_registry: Optional[IConfigMapperRegistry] = None) -> ToolsConfigManager:
+    """获取工具配置管理器实例
     
     Args:
         config_manager: 配置管理器
         mapper_registry: 配置映射器注册表
         
     Returns:
-        工具配置服务实例
+        工具配置管理器实例
     """
-    return ToolsConfigService(config_manager, mapper_registry)
+    return ToolsConfigManager(config_manager, mapper_registry)

@@ -1,6 +1,6 @@
 """LLM配置模型"""
 
-from typing import Dict, Any, Optional, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
@@ -28,6 +28,20 @@ class LLMConfig(BaseConfig):
 
     # 参数配置
     parameters: Dict[str, Any] = Field(default_factory=dict, description="模型参数")
+    
+    # 客户端配置参数
+    temperature: float = Field(0.7, description="生成温度")
+    top_p: float = Field(1.0, description="Top-p采样")
+    frequency_penalty: float = Field(0.0, description="频率惩罚")
+    presence_penalty: float = Field(0.0, description="存在惩罚")
+    max_tokens: Optional[int] = Field(None, description="最大Token数")
+    timeout: int = Field(30, description="请求超时时间")
+    max_retries: int = Field(3, description="最大重试次数")
+    stream: bool = Field(False, description="是否启用流式响应")
+    
+    # 函数调用配置
+    functions: Optional[List[Dict[str, Any]]] = Field(None, description="可用函数列表")
+    function_call: Optional[Dict[str, Any]] = Field(None, description="函数调用配置")
 
     # 继承配置
     group: Optional[str] = Field(None, description="所属组名称")
@@ -189,3 +203,85 @@ class LLMConfig(BaseConfig):
             config["provider"] = self.provider
         
         return config
+
+
+class MockConfig(LLMConfig):
+    """Mock LLM配置模型"""
+    
+    # Mock特定配置
+    response_delay: float = Field(0.1, description="响应延迟")
+    response_text: str = Field("This is a mock response.", description="响应文本")
+    error_rate: float = Field(0.0, description="错误率")
+    error_message: str = Field("Mock error", description="错误消息")
+    error_types: List[str] = Field(default_factory=lambda: ["timeout", "rate_limit"], description="错误类型")
+    
+    def get_mock_response(self) -> str:
+        """获取Mock响应文本"""
+        return self.response_text
+    
+    def should_throw_error(self) -> bool:
+        """检查是否应该抛出错误"""
+        import random
+        return self.error_rate > 0 and random.random() < self.error_rate
+
+
+class OpenAIConfig(LLMConfig):
+    """OpenAI LLM配置模型"""
+    
+    # OpenAI特定配置
+    api_format: str = Field("chat_completion", description="API格式: chat_completion | responses")
+    stop: Optional[Union[List[str], str]] = Field(None, description="停止序列")
+    
+    # 高级参数
+    top_logprobs: Optional[int] = Field(None, description="Top logprobs")
+    service_tier: Optional[str] = Field(None, description="服务层级")
+    safety_identifier: Optional[str] = Field(None, description="安全标识符")
+    seed: Optional[int] = Field(None, description="随机种子")
+    verbosity: Optional[str] = Field(None, description="详细级别")
+    web_search_options: Optional[Dict[str, Any]] = Field(None, description="网页搜索选项")
+    
+    # Responses API 特定参数
+    max_output_tokens: Optional[int] = Field(None, description="最大输出Token数")
+    reasoning: Optional[Dict[str, Any]] = Field(None, description="推理配置")
+    store: bool = Field(False, description="是否存储")
+
+
+class GeminiConfig(LLMConfig):
+    """Gemini LLM配置模型"""
+    
+    # Gemini特定参数
+    candidate_count: int = Field(1, description="候选数量")
+    stop_sequences: Optional[List[str]] = Field(None, description="停止序列")
+    max_output_tokens: Optional[int] = Field(None, description="最大输出Token数")
+    top_k: int = Field(40, description="Top-k采样")
+    response_mime_type: Optional[str] = Field(None, description="响应MIME类型")
+    thinking_config: Optional[Dict[str, Any]] = Field(None, description="思考配置")
+    safety_settings: Optional[List[Dict[str, Any]]] = Field(None, description="安全设置")
+    tools: Optional[List[Dict[str, Any]]] = Field(None, description="工具列表")
+    tool_choice: Optional[Dict[str, Any]] = Field(None, description="工具选择")
+    content_cache_enabled: Optional[bool] = Field(None, description="是否启用内容缓存")
+    content_cache_display_name: Optional[str] = Field(None, description="内容缓存显示名称")
+
+
+class AnthropicConfig(LLMConfig):
+    """Anthropic LLM配置模型"""
+    
+    # Anthropic特定参数
+    anthropic_max_tokens: int = Field(1000, description="最大Token数")
+    stop_sequences: Optional[List[str]] = Field(None, description="停止序列")
+    thinking_config: Optional[Dict[str, Any]] = Field(None, description="思考配置")
+    response_format: Optional[Dict[str, Any]] = Field(None, description="响应格式")
+    user: Optional[str] = Field(None, description="用户标识")
+    tools: Optional[List[Dict[str, Any]]] = Field(None, description="工具列表")
+    tool_choice: Optional[Dict[str, Any]] = Field(None, description="工具选择")
+
+
+class HumanRelayConfig(LLMConfig):
+    """Human Relay LLM配置模型"""
+    
+    # Human Relay特定参数
+    mode: str = Field("single", description="模式：single | multi")
+    max_history_length: int = Field(10, description="最大历史长度")
+    prompt_template: Optional[str] = Field(None, description="提示词模板")
+    incremental_prompt_template: Optional[str] = Field(None, description="增量提示词模板")
+    metadata_config: Dict[str, Any] = Field(default_factory=dict, description="元数据配置")

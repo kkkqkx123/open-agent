@@ -23,7 +23,7 @@ from src.core.config.validation import (
 )
 from src.infrastructure.config.validation import ConfigValidator
 from src.infrastructure.cache.core.cache_manager import CacheManager
-from src.services.config.validation import (
+from src.core.config.validation import (
     ConfigValidationService,
     ValidationOrchestrator,
     ValidatorFactory,
@@ -124,11 +124,6 @@ def register_validation_services(cache_manager: Optional[CacheManager] = None) -
             lifecycle=Lifecycle.SINGLETON
         )
         
-        container.register(
-            IEnhancedConfigValidator,
-            ConfigValidationService,
-            lifecycle=Lifecycle.SINGLETON
-        )
         
         container.register(
             IConfigValidationService,

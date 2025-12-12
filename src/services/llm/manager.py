@@ -10,7 +10,7 @@ from src.interfaces.dependency_injection import get_logger
 from src.interfaces.llm import ILLMClient, ILLMManager, IFallbackManager, ITaskGroupManager, ILLMCallHook, LLMResponse
 from src.interfaces.messages import IBaseMessage
 from src.core.llm.factory import LLMFactory
-from src.infrastructure.config.models import LLMClientConfig
+from src.core.config.models import LLMConfig
 from src.interfaces.llm.exceptions import LLMError
 from src.services.llm.state_machine import StateMachine, LLMManagerState
 from src.services.llm.utils.metadata_service import ClientMetadataService
@@ -434,18 +434,18 @@ class LLMManager(ILLMManager):
         """
         return self._client_manager.get_client_info(name)
     
-    async def validate_client_config(self, config: Union[Dict[str, Any], LLMClientConfig]) -> bool:
+    async def validate_client_config(self, config: Union[Dict[str, Any], LLMConfig]) -> bool:
         """验证客户端配置
         
         Args:
-            config: LLM客户端配置（字典或LLMClientConfig对象）
+            config: LLM客户端配置（字典或LLMConfig对象）
             
         Returns:
             bool: 验证是否通过
         """
-        # 如果是LLMClientConfig对象，转换为字典
-        if isinstance(config, LLMClientConfig):
-            config_dict = config.to_dict() if hasattr(config, 'to_dict') else vars(config)
+        # 如果是LLMConfig对象，转换为字典
+        if isinstance(config, LLMConfig):
+            config_dict = config.model_dump() if hasattr(config, 'model_dump') else vars(config)
         else:
             config_dict = config
         result = self._config_manager.validate_config(config_dict)
