@@ -56,6 +56,7 @@ class WorkflowConfigImpl(BaseConfigImpl):
         """转换Workflow配置
         
         将原始配置转换为标准化的Workflow配置格式。
+        只保留模块特定的逻辑，通用处理由处理器链完成。
         
         Args:
             config: 原始配置数据
@@ -65,23 +66,19 @@ class WorkflowConfigImpl(BaseConfigImpl):
         """
         logger.debug("开始转换Workflow配置")
         
-        # 1. 标准化工作流类型
+        # 1. 标准化工作流类型（模块特定）
         config = self._normalize_workflow_type(config)
         
-        # 2. 处理状态模式配置
+        # 2. 处理状态模式配置（模块特定）
         config = self._process_state_schema(config)
         
-        # 3. 处理节点配置
+        # 3. 处理节点配置（模块特定）
         config = self._process_nodes(config)
         
-        # 4. 处理边配置
+        # 4. 处理边配置（模块特定）
         config = self._process_edges(config)
         
-        # 5. 设置默认值
-        config = self._set_default_values(config)
-        
-        # 6. 验证配置完整性
-        config = self._validate_config_structure(config)
+        # 注意：默认值设置、验证等通用处理已由处理器链完成
         
         logger.debug("Workflow配置转换完成")
         return config
@@ -297,70 +294,7 @@ class WorkflowConfigImpl(BaseConfigImpl):
         
         return config
     
-    def _set_default_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """设置默认值
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            设置默认值后的配置数据
-        """
-        # 设置全局默认值
-        for key, value in self._default_workflow_config.items():
-            config.setdefault(key, value)
-        
-        # 设置元数据默认值
-        if "metadata" not in config:
-            config["metadata"] = {}
-        
-        metadata = config["metadata"]
-        metadata.setdefault("name", config.get("workflow_name", "unnamed"))
-        metadata.setdefault("version", "1.0.0")
-        metadata.setdefault("description", config.get("description", ""))
-        metadata.setdefault("author", "system")
-        
-        return config
     
-    def _validate_config_structure(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """验证配置结构
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证后的配置数据
-        """
-        # 验证必要的顶级字段
-        required_fields = ["workflow_name", "nodes"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"缺少必要的配置字段: {field}")
-        
-        # 验证节点配置
-        if not config["nodes"]:
-            raise ValueError("至少需要配置一个节点")
-        
-        # 验证边配置中的节点引用
-        nodes = set(config["nodes"].keys())
-        edges = config.get("edges", [])
-        
-        for edge in edges:
-            from_node = edge.get("from")
-            to_node = edge.get("to")
-            
-            if from_node and from_node not in nodes and from_node != "__start__":
-                raise ValueError(f"边引用了不存在的起始节点: {from_node}")
-            
-            if to_node and to_node not in nodes and to_node != "__end__" and edge.get("type") == "simple":
-                raise ValueError(f"边引用了不存在的目标节点: {to_node}")
-        
-        # 验证入口点
-        entry_point = config.get("entry_point")
-        if entry_point and entry_point not in nodes:
-            raise ValueError(f"入口点节点不存在: {entry_point}")
-        
-        return config
     
     def get_workflow_config(self, workflow_name: str) -> Optional[Dict[str, Any]]:
         """获取工作流配置

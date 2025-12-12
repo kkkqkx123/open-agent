@@ -11,10 +11,9 @@ from .registry import ConfigRegistry
 from .loader import ConfigLoader
 from .impl.base_impl import BaseConfigImpl, ConfigProcessorChain
 from src.interfaces.config.schema import IConfigSchema
-from src.interfaces.config.processor import IConfigProcessor
 from src.interfaces.config.schema import ISchemaGenerator
 from src.interfaces.config.impl import IConfigImpl
-from .processor.validation_processor import ValidationProcessor, SchemaRegistry
+from .processor.validation_processor_wrapper import ValidationProcessorWrapper
 from .processor.transformation_processor import TransformationProcessor, TypeConverter
 from .processor.environment_processor import EnvironmentProcessor
 from .processor.inheritance_processor import InheritanceProcessor
@@ -85,11 +84,42 @@ class ConfigFactory:
         """
         return self.create_processor_chain([
             "inheritance",
-            "environment", 
+            "environment",
             "reference",
             "transformation",
             "validation"
         ])
+    
+    def create_module_specific_processor_chain(self, module_type: str) -> ConfigProcessorChain:
+        """创建模块特定的处理器链
+        
+        Args:
+            module_type: 模块类型
+            
+        Returns:
+            模块特定的处理器链
+        """
+        # 根据模块类型配置特定的处理器链
+        if module_type == "graph":
+            processor_names = ["inheritance", "environment", "reference", "transformation", "validation"]
+        elif module_type == "node":
+            processor_names = ["inheritance", "environment", "reference", "transformation", "validation"]
+        elif module_type == "edge":
+            processor_names = ["inheritance", "environment", "reference", "transformation", "validation"]
+        elif module_type == "llm":
+            processor_names = ["inheritance", "environment", "transformation", "validation_llm"]
+        elif module_type == "tools":
+            processor_names = ["inheritance", "environment", "transformation", "validation_tool"]
+        elif module_type == "workflow":
+            processor_names = ["inheritance", "reference", "transformation", "validation_workflow"]
+        elif module_type == "state":
+            processor_names = ["environment", "transformation", "validation_state"]
+        else:
+            # 使用默认处理器链
+            processor_names = ["inheritance", "environment", "reference", "transformation", "validation"]
+        
+        logger.debug(f"为{module_type}模块创建处理器链: {processor_names}")
+        return self.create_processor_chain(processor_names)
     
     def create_config_implementation(self,
                                    module_type: str,
@@ -108,7 +138,12 @@ class ConfigFactory:
             配置实现
         """
         loader = config_loader or self.create_config_loader()
-        chain = processor_chain or self.create_default_processor_chain()
+        
+        # 如果没有提供处理器链，创建模块特定的处理器链
+        if processor_chain is None:
+            chain = self.create_module_specific_processor_chain(module_type)
+        else:
+            chain = processor_chain
         
         # 如果没有schema，创建一个默认的空schema
         if schema is None:
@@ -198,18 +233,10 @@ class ConfigFactory:
         Returns:
             LLM配置实现
         """
-        # 创建LLM特定的处理器链
-        processor_names = ["inheritance", "environment", "transformation", "validation"]
+        # 使用模块特定的处理器链
+        impl = self.create_config_implementation("llm")
         
-        # 注册LLM配置
-        self.register_module_config(
-            "llm",
-            processor_names=processor_names
-        )
-        
-        impl = self.registry.get_implementation("llm")
-        if impl is None:
-            raise RuntimeError("Failed to create LLM config implementation")
+        logger.info("设置LLM配置完成")
         return impl
     
     def setup_workflow_config(self) -> IConfigImpl:
@@ -218,18 +245,10 @@ class ConfigFactory:
         Returns:
             工作流配置实现
         """
-        # 创建工作流特定的处理器链
-        processor_names = ["inheritance", "reference", "transformation", "validation"]
+        # 使用模块特定的处理器链
+        impl = self.create_config_implementation("workflow")
         
-        # 注册工作流配置
-        self.register_module_config(
-            "workflow",
-            processor_names=processor_names
-        )
-        
-        impl = self.registry.get_implementation("workflow")
-        if impl is None:
-            raise RuntimeError("Failed to create workflow config implementation")
+        logger.info("设置工作流配置完成")
         return impl
     
     def setup_tools_config(self) -> IConfigImpl:
@@ -238,18 +257,8 @@ class ConfigFactory:
         Returns:
             工具配置实现
         """
-        # 创建工具特定的处理器链
-        processor_names = ["inheritance", "environment", "transformation", "validation"]
-        
-        # 注册工具配置
-        self.register_module_config(
-            "tools",
-            processor_names=processor_names
-        )
-        
-        impl = self.registry.get_implementation("tools")
-        if impl is None:
-            raise RuntimeError("Failed to create tools config implementation")
+        # 使用模块特定的处理器链
+        impl = self.create_config_implementation("tools")
         
         logger.info("设置工具配置完成")
         return impl
@@ -260,18 +269,10 @@ class ConfigFactory:
         Returns:
             状态配置实现
         """
-        # 创建状态特定的处理器链
-        processor_names = ["environment", "transformation", "validation"]
+        # 使用模块特定的处理器链
+        impl = self.create_config_implementation("state")
         
-        # 注册状态配置
-        self.register_module_config(
-            "state",
-            processor_names=processor_names
-        )
-        
-        impl = self.registry.get_implementation("state")
-        if impl is None:
-            raise RuntimeError("Failed to create state config implementation")
+        logger.info("设置状态配置完成")
         return impl
     
     def setup_all_configs(self) -> Dict[str, IConfigImpl]:
@@ -287,6 +288,9 @@ class ConfigFactory:
         implementations["workflow"] = self.setup_workflow_config()
         implementations["tools"] = self.setup_tools_config()
         implementations["state"] = self.setup_state_config()
+        implementations["graph"] = self.create_config_implementation("graph")
+        implementations["node"] = self.create_config_implementation("node")
+        implementations["edge"] = self.create_config_implementation("edge")
         
         logger.info("设置所有模块配置完成")
         return implementations
@@ -327,11 +331,24 @@ class ConfigFactory:
         transformation_processor = TransformationProcessor(type_converter)
         self.registry.register_processor("transformation", transformation_processor)
         
-        # 验证处理器
-        validation_processor = ValidationProcessor(self.registry.schema_registry)
+        # 验证处理器 - 直接使用 ConfigValidator
+        validation_processor = ValidationProcessorWrapper()
         self.registry.register_processor("validation", validation_processor)
         
+        # 为不同模块类型注册特定的验证处理器
+        self._register_module_specific_validators()
+        
         logger.debug("注册基础处理器完成")
+    
+    def _register_module_specific_validators(self) -> None:
+        """注册模块特定的验证处理器"""
+        # 为不同模块类型注册特定的验证处理器
+        module_types = ["llm", "tool", "workflow", "global", "state"]
+        
+        for module_type in module_types:
+            validator = ValidationProcessorWrapper(config_type=module_type)
+            self.registry.register_processor(f"validation_{module_type}", validator)
+            logger.debug(f"注册{module_type}模块验证处理器")
     
     def get_factory_stats(self) -> Dict[str, Any]:
         """获取工厂统计信息

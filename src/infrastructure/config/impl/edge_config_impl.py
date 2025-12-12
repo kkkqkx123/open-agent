@@ -54,6 +54,7 @@ class EdgeConfigImpl(BaseConfigImpl):
         """转换Edge配置
         
         将原始配置转换为标准化的Edge配置格式。
+        只保留模块特定的逻辑，通用处理由处理器链完成。
         
         Args:
             config: 原始配置数据
@@ -63,29 +64,25 @@ class EdgeConfigImpl(BaseConfigImpl):
         """
         logger.debug("开始转换Edge配置")
         
-        # 1. 标准化边基本信息
+        # 1. 标准化边基本信息（模块特定）
         config = self._normalize_edge_info(config)
         
-        # 2. 处理边类型
+        # 2. 处理边类型（模块特定）
         config = self._process_edge_type(config)
         
-        # 3. 处理节点引用
+        # 3. 处理节点引用（模块特定）
         config = self._process_node_references(config)
         
-        # 4. 处理条件配置
+        # 4. 处理条件配置（模块特定）
         config = self._process_condition_config(config)
         
-        # 5. 处理路径映射
+        # 5. 处理路径映射（模块特定）
         config = self._process_path_mapping(config)
         
-        # 6. 处理数据转换
+        # 6. 处理数据转换（模块特定）
         config = self._process_data_transformation(config)
         
-        # 7. 设置默认值
-        config = self._set_default_values(config)
-        
-        # 8. 验证配置完整性
-        config = self._validate_config_structure(config)
+        # 注意：默认值设置、验证等通用处理已由处理器链完成
         
         logger.debug("Edge配置转换完成")
         return config
@@ -270,59 +267,7 @@ class EdgeConfigImpl(BaseConfigImpl):
         
         return config
     
-    def _set_default_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """设置默认值
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            设置默认值后的配置数据
-        """
-        # 设置全局默认值
-        for key, value in self._default_edge_config.items():
-            config.setdefault(key, value)
-        
-        # 设置额外配置
-        if "additional_config" not in config:
-            config["additional_config"] = {}
-        
-        additional_config = config["additional_config"]
-        additional_config.setdefault("priority", "normal")
-        additional_config.setdefault("weight", 1.0)
-        additional_config.setdefault("enabled", True)
-        
-        return config
     
-    def _validate_config_structure(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """验证配置结构
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证后的配置数据
-        """
-        # 验证必要的顶级字段
-        required_fields = ["name", "from", "type"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"缺少必要的配置字段: {field}")
-        
-        # 验证边类型
-        if config["type"] not in self._supported_edge_types:
-            raise ValueError(f"不支持的边类型: {config['type']}")
-        
-        # 验证特定边类型的配置
-        edge_type = config["type"]
-        if edge_type == "simple":
-            if "to" not in config:
-                raise ValueError("简单边必须指定目标节点")
-        elif edge_type == "conditional":
-            if "condition" not in config and "path_map" not in config:
-                raise ValueError("条件边必须指定condition或path_map")
-        
-        return config
     
     def get_edge_config(self, edge_name: str) -> Optional[Dict[str, Any]]:
         """获取边配置

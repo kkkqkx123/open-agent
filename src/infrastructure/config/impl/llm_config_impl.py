@@ -81,6 +81,7 @@ class LLMConfigImpl(BaseConfigImpl):
         """转换LLM配置
         
         将原始配置转换为标准化的LLM配置格式。
+        只保留模块特定的逻辑，通用处理由处理器链完成。
         
         Args:
             config: 原始配置数据
@@ -90,20 +91,16 @@ class LLMConfigImpl(BaseConfigImpl):
         """
         logger.debug("开始转换LLM配置")
         
-        # 1. 标准化模型类型
+        # 1. 标准化模型类型（模块特定）
         config = self._normalize_model_type(config)
         
-        # 2. 处理客户端配置
+        # 2. 处理客户端配置（模块特定）
         config = self._process_client_configs(config)
         
-        # 3. 处理模块配置
+        # 3. 处理模块配置（模块特定）
         config = self._process_module_config(config)
         
-        # 4. 设置默认值
-        config = self._set_default_values(config)
-        
-        # 5. 验证配置完整性
-        config = self._validate_config_structure(config)
+        # 注意：默认值设置、验证等通用处理已由处理器链完成
         
         logger.debug("LLM配置转换完成")
         return config
@@ -211,48 +208,7 @@ class LLMConfigImpl(BaseConfigImpl):
         
         return config
     
-    def _set_default_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """设置默认值
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            设置默认值后的配置数据
-        """
-        # 全局默认值
-        config.setdefault("version", "1.0")
-        config.setdefault("description", "LLM模块配置")
-        
-        return config
     
-    def _validate_config_structure(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """验证配置结构
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证后的配置数据
-        """
-        # 验证必要的顶级字段
-        required_fields = ["clients"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"缺少必要的配置字段: {field}")
-        
-        # 验证客户端配置
-        if not config["clients"]:
-            raise ValueError("至少需要配置一个客户端")
-        
-        for client_name, client_config in config["clients"].items():
-            # 验证客户端必要字段
-            required_client_fields = ["model_type", "model_name"]
-            for field in required_client_fields:
-                if field not in client_config:
-                    raise ValueError(f"客户端 {client_name} 缺少必要字段: {field}")
-        
-        return config
     
     def discover_providers(self, force_refresh: bool = False) -> Dict[str, ProviderInfo]:
         """发现所有可用的Provider

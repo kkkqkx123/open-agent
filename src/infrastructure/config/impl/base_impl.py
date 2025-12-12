@@ -75,22 +75,22 @@ class BaseConfigImpl(IConfigImpl):
             logger.debug(f"加载原始配置文件: {config_path}")
             raw_config = self.config_loader.load(config_path)
             
-            # 3. 应用处理器链
+            # 3. 应用处理器链（包含所有通用处理）
             logger.debug(f"应用处理器链处理配置")
             processed_config = self.processor_chain.process(raw_config, config_path)
             
-            # 4. 验证配置
+            # 4. 应用模块特定转换
+            logger.debug(f"转换为{self.module_type}模块特定格式")
+            final_config = self.transform_config(processed_config)
+            
+            # 5. 验证配置
             logger.debug(f"验证配置数据")
-            validation_result = self.validate_config(processed_config)
+            validation_result = self.validate_config(final_config)
             
             if not validation_result.is_valid:
                 error_msg = f"{self.module_type}模块配置验证失败: " + "; ".join(validation_result.errors)
                 logger.error(error_msg)
                 raise ValueError(error_msg)
-            
-            # 5. 转换为模块特定格式
-            logger.debug(f"转换为{self.module_type}模块特定格式")
-            final_config = self.transform_config(processed_config)
             
             # 6. 缓存结果
             if use_cache:

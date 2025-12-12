@@ -54,6 +54,7 @@ class GraphConfigImpl(BaseConfigImpl):
         """转换Graph配置
         
         将原始配置转换为标准化的Graph配置格式。
+        只保留模块特定的逻辑，通用处理由处理器链完成。
         
         Args:
             config: 原始配置数据
@@ -63,23 +64,19 @@ class GraphConfigImpl(BaseConfigImpl):
         """
         logger.debug("开始转换Graph配置")
         
-        # 1. 标准化图基本信息
+        # 1. 标准化图基本信息（模块特定）
         config = self._normalize_graph_info(config)
         
-        # 2. 处理状态模式配置
+        # 2. 处理状态模式配置（模块特定）
         config = self._process_state_schema(config)
         
-        # 3. 处理节点引用配置
+        # 3. 处理节点引用配置（模块特定）
         config = self._process_node_references(config)
         
-        # 4. 处理边引用配置
+        # 4. 处理边引用配置（模块特定）
         config = self._process_edge_references(config)
         
-        # 5. 设置默认值
-        config = self._set_default_values(config)
-        
-        # 6. 验证配置完整性
-        config = self._validate_config_structure(config)
+        # 注意：默认值设置、验证等通用处理已由处理器链完成
         
         logger.debug("Graph配置转换完成")
         return config
@@ -93,16 +90,15 @@ class GraphConfigImpl(BaseConfigImpl):
         Returns:
             标准化后的配置数据
         """
-        # 确保有图名称
+        # 确保有图名称（模块特定逻辑）
         if "name" not in config:
             config["name"] = config.get("id", "unnamed_graph")
         
-        # 设置图ID
+        # 设置图ID（模块特定逻辑）
         if "id" not in config:
             config["id"] = config["name"]
         
-        # 标准化版本
-        config.setdefault("version", "1.0")
+        # 注意：版本默认值设置已由环境变量处理器完成
         
         return config
     
@@ -331,79 +327,7 @@ class GraphConfigImpl(BaseConfigImpl):
         
         return config
     
-    def _set_default_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """设置默认值
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            设置默认值后的配置数据
-        """
-        # 设置全局默认值
-        for key, value in self._default_graph_config.items():
-            config.setdefault(key, value)
-        
-        # 设置额外配置
-        if "additional_config" not in config:
-            config["additional_config"] = {}
-        
-        additional_config = config["additional_config"]
-        additional_config.setdefault("retry_attempts", 3)
-        additional_config.setdefault("retry_delay", 1.0)
-        additional_config.setdefault("logging_level", "INFO")
-        additional_config.setdefault("enable_tracing", False)
-        
-        return config
     
-    def _validate_config_structure(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """验证配置结构
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证后的配置数据
-        """
-        # 验证必要的顶级字段
-        required_fields = ["name", "nodes"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"缺少必要的配置字段: {field}")
-        
-        # 验证节点配置
-        if not config["nodes"]:
-            raise ValueError("至少需要配置一个节点")
-        
-        # 验证边配置中的节点引用
-        nodes = set(config["nodes"].keys())
-        edges = config.get("edges", [])
-        
-        for edge in edges:
-            from_node = edge.get("from")
-            to_node = edge.get("to")
-            
-            if from_node and from_node not in nodes and from_node != "__start__":
-                raise ValueError(f"边引用了不存在的起始节点: {from_node}")
-            
-            if to_node and to_node not in nodes and to_node != "__end__" and edge.get("type") == "simple":
-                raise ValueError(f"边引用了不存在的目标节点: {to_node}")
-        
-        # 验证入口点
-        entry_point = config.get("entry_point")
-        if entry_point and entry_point not in nodes:
-            raise ValueError(f"入口点节点不存在: {entry_point}")
-        
-        # 验证中断配置中的节点引用
-        for interrupt_node in config.get("interrupt_before", []):
-            if interrupt_node not in nodes:
-                raise ValueError(f"interrupt_before引用了不存在的节点: {interrupt_node}")
-        
-        for interrupt_node in config.get("interrupt_after", []):
-            if interrupt_node not in nodes:
-                raise ValueError(f"interrupt_after引用了不存在的节点: {interrupt_node}")
-        
-        return config
     
     def get_graph_config(self, graph_name: str) -> Optional[Dict[str, Any]]:
         """获取图配置

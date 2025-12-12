@@ -3,20 +3,61 @@
 提供配置变更事件的订阅、发布和管理功能，实现基础设施层的事件系统。
 """
 
-import logging
 import threading
-from typing import Dict, Any, List, Callable, Optional, Set, TYPE_CHECKING
+from typing import Dict, Any, List, Callable, Optional, Set
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from collections import defaultdict
 
-from src.interfaces.config.mapper import (
-    IConfigChangeListener,
-    ConfigChangeEvent,
-    IConfigMonitor
-)
 from src.interfaces.dependency_injection import get_logger
+from typing import Protocol
+from dataclasses import dataclass
+
+
+@dataclass
+class ConfigChangeEvent:
+    """配置变更事件"""
+    config_path: str
+    module_type: str
+    change_type: str
+    key_path: Optional[str] = None
+    old_value: Optional[Any] = None
+    new_value: Optional[Any] = None
+    timestamp: Optional[datetime] = None
+
+
+class IConfigChangeListener(Protocol):
+    """配置变更监听器接口"""
+    
+    def on_config_changed(self, event: ConfigChangeEvent) -> None:
+        """配置变更回调
+        
+        Args:
+            event: 配置变更事件
+        """
+        ...
+
+
+class IConfigMonitor(Protocol):
+    """配置监控器接口"""
+    
+    def start_watching(self, module_type: str, config_path: str) -> None:
+        """开始监控配置文件
+        
+        Args:
+            module_type: 模块类型
+            config_path: 配置文件路径
+        """
+        ...
+    
+    def add_change_listener(self, listener: IConfigChangeListener) -> None:
+        """添加配置变更监听器
+        
+        Args:
+            listener: 配置变更监听器
+        """
+        ...
 
 
 class CallbackPriority(Enum):

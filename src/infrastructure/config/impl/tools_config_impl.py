@@ -222,63 +222,6 @@ class ToolsConfigImpl(BaseConfigImpl):
             
             return default_config
     
-    def validate_tool_config(self, tool_config: Dict[str, Any]) -> bool:
-        """验证工具配置
-        
-        Args:
-            tool_config: 工具配置数据
-            
-        Returns:
-            是否有效
-        """
-        try:
-            # 使用验证辅助器进行基础结构验证
-            required_fields = ["name", "description", "parameters_schema"]
-            structure_result = self.validation_helper.validate_structure(tool_config, required_fields)
-            
-            if not structure_result.is_valid:
-                logger.error(f"工具配置结构验证失败: {structure_result.errors}")
-                return False
-            
-            # 类型验证
-            type_schema = {
-                "name": str,
-                "description": str,
-                "parameters_schema": dict,
-                "tool_type": str
-            }
-            type_result = self.validation_helper.validate_types(tool_config, type_schema)
-            
-            if not type_result.is_valid:
-                logger.error(f"工具配置类型验证失败: {type_result.errors}")
-                return False
-            
-            # 工具类型验证
-            tool_type = tool_config.get("tool_type")
-            if tool_type and tool_type not in self._supported_tool_types:
-                logger.error(f"不支持的工具类型: {tool_type}")
-                return False
-            
-            # 值约束验证
-            value_constraints = {}
-            if tool_type == "rest":
-                value_constraints["api_url"] = {"required": True}
-            elif tool_type == "mcp":
-                value_constraints["mcp_server_url"] = {"required": True}
-            elif tool_type in ["builtin", "native"]:
-                value_constraints["function_path"] = {"required": True}
-            
-            if value_constraints:
-                value_result = self.validation_helper.validate_values(tool_config, value_constraints)
-                if not value_result.is_valid:
-                    logger.error(f"工具配置值验证失败: {value_result.errors}")
-                    return False
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"验证工具配置失败: {e}")
-            return False
     
     def discover_tool_configs(self, pattern: str = "*") -> List[str]:
         """发现工具配置文件

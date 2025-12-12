@@ -56,6 +56,7 @@ class NodeConfigImpl(BaseConfigImpl):
         """转换Node配置
         
         将原始配置转换为标准化的Node配置格式。
+        只保留模块特定的逻辑，通用处理由处理器链完成。
         
         Args:
             config: 原始配置数据
@@ -65,26 +66,22 @@ class NodeConfigImpl(BaseConfigImpl):
         """
         logger.debug("开始转换Node配置")
         
-        # 1. 标准化节点基本信息
+        # 1. 标准化节点基本信息（模块特定）
         config = self._normalize_node_info(config)
         
-        # 2. 处理节点类型
+        # 2. 处理节点类型（模块特定）
         config = self._process_node_type(config)
         
-        # 3. 处理函数配置
+        # 3. 处理函数配置（模块特定）
         config = self._process_function_config(config)
         
-        # 4. 处理参数配置
+        # 4. 处理参数配置（模块特定）
         config = self._process_parameters(config)
         
-        # 5. 处理输入输出配置
+        # 5. 处理输入输出配置（模块特定）
         config = self._process_io_config(config)
         
-        # 6. 设置默认值
-        config = self._set_default_values(config)
-        
-        # 7. 验证配置完整性
-        config = self._validate_config_structure(config)
+        # 注意：默认值设置、验证等通用处理已由处理器链完成
         
         logger.debug("Node配置转换完成")
         return config
@@ -98,15 +95,15 @@ class NodeConfigImpl(BaseConfigImpl):
         Returns:
             标准化后的配置数据
         """
-        # 确保有节点名称
+        # 确保有节点名称（模块特定逻辑）
         if "name" not in config:
             config["name"] = config.get("id", "unnamed_node")
         
-        # 设置节点ID
+        # 设置节点ID（模块特定逻辑）
         if "id" not in config:
             config["id"] = config["name"]
         
-        # 标准化描述
+        # 标准化描述（模块特定逻辑）
         config.setdefault("description", f"节点: {config['name']}")
         
         return config
@@ -239,61 +236,7 @@ class NodeConfigImpl(BaseConfigImpl):
         
         return config
     
-    def _set_default_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """设置默认值
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            设置默认值后的配置数据
-        """
-        # 设置全局默认值
-        for key, value in self._default_node_config.items():
-            config.setdefault(key, value)
-        
-        # 设置额外配置
-        if "additional_config" not in config:
-            config["additional_config"] = {}
-        
-        additional_config = config["additional_config"]
-        additional_config.setdefault("enable_caching", False)
-        additional_config.setdefault("cache_ttl", 300)
-        additional_config.setdefault("priority", "normal")
-        
-        return config
     
-    def _validate_config_structure(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """验证配置结构
-        
-        Args:
-            config: 配置数据
-            
-        Returns:
-            验证后的配置数据
-        """
-        # 验证必要的顶级字段
-        required_fields = ["name", "function_name"]
-        for field in required_fields:
-            if field not in config:
-                raise ValueError(f"缺少必要的配置字段: {field}")
-        
-        # 验证节点类型
-        if config["type"] not in self._supported_node_types:
-            raise ValueError(f"不支持的节点类型: {config['type']}")
-        
-        # 验证特定节点类型的配置
-        node_type = config["type"]
-        if node_type == "llm":
-            function_config = config.get("function_config", {})
-            if "model" not in function_config:
-                raise ValueError("LLM节点必须指定模型")
-        elif node_type == "tool":
-            function_config = config.get("function_config", {})
-            if "tool_name" not in function_config and "function_name" not in config:
-                raise ValueError("Tool节点必须指定工具名称或函数名称")
-        
-        return config
     
     def get_node_config(self, node_name: str) -> Optional[Dict[str, Any]]:
         """获取节点配置

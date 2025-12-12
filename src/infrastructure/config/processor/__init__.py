@@ -11,7 +11,7 @@ from .base_processor import BaseConfigProcessor, IConfigProcessor
 from .environment_processor import EnvironmentProcessor
 from .inheritance_processor import InheritanceProcessor
 from .reference_processor import ReferenceProcessor
-from .validation_processor import ValidationProcessor, SchemaRegistry
+from .validation_processor_wrapper import ValidationProcessorWrapper
 from .transformation_processor import TransformationProcessor, TypeConverter
 from .discovery_processor import DiscoveryProcessor
 
@@ -24,8 +24,7 @@ __all__ = [
     "EnvironmentProcessor",
     "InheritanceProcessor",
     "ReferenceProcessor",
-    "ValidationProcessor",
-    "SchemaRegistry",
+    "ValidationProcessorWrapper",
     "TransformationProcessor",
     "TypeConverter",
     "DiscoveryProcessor",

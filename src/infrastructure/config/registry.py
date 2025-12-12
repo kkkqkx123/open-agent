@@ -10,7 +10,6 @@ from pathlib import Path
 from .impl.base_impl import IConfigImpl, ConfigProcessorChain
 from .schema.base_schema import IConfigSchema
 from .processor.base_processor import IConfigProcessor
-from .processor.validation_processor import SchemaRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +28,8 @@ class ConfigRegistry:
         # 处理器注册表
         self._processors: Dict[str, IConfigProcessor] = {}
         
-        # 模式注册表
-        self.schema_registry = SchemaRegistry()
+        # 模式注册表 - 使用简单的字典存储
+        self._schemas: Dict[str, IConfigSchema] = {}
         
         # 处理器链注册表
         self._processor_chains: Dict[str, ConfigProcessorChain] = {}
@@ -213,7 +212,7 @@ class ConfigRegistry:
             config_type: 配置类型
             schema: 配置模式
         """
-        self.schema_registry.register_schema(config_type, schema)
+        self._schemas[config_type] = schema
     
     def get_schema(self, config_type: str) -> Optional[IConfigSchema]:
         """获取配置模式
@@ -224,7 +223,7 @@ class ConfigRegistry:
         Returns:
             配置模式
         """
-        return self.schema_registry.get_schema(config_type)
+        return self._schemas.get(config_type)
     
     def has_schema(self, config_type: str) -> bool:
         """检查是否存在配置模式
@@ -235,7 +234,7 @@ class ConfigRegistry:
         Returns:
             是否存在
         """
-        return self.schema_registry.has_schema(config_type)
+        return config_type in self._schemas
     
     # ==================== 工厂管理 ====================
     
@@ -301,8 +300,8 @@ class ConfigRegistry:
                 "modules": list(self._processor_chains.keys())
             },
             "schemas": {
-                "count": len(self.schema_registry.get_registered_types()),
-                "types": self.schema_registry.get_registered_types()
+                "count": len(self._schemas),
+                "types": list(self._schemas.keys())
             },
             "factories": {
                 "count": len(self._factories),
@@ -344,9 +343,7 @@ class ConfigRegistry:
         self._factories.clear()
         
         # 清空模式注册表
-        for config_type in self.schema_registry.get_registered_types():
-            self.schema_registry.unregister_schema(config_type)
-        
+        self._schemas.clear()
         logger.debug("清空配置注册中心")
 
 
