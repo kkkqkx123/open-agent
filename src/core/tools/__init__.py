@@ -7,8 +7,9 @@
 # 导出主要接口和类
 from .base import BaseTool
 from .base_stateful import StatefulBaseTool
-from .factory import OptimizedToolFactory, ToolType
+from .factory import OptimizedToolFactory
 from .manager import ToolManager
+from src.core.config.models.tool_config import ToolType
 
 # 导出工具类型
 from .types.builtin_tool import BuiltinTool

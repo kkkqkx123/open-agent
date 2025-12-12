@@ -6,17 +6,16 @@
 from typing import Optional
 
 from src.interfaces.config import (
-    IModuleConfigService,
-    IConfigManager,
-    ValidationResult
+    IConfigManager
 )
+from src.infrastructure.validation import ValidationResult
 from src.interfaces.dependency_injection import get_logger
 from src.core.workflow.graph_entities import Graph
 
 logger = get_logger(__name__)
 
 
-class WorkflowConfigManager(IModuleConfigService):
+class WorkflowConfigManager:
     """工作流配置管理器"""
     
     def __init__(self, 

@@ -7,16 +7,17 @@ from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 import logging
 
 from src.interfaces.config import (
-    IModuleConfigService, IConfigMapperRegistry, ValidationResult
+    IConfigManager
 )
+from src.infrastructure.validation import ValidationResult
 from src.interfaces.dependency_injection import get_logger
 from src.interfaces.tool.config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
-from src.core.tools.config import ToolRegistryConfig
+from src.core.config.models.tool_config import ToolRegistryConfig
 
 logger = get_logger(__name__)
 
 
-class ToolsConfigManager(IModuleConfigService):
+class ToolsConfigManager:
     """工具配置管理器
     
     提供工具模块的配置加载、保存、验证和管理功能。
@@ -24,7 +25,7 @@ class ToolsConfigManager(IModuleConfigService):
     
     def __init__(self,
                  config_manager: Optional[Any] = None,
-                 mapper_registry: Optional[IConfigMapperRegistry] = None):
+                 mapper_registry: Optional[Any] = None):
         """初始化工具配置管理器
         
         Args:
@@ -304,7 +305,7 @@ class ToolsConfigManager(IModuleConfigService):
 
 # 便捷函数
 def get_tools_config_manager(config_manager: Optional[Any] = None,
-                           mapper_registry: Optional[IConfigMapperRegistry] = None) -> ToolsConfigManager:
+                           mapper_registry: Optional[Any] = None) -> ToolsConfigManager:
     """获取工具配置管理器实例
     
     Args:

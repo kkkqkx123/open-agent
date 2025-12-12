@@ -5,7 +5,6 @@
 """
 
 from typing import Any, Dict, List, Optional, Type
-from enum import Enum
 import importlib
 from src.interfaces.dependency_injection import get_logger
 
@@ -17,27 +16,9 @@ from .types.rest_tool import RestTool
 from .types.mcp_tool import MCPTool
 from src.interfaces.tool.exceptions import ToolError, ToolRegistrationError
 from src.infrastructure.error_management.impl.tools import handle_tool_error, create_tool_error_context
+from src.core.config.models.tool_config import ToolType
 
 logger = get_logger(__name__)
-
-
-class ToolType(Enum):
-    """工具类型枚举
-    
-    基于状态管理的模块化工具系统，支持两种主要类别：
-    
-    1. 无状态工具 (Stateless Tools)
-       - BUILTIN: 简单的、无状态的Python函数实现
-    
-    2. 有状态工具 (Stateful Tools)
-       - NATIVE: 复杂的、有状态的项目内实现工具
-       - REST: 技术上有状态但业务逻辑上无状态的REST API调用工具
-       - MCP: 有状态的MCP服务器工具，适用于需要复杂状态管理的场景
-    """
-    BUILTIN = "builtin"      # 无状态内置工具
-    NATIVE = "native"        # 有状态原生工具
-    REST = "rest"           # REST工具（业务逻辑上无状态，技术上使用状态管理器）
-    MCP = "mcp"            # 有状态MCP工具
 
 
 class OptimizedToolFactory(IToolFactory):

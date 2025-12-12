@@ -8,7 +8,6 @@ from .cache import (
 )
 
 from .result import ValidationResult
-from .context import ValidationContext
 
 __all__ = [
     # 缓存
@@ -18,6 +17,4 @@ __all__ = [
     # 验证结果
     "ValidationResult",
     
-    # 验证上下文
-    "ValidationContext",
 ]

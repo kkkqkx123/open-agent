@@ -1,13 +1,13 @@
 """任务组配置管理器
 
-重构后专注于任务组和轮询池的业务逻辑，配置管理委托给ConfigManager。
+重构后专注于任务组和轮询池的业务逻辑，配置管理委托给LLMConfigManager。
 """
 
 from src.interfaces.dependency_injection import get_logger
 from typing import Dict, Any, Optional, List, Tuple
 
 from src.interfaces.llm import ITaskGroupManager
-from src.core.config.config_manager import ConfigManager
+from src.core.config.managers.llm_config_manager import LLMConfigManager
 
 logger = get_logger(__name__)
 
@@ -20,15 +20,15 @@ class TaskGroupManager(ITaskGroupManager):
     2. 组引用解析和验证
     3. 降级策略和配置获取
     
-    配置加载和管理委托给ConfigManager。
+    配置加载和管理委托给LLMConfigManager。
     """
     
-    def __init__(self, config_manager: ConfigManager):
+    def __init__(self, config_manager: LLMConfigManager):
         """
         初始化任务组管理器
         
         Args:
-            config_manager: 配置管理器
+            config_manager: LLM配置管理器
         """
         self._config_manager = config_manager
     
@@ -333,7 +333,7 @@ class TaskGroupManager(ITaskGroupManager):
     def reload_config(self) -> Any:
         """重新加载配置
         
-        委托给ConfigManager处理
+        委托给LLMConfigManager处理
         """
         self._config_manager.reload_config()
         return self.load_config()

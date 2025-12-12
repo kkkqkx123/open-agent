@@ -4,6 +4,7 @@
 """
 
 from .base_config_manager import BaseConfigManager
+from .llm_config_manager import LLMConfigManager
 from .storage_config_manager import (
     StorageConfigManager,
     get_global_storage_config_manager,
@@ -26,6 +27,9 @@ from .workflow_config_manager import (
 __all__ = [
     # 基类
     "BaseConfigManager",
+    
+    # LLM配置管理器
+    "LLMConfigManager",
     
     # 存储配置管理器
     "StorageConfigManager",

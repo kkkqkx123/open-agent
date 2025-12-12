@@ -10,7 +10,7 @@ from src.interfaces.dependency_injection import get_logger
 from src.interfaces.tool.base import ITool, IToolRegistry, IToolManager
 from src.interfaces.tool.config import ToolConfig as InterfaceToolConfig
 from src.core.tools.factory import OptimizedToolFactory as ToolFactory
-from src.core.tools.config import ToolRegistryConfig
+from src.core.config.models.tool_config import ToolRegistryConfig
 from src.interfaces.tool.exceptions import ToolError
 
 if TYPE_CHECKING:
@@ -192,14 +192,15 @@ class ToolManager(IToolManager):
         
         for tool_config in self._config.tools:
             try:
-                # 转换为字典格式，供工厂创建工具
-                config_dict: Dict[str, Any] = tool_config.to_dict()  # type: ignore
+                # tool_config 现在已经是字典格式
+                config_dict: Dict[str, Any] = tool_config  # type: ignore
                 tool = self._factory.create_tool(config_dict)
                 if tool:
                     await self.register_tool(tool)
                     
             except Exception as e:
-                logger.error(f"加载工具 {tool_config.name} 失败: {e}")
+                tool_name = tool_config.get('name', 'unknown') if isinstance(tool_config, dict) else 'unknown'
+                logger.error(f"加载工具 {tool_name} 失败: {e}")
                 # 非严格模式下，跳过失败的工具
                 continue
     
