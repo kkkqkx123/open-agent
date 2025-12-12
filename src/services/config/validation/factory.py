@@ -17,9 +17,9 @@ from src.core.config.validation import (
     GlobalConfigBusinessValidator,
     LLMConfigBusinessValidator,
     ToolConfigBusinessValidator,
-    TokenCounterConfigBusinessValidator,
-    ValidationContext
+    TokenCounterConfigBusinessValidator
 )
+from src.infrastructure.validation.context import ValidationContext
 from src.infrastructure.config.validation import ConfigValidator
 from src.infrastructure.cache.core.cache_manager import CacheManager
 from src.infrastructure.cache.config.cache_config import BaseCacheConfig

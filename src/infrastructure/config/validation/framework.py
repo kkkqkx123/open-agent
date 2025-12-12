@@ -7,17 +7,18 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from src.interfaces.common_domain import IValidationResult
 from src.interfaces.config.validation import ValidationLevel, ValidationSeverity, IFixSuggestion
+from src.infrastructure.validation.result import ValidationResult
 
 
-class FrameworkValidationResult(IValidationResult):
+class FrameworkValidationResult(ValidationResult):
     """框架验证结果
     
     实现IValidationResult接口，提供更详细的验证信息，包括规则ID、级别、时间戳等。
     """
     
     def __init__(self, rule_id: str, level: ValidationLevel, passed: bool, message: str = ""):
+        super().__init__(is_valid=passed, errors=[], warnings=[], info=[])
         self.rule_id = rule_id
         self.level = level
         self.passed = passed
@@ -26,43 +27,26 @@ class FrameworkValidationResult(IValidationResult):
         self.fix_suggestions: List[IFixSuggestion] = []
         self.timestamp = datetime.now()
         self.severity: ValidationSeverity = ValidationSeverity.WARNING
-        self.metadata: Dict[str, Any] = {}
-    
-    @property
-    def is_valid(self) -> bool:
-        """是否验证通过"""
-        return self.passed
-    
-    @property
-    def errors(self) -> List[str]:
-        """错误信息列表"""
-        return [self.message] if self.severity == ValidationSeverity.ERROR else []
-    
-    @property
-    def warnings(self) -> List[str]:
-        """警告信息列表"""
-        return [self.message] if self.severity == ValidationSeverity.WARNING else []
-    
-    @property
-    def info(self) -> List[str]:
-        """信息列表"""
-        return [self.message] if self.severity == ValidationSeverity.INFO else []
     
     def add_warning(self, message: str) -> None:
         """添加警告信息"""
         self.message = message
         self.severity = ValidationSeverity.WARNING
+        self.warnings = [message]
     
     def add_error(self, message: str) -> None:
         """添加错误信息"""
         self.message = message
         self.severity = ValidationSeverity.ERROR
         self.passed = False
+        self.is_valid = False
+        self.errors = [message]
     
     def add_info(self, message: str) -> None:
         """添加信息"""
         self.message = message
         self.severity = ValidationSeverity.INFO
+        self.info = [message]
     
     def add_metadata(self, key: str, value: Any) -> None:
         """添加元数据"""

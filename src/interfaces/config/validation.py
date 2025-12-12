@@ -4,8 +4,7 @@
 """
 
 from enum import Enum
-from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Protocol, Tuple
+from typing import Dict, Any, List, Optional, Protocol, Tuple, Callable
 from datetime import datetime
 from abc import ABC, abstractmethod
 from typing import runtime_checkable
@@ -31,90 +30,83 @@ class ValidationSeverity(Enum):
     CRITICAL = "critical"
 
 
-@dataclass
-class ValidationContext:
-    """验证上下文
+class IValidationContext(Protocol):
+    """验证上下文接口"""
     
-    提供验证过程中需要的上下文信息。
-    """
-    config_type: str
-    config_path: Optional[str] = None
-    operation_id: Optional[str] = None
-    strict_mode: bool = False
-    enable_business_rules: bool = True
-    enable_cross_module_validation: bool = True
-    environment: str = "development"
-    enable_cache: bool = True
-    cache_key: Optional[str] = None
-    dependent_configs: Dict[str, Any] = None
-    metadata: Dict[str, Any] = None
-    created_at: datetime = None
-    validation_history: List[Dict[str, Any]] = None
+    @property
+    def config_type(self) -> str:
+        """配置类型"""
+        ...
     
-    def __post_init__(self):
-        if self.dependent_configs is None:
-            self.dependent_configs = {}
-        if self.metadata is None:
-            self.metadata = {}
-        if self.validation_history is None:
-            self.validation_history = []
-        if self.created_at is None:
-            self.created_at = datetime.now()
+    @property
+    def config_path(self) -> Optional[str]:
+        """配置路径"""
+        ...
+    
+    @property
+    def operation_id(self) -> Optional[str]:
+        """操作ID"""
+        ...
+    
+    @property
+    def strict_mode(self) -> bool:
+        """严格模式"""
+        ...
+    
+    @property
+    def enable_business_rules(self) -> bool:
+        """是否启用业务规则"""
+        ...
+    
+    @property
+    def enable_cross_module_validation(self) -> bool:
+        """是否启用跨模块验证"""
+        ...
+    
+    @property
+    def environment(self) -> str:
+        """环境"""
+        ...
+    
+    @property
+    def dependent_configs(self) -> Dict[str, Any]:
+        """依赖配置"""
+        ...
+    
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """元数据"""
+        ...
+    
+    @property
+    def created_at(self) -> datetime:
+        """创建时间"""
+        ...
+    
+    @property
+    def validation_history(self) -> List[Dict[str, Any]]:
+        """验证历史"""
+        ...
     
     def add_dependency(self, config_type: str, config_data: Dict[str, Any]) -> None:
-        """添加依赖配置
-        
-        Args:
-            config_type: 配置类型
-            config_data: 配置数据
-        """
-        self.dependent_configs[config_type] = config_data
+        """添加依赖配置"""
+        ...
     
     def get_dependency(self, config_type: str) -> Optional[Dict[str, Any]]:
-        """获取依赖配置
-        
-        Args:
-            config_type: 配置类型
-            
-        Returns:
-            配置数据或None
-        """
-        return self.dependent_configs.get(config_type)
+        """获取依赖配置"""
+        ...
     
     def add_metadata(self, key: str, value: Any) -> None:
-        """添加元数据
-        
-        Args:
-            key: 键
-            value: 值
-        """
-        self.metadata[key] = value
+        """添加元数据"""
+        ...
     
     def get_metadata(self, key: str, default: Any = None) -> Any:
-        """获取元数据
-        
-        Args:
-            key: 键
-            default: 默认值
-            
-        Returns:
-            元数据值
-        """
-        return self.metadata.get(key, default)
+        """获取元数据"""
+        ...
     
     def add_validation_step(self, step_name: str, result: Dict[str, Any]) -> None:
-        """添加验证步骤记录
-        
-        Args:
-            step_name: 步骤名称
-            result: 验证结果
-        """
-        step_record = {
-            "step": step_name,
-            "timestamp": datetime.now().isoformat(),
-            "result": result
-        }
-        self.validation_history.append(step_record)
+        """添加验证步骤记录"""
+        ...
 
 
 class IValidationReport(Protocol):
@@ -163,7 +155,7 @@ class IValidationRule(Protocol):
         """优先级"""
         ...
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> IValidationResult:
+    def validate(self, config: Dict[str, Any], context: IValidationContext) -> IValidationResult:
         """执行验证"""
         ...
 
@@ -180,7 +172,7 @@ class IValidationRuleRegistry(Protocol):
         ...
     
     def validate_config(self, config_type: str, config: Dict[str, Any],
-                       context: ValidationContext) -> IValidationResult:
+                       context: IValidationContext) -> IValidationResult:
         """使用所有适用的规则验证配置"""
         ...
 
@@ -188,7 +180,7 @@ class IValidationRuleRegistry(Protocol):
 class IBusinessValidator(Protocol):
     """业务验证器接口"""
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> IValidationResult:
+    def validate(self, config: Dict[str, Any], context: IValidationContext) -> IValidationResult:
         """执行业务验证"""
         ...
 
@@ -225,16 +217,16 @@ class IConfigValidationService(Protocol):
     """配置验证服务接口"""
     
     def validate_config_complete(self,
-                               config_type: str,
-                               config: Dict[str, Any],
-                               context: Optional[ValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
+                                config_type: str,
+                                config: Dict[str, Any],
+                                context: Optional[IValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
         """完整验证配置"""
         ...
     
     def validate_config_file(self,
                            config_path: str,
                            config_type: str,
-                           context: Optional[ValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
+                           context: Optional[IValidationContext] = None) -> Tuple[IValidationResult, IValidationReport]:
         """验证配置文件"""
         ...
     
@@ -268,15 +260,3 @@ class IFixSuggestion(Protocol):
         ...
 
 
-@dataclass
-class FixSuggestion:
-    """修复建议实现"""
-    description: str
-    auto_fixable: bool = False
-    fix_func: Optional[callable] = None
-    
-    def apply_fix(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """应用修复"""
-        if self.fix_func:
-            return self.fix_func(config)
-        return config

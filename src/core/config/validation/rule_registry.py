@@ -6,7 +6,7 @@
 from typing import Dict, List, Type, Any, Optional, Callable
 
 from src.infrastructure.validation.result import ValidationResult
-from src.interfaces.config.validation import IValidationRule, ValidationContext, IValidationRuleRegistry
+from src.interfaces.config.validation import IValidationRule, IValidationContext, IValidationRuleRegistry
 
 
 class ValidationRuleRegistry(IValidationRuleRegistry):
@@ -89,7 +89,7 @@ class ValidationRuleRegistry(IValidationRuleRegistry):
         return None
     
     def validate_config(self, config_type: str, config: Dict[str, Any], 
-                       context: ValidationContext) -> ValidationResult:
+                       context: IValidationContext) -> ValidationResult:
         """使用所有适用的规则验证配置
         
         Args:

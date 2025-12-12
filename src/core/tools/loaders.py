@@ -10,7 +10,8 @@ from src.interfaces.dependency_injection import get_logger
 from typing import List, Dict, Any, Union, Optional
 from src.interfaces.tool.base import ITool
 from src.interfaces.tool.config import ToolConfig, RestToolConfig, MCPToolConfig, NativeToolConfig
-from ..config.config_manager import get_default_manager, ConfigManager
+from ..config.config_manager import ConfigManager
+from src.interfaces.dependency_injection.config import get_config_manager
 
 logger = get_logger(__name__)
 
@@ -24,7 +25,7 @@ class DefaultToolLoader:
             config_manager: 配置管理器，如果为None则使用默认管理器
             logger_arg: 日志记录器
         """
-        self.config_manager = config_manager or get_default_manager()
+        self.config_manager = config_manager or get_config_manager()
         self.logger = logger_arg or logger
     
     def load_from_config(self, config_path: str) -> List[ToolConfig]:
@@ -70,7 +71,7 @@ class DefaultToolLoader:
         Returns:
             List[ToolConfig]: 工具配置列表
         """
-        tool_configs = []
+        tool_configs: List[ToolConfig] = []
          
         # 构建配置目录路径
         config_dir_path = os.path.join("configs", "tools", tool_type)
@@ -91,10 +92,7 @@ class DefaultToolLoader:
                     full_path = f"tools/{tool_type}/{config_file}"
                     self.logger.info(f"Loading tool config from {full_path}")
                     # 使用统一配置管理器加载
-                    config_data = self.config_manager.load_config_for_module(
-                        full_path,
-                        "tools"
-                    )
+                    config_data = self.config_manager.load_config(full_path, "tools")
                     self.logger.info(f"成功加载配置文件 {full_path}")
                      
                     # 解析工具配置
@@ -112,7 +110,7 @@ class DefaultToolLoader:
          
         return tool_configs
     
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
         """解析工具配置
         
         Args:
@@ -162,7 +160,7 @@ class RegistryBasedToolLoader:
             logger_arg: 日志记录器
             registry_config: 注册表配置
         """
-        self.config_manager = config_manager or get_default_manager()
+        self.config_manager = config_manager or get_config_manager()
         self.logger = logger_arg or logger
         self.registry_config = registry_config or {}
     
@@ -172,7 +170,7 @@ class RegistryBasedToolLoader:
         Returns:
             List[ToolConfig]: 加载的工具配置列表
         """
-        tool_configs = []
+        tool_configs: List[ToolConfig] = []
         
         try:
             tool_types = self.registry_config.get("tool_types", {})
@@ -190,7 +188,7 @@ class RegistryBasedToolLoader:
                 for config_file in config_files:
                     try:
                         config_path = os.path.join("tools", config_directory, config_file)
-                        config_data = self.config_manager.load_config_for_module(config_path, "tools")
+                        config_data = self.config_manager.load_config(config_path, "tools")
                         
                         # 确保工具类型正确
                         config_data["tool_type"] = tool_type
@@ -212,7 +210,7 @@ class RegistryBasedToolLoader:
             self.logger.error(f"从注册表加载工具失败: {str(e)}")
             raise Exception(f"从注册表加载工具失败: {str(e)}")
     
-    def _parse_tool_config(self, config_data: Dict[str, Any]) -> Union[RestToolConfig, MCPToolConfig, NativeToolConfig]:
+    def _parse_tool_config(self, config_data: Dict[str, Any]) -> ToolConfig:
         """解析工具配置
         
         Args:

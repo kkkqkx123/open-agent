@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 
-from src.interfaces.config.validation import ValidationContext, IBusinessValidator
+from src.interfaces.config.validation import IValidationContext, IBusinessValidator
 from src.interfaces.common_domain import IValidationResult
 from src.infrastructure.validation.result import ValidationResult
 
@@ -22,7 +22,7 @@ class BaseBusinessValidator(ABC, IBusinessValidator):
         """
         self.config_type = config_type
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """执行业务验证
         
         Args:
@@ -35,7 +35,7 @@ class BaseBusinessValidator(ABC, IBusinessValidator):
         return self.validate_with_context(config, context)
     
     @abstractmethod
-    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """带上下文的业务验证
         
         Args:
@@ -48,7 +48,7 @@ class BaseBusinessValidator(ABC, IBusinessValidator):
         pass
     
     def _validate_cross_module_dependencies(self, config: Dict[str, Any], 
-                                           context: ValidationContext,
+                                           context: IValidationContext,
                                            result: ValidationResult) -> None:
         """验证跨模块依赖
         
@@ -70,7 +70,7 @@ class GlobalConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("global")
     
-    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """验证全局配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -86,7 +86,7 @@ class GlobalConfigBusinessValidator(BaseBusinessValidator):
         return result
     
     def _validate_environment_config(self, config: Dict[str, Any], 
-                                   context: ValidationContext,
+                                   context: IValidationContext,
                                    result: ValidationResult) -> None:
         """验证环境特定配置"""
         env = config.get("env", "development")
@@ -107,7 +107,7 @@ class GlobalConfigBusinessValidator(BaseBusinessValidator):
                 result.add_info("开发环境建议启用调试模式")
     
     def _validate_log_consistency(self, config: Dict[str, Any], 
-                                context: ValidationContext,
+                                context: IValidationContext,
                                 result: ValidationResult) -> None:
         """验证日志配置一致性"""
         log_level = config.get("log_level", "INFO")
@@ -131,7 +131,7 @@ class LLMConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("llm")
     
-    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """验证LLM配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -147,7 +147,7 @@ class LLMConfigBusinessValidator(BaseBusinessValidator):
         return result
     
     def _validate_model_consistency(self, config: Dict[str, Any], 
-                                  context: ValidationContext,
+                                  context: IValidationContext,
                                   result: ValidationResult) -> None:
         """验证模型配置一致性"""
         model_type = config.get("model_type")
@@ -162,7 +162,7 @@ class LLMConfigBusinessValidator(BaseBusinessValidator):
                 result.add_warning("Anthropic模型建议配置自定义API端点")
     
     def _validate_performance_config(self, config: Dict[str, Any], 
-                                   context: ValidationContext,
+                                   context: IValidationContext,
                                    result: ValidationResult) -> None:
         """验证性能配置"""
         retry_config = config.get("retry_config", {})
@@ -184,7 +184,7 @@ class LLMConfigBusinessValidator(BaseBusinessValidator):
                 result.add_warning("请求超时时间过短可能导致频繁失败")
     
     def _validate_cross_module_dependencies(self, config: Dict[str, Any], 
-                                           context: ValidationContext,
+                                           context: IValidationContext,
                                            result: ValidationResult) -> None:
         """验证跨模块依赖"""
         # 检查与token_counter配置的兼容性
@@ -203,7 +203,7 @@ class ToolConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("tool")
     
-    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """验证工具配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -219,7 +219,7 @@ class ToolConfigBusinessValidator(BaseBusinessValidator):
         return result
     
     def _validate_tool_sets(self, config: Dict[str, Any], 
-                          context: ValidationContext,
+                          context: IValidationContext,
                           result: ValidationResult) -> None:
         """验证工具集配置"""
         tools = config.get("tools", [])
@@ -236,7 +236,7 @@ class ToolConfigBusinessValidator(BaseBusinessValidator):
             result.add_error(f"发现重复的工具名称: {', '.join(duplicate_names)}")
     
     def _validate_tool_dependencies(self, config: Dict[str, Any], 
-                                  context: ValidationContext,
+                                  context: IValidationContext,
                                   result: ValidationResult) -> None:
         """验证工具依赖"""
         tools = config.get("tools", [])
@@ -263,7 +263,7 @@ class TokenCounterConfigBusinessValidator(BaseBusinessValidator):
     def __init__(self):
         super().__init__("token_counter")
     
-    def validate_with_context(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate_with_context(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """验证Token计数器配置的业务逻辑"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         
@@ -279,7 +279,7 @@ class TokenCounterConfigBusinessValidator(BaseBusinessValidator):
         return result
     
     def _validate_cache_config(self, config: Dict[str, Any], 
-                             context: ValidationContext,
+                             context: IValidationContext,
                              result: ValidationResult) -> None:
         """验证缓存配置"""
         cache_config = config.get("cache", {})
@@ -299,7 +299,7 @@ class TokenCounterConfigBusinessValidator(BaseBusinessValidator):
                     result.add_warning("Redis缓存未指定端口，将使用默认端口")
     
     def _validate_calibration_config(self, config: Dict[str, Any], 
-                                   context: ValidationContext,
+                                   context: IValidationContext,
                                    result: ValidationResult) -> None:
         """验证校准配置"""
         calibration_config = config.get("calibration", {})
@@ -321,7 +321,7 @@ class TokenCounterConfigBusinessValidator(BaseBusinessValidator):
                 result.add_warning("校准频率过高可能影响性能")
     
     def _validate_cross_module_dependencies(self, config: Dict[str, Any], 
-                                           context: ValidationContext,
+                                           context: IValidationContext,
                                            result: ValidationResult) -> None:
         """验证跨模块依赖"""
         # 检查与LLM配置的兼容性

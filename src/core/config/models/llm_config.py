@@ -4,10 +4,10 @@ from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
-from ..mappers.llm import LLMConfigMapper
 
 if TYPE_CHECKING:
     from src.infrastructure.config.models import ConfigData
+    from ..mappers.llm import LLMConfigMapper
 
 
 class LLMConfig(BaseConfig):

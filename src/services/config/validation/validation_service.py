@@ -12,9 +12,9 @@ from src.core.validation import ValidationResult
 from src.interfaces.dependency_injection import get_logger
 from src.core.config.validation import (
     ValidationRuleRegistry,
-    ValidationContext,
     IBusinessValidator
 )
+from src.infrastructure.validation.context import ValidationContext
 from src.infrastructure.config.validation import (
     ConfigValidator,
     ValidationReport

@@ -17,7 +17,7 @@ from .validation import (
     IValidationRuleRegistry,
     IBusinessValidator,
     IValidationReport,
-    ValidationContext,
+    IValidationContext,
     ValidationLevel,
     ValidationSeverity,
     IFixSuggestion
@@ -83,7 +83,7 @@ __all__ = [
     "IValidationRuleRegistry",
     "IBusinessValidator",
     "IValidationReport",
-    "ValidationContext",
+    "IValidationContext",
     "ValidationLevel",
     "ValidationSeverity",
     "IFixSuggestion",

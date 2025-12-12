@@ -25,17 +25,53 @@ class _StubConfigManager(IConfigManager):
         # 不调用父类初始化，避免依赖问题
         pass
     
-    def get(self, key: str, default: Any = None) -> Any:
+    def load_config(self, config_path: str, module_type: Optional[str] = None) -> dict:
+        """加载配置文件"""
+        return {}
+    
+    def load_config_with_module(self, config_path: str, module_type: str) -> dict:
+        """加载模块特定配置"""
+        return {}
+    
+    def save_config(self, config: dict, config_path: str) -> None:
+        """保存配置文件"""
+        pass
+    
+    def get_config(self, key: str, default: Any = None) -> Any:
         """获取配置值"""
         return default
     
-    def set(self, key: str, value: Any) -> None:
+    def set_config(self, key: str, value: Any) -> None:
         """设置配置值"""
         pass
     
-    def has(self, key: str) -> bool:
-        """检查配置是否存在"""
-        return False
+    def validate_config(self, config: dict) -> ValidationResult:
+        """验证配置"""
+        return ValidationResult(is_valid=True, errors=[], warnings=[])
+    
+    def register_module_validator(self, module_type: str, validator: IConfigValidator) -> None:
+        """注册模块特定验证器"""
+        pass
+    
+    def get_module_config(self, module_type: str) -> dict:
+        """获取模块配置"""
+        return {}
+    
+    def reload_module_configs(self, module_type: str) -> None:
+        """重新加载模块配置"""
+        pass
+    
+    def reload_config(self, config_path: str) -> dict:
+        """重新加载配置"""
+        return {}
+    
+    def invalidate_cache(self, config_path: Optional[str] = None) -> None:
+        """清除缓存"""
+        pass
+    
+    def list_config_files(self, config_directory: str) -> list:
+        """列出配置文件"""
+        return []
 
 
 class _StubConfigLoader(ConfigLoader):

@@ -1,7 +1,7 @@
 """配置管理器接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from ..common_domain import IValidationResult
 from .validation import IConfigValidator
@@ -130,6 +130,18 @@ class IConfigManager(ABC):
         
         Args:
             config_path: 配置文件路径，如果为None则清除所有缓存
+        """
+        pass
+
+    @abstractmethod
+    def list_config_files(self, config_directory: str) -> List[str]:
+        """列出指定目录下的配置文件
+        
+        Args:
+            config_directory: 配置目录路径
+            
+        Returns:
+            配置文件路径列表
         """
         pass
 

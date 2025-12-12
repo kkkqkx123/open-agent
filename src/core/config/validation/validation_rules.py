@@ -3,10 +3,10 @@
 包含各种配置类型的验证规则。
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import re
 
-from src.interfaces.config.validation import IValidationRule, ValidationContext
+from src.interfaces.config.validation import IValidationRule, IValidationContext
 from src.infrastructure.validation.result import ValidationResult
 
 
@@ -37,14 +37,14 @@ class BaseValidationRule(IValidationRule):
     def priority(self) -> int:
         return self._priority
     
-    def validate(self, config: Dict[str, Any], context: ValidationContext) -> ValidationResult:
+    def validate(self, config: Dict[str, Any], context: IValidationContext) -> ValidationResult:
         """执行验证"""
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         self._validate_impl(config, context, result)
         return result
     
-    def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
-                      result: ValidationResult) -> None:
+    def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
+                       result: ValidationResult) -> None:
         """具体验证逻辑，子类实现"""
         pass
 
@@ -58,7 +58,7 @@ class GlobalConfigValidationRules:
         def __init__(self):
             super().__init__("global_log_output", "global", 10)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证日志输出配置"""
             log_outputs = config.get("log_outputs", [])
@@ -85,7 +85,7 @@ class GlobalConfigValidationRules:
         def __init__(self):
             super().__init__("global_secret_pattern", "global", 20)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证敏感信息模式配置"""
             secret_patterns = config.get("secret_patterns", [])
@@ -98,7 +98,7 @@ class GlobalConfigValidationRules:
         def __init__(self):
             super().__init__("global_production_debug", "global", 30)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证生产环境调试模式"""
             if config.get("env") == "production" and config.get("debug"):
@@ -114,7 +114,7 @@ class LLMConfigValidationRules:
         def __init__(self):
             super().__init__("llm_api_key", "llm", 10)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证API密钥配置"""
             model_type = config.get("model_type")
@@ -127,7 +127,7 @@ class LLMConfigValidationRules:
         def __init__(self):
             super().__init__("llm_base_url", "llm", 20)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证基础URL配置"""
             if not config.get("base_url") and config.get("model_type") not in ["openai"]:
@@ -139,7 +139,7 @@ class LLMConfigValidationRules:
         def __init__(self):
             super().__init__("llm_retry_config", "llm", 30)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证重试配置"""
             retry_config = config.get("retry_config", {})
@@ -173,7 +173,7 @@ class LLMConfigValidationRules:
         def __init__(self):
             super().__init__("llm_timeout_config", "llm", 40)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证超时配置"""
             timeout_config = config.get("timeout_config", {})
@@ -203,7 +203,7 @@ class ToolConfigValidationRules:
         def __init__(self):
             super().__init__("tool_tools_exist", "tool", 10)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证工具配置"""
             if not config.get("tools"):
@@ -219,7 +219,7 @@ class TokenCounterConfigValidationRules:
         def __init__(self):
             super().__init__("token_counter_enhanced_mode", "token_counter", 10)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证增强模式配置"""
             if config.get("enhanced", False):
@@ -235,7 +235,7 @@ class TokenCounterConfigValidationRules:
         def __init__(self):
             super().__init__("token_counter_model_name", "token_counter", 20)
         
-        def _validate_impl(self, config: Dict[str, Any], context: ValidationContext, 
+        def _validate_impl(self, config: Dict[str, Any], context: IValidationContext, 
                           result: ValidationResult) -> None:
             """验证模型名称匹配性"""
             model_type = config.get("model_type")

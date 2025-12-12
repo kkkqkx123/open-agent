@@ -324,10 +324,46 @@ class ConfigManager(IConfigManager):
         # 返回默认验证器
         return self._default_validator
 
+    def list_config_files(self, config_directory: str) -> List[str]:
+        """列出指定目录下的配置文件
+        
+        Args:
+            config_directory: 配置目录路径
+            
+        Returns:
+            配置文件路径列表
+        """
+        try:
+            # 构建完整路径
+            full_path = self.base_path / config_directory
+            
+            if not full_path.exists():
+                logger.warning(f"配置目录不存在: {full_path}")
+                return []
+            
+            # 支持的配置文件扩展名
+            supported_extensions = {'.yaml', '.yml', '.json'}
+            config_files = []
+            
+            # 遍历目录，查找配置文件
+            for ext in supported_extensions:
+                for file_path in full_path.glob(f"*{ext}"):
+                    if file_path.is_file():
+                        # 返回相对于配置目录的路径
+                        relative_path = file_path.relative_to(full_path)
+                        config_files.append(str(relative_path))
+            
+            logger.debug(f"在目录 {config_directory} 中找到 {len(config_files)} 个配置文件")
+            return config_files
+            
+        except Exception as e:
+            logger.error(f"列出配置文件失败 {config_directory}: {e}")
+            return []
+
 class ModuleConfigRegistry(IModuleConfigRegistry):
     """模块配置注册表实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._modules: Dict[str, ModuleConfig] = {}
         self._cross_module_resolvers: List[ICrossModuleResolver] = []
     
@@ -350,7 +386,7 @@ class ModuleConfigRegistry(IModuleConfigRegistry):
 class ConfigMapperRegistry(IConfigMapperRegistry):
     """配置映射器注册表实现"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._mappers: Dict[str, IConfigMapper] = {}
     
     def register_mapper(self, module_type: str, mapper: IConfigMapper) -> None:
@@ -387,7 +423,7 @@ class CrossModuleResolver(ICrossModuleResolver):
         import re
         import json
         
-        def replace_reference(match):
+        def replace_reference(match: re.Match) -> str:
             ref_module = match.group(1)
             ref_path = match.group(2)
             
@@ -409,4 +445,10 @@ class CrossModuleResolver(ICrossModuleResolver):
         while re.search(pattern, config_str):
             config_str = re.sub(pattern, replace_reference, config_str)
         
-        return json.loads(config_str)
+        result = json.loads(config_str)
+        if isinstance(result, dict):
+            return result
+        else:
+            # 如果解析结果不是字典，返回空字典
+            logger.warning(f"配置解析结果不是字典类型: {type(result)}")
+            return {}

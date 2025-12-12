@@ -7,7 +7,6 @@ from typing import Optional
 
 from src.interfaces.config import (
     IConfigValidator,
-    IEnhancedConfigValidator,
     IConfigValidationService
 )
 from src.interfaces.dependency_injection import (
