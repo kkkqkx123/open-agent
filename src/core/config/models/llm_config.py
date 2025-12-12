@@ -1,14 +1,9 @@
 """LLM配置模型"""
 
-from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, List, Union
 from pydantic import Field, field_validator
 
 from .base import BaseConfig
-
-if TYPE_CHECKING:
-    from src.infrastructure.config.models import ConfigData
-    from ..mappers.llm import LLMConfigMapper
-
 
 class LLMConfig(BaseConfig):
     """LLM配置领域模型
@@ -135,26 +130,7 @@ class LLMConfig(BaseConfig):
         """
         return len(self.validate_business_rules()) == 0
 
-    # 转换方法
-    @classmethod
-    def from_config_data(cls, config_data: "ConfigData") -> "LLMConfig":
-        """从基础配置数据创建领域模型
-        
-        Args:
-            config_data: 基础配置数据
-            
-        Returns:
-            LLM领域模型
-        """
-        return LLMConfigMapper.config_data_to_llm_config(config_data)
 
-    def to_config_data(self) -> "ConfigData":
-        """转换为基础配置数据
-        
-        Returns:
-            基础配置数据
-        """
-        return LLMConfigMapper.llm_config_to_config_data(self)
 
     def get_generation_params(self) -> Dict[str, Any]:
         """获取生成参数
