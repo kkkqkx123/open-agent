@@ -8,7 +8,7 @@ from src.interfaces.repository.state import IStateRepository
 from src.interfaces.state.base import IState
 from src.core.state.entities import StateSnapshot, StateHistoryEntry, StateDiff
 from ..base import BaseRepository
-from src.core.storage.config import StorageConfigManager
+from src.services.storage.config_service import StorageConfigService
 
 
 class SQLiteStateRepository(BaseRepository, IStateRepository):
@@ -22,8 +22,8 @@ class SQLiteStateRepository(BaseRepository, IStateRepository):
             repository_type="state"
         )
         
-        # 获取配置管理器
-        self.config_manager = StorageConfigManager()
+        # 获取配置服务
+        self.config_service = StorageConfigService()
     
     def _create_additional_tables(self, snapshots_sql: str, history_sql: str) -> None:
         """创建额外的表"""

@@ -69,13 +69,9 @@ from .models import (
 
 from src.infrastructure.error_management.impl.storage import StorageErrorHandler
 
-from .config import (
-    StorageType,
-    StorageConfigManager,
-    MemoryStorageConfig,
-    SQLiteStorageConfig,
-    FileStorageConfig
-)
+# 从新的配置服务导入
+from src.services.storage.config_service import StorageConfigService
+from src.infrastructure.config.models.storage import StorageType
 
 __all__ = [
     # 统一存储接口（推荐使用）
@@ -145,8 +141,5 @@ __all__ = [
     
     # 配置管理
     "StorageType",
-    "StorageConfigManager",
-    "MemoryStorageConfig",
-    "SQLiteStorageConfig",
-    "FileStorageConfig"
+    "StorageConfigService"
 ]
