@@ -13,8 +13,6 @@ from src.interfaces.config import (
 )
 from src.interfaces.dependency_injection import get_logger
 from src.core.workflow.graph_entities import Graph
-from src.core.config.mappers import WorkflowConfigMapper
-from src.infrastructure.config.models.base import ConfigData
 
 logger = get_logger(__name__)
 
@@ -30,7 +28,6 @@ class WorkflowConfigManager(IModuleConfigService):
             config_manager: 统一配置管理器
         """
         self.config_manager = config_manager
-        self.mapper = WorkflowConfigMapper()
         
         logger.info("工作流配置管理器初始化完成")
     
@@ -49,11 +46,13 @@ class WorkflowConfigManager(IModuleConfigService):
             # 加载配置数据
             config_dict = self.config_manager.load_config(config_path, "workflow")
             
-            # 转换为配置数据
-            config_data = ConfigData(config_dict)
-            
-            # 转换为图实体
-            graph = self.mapper.config_data_to_graph(config_data)
+            # 从配置字典创建图实体
+            if hasattr(Graph, 'from_dict'):
+                graph = getattr(Graph, 'from_dict')(config_dict)
+            elif hasattr(Graph, 'model_validate'):
+                graph = getattr(Graph, 'model_validate')(config_dict)
+            else:
+                graph = Graph(**config_dict)
             
             logger.info(f"工作流配置加载成功: {config_path}")
             return graph
@@ -72,11 +71,16 @@ class WorkflowConfigManager(IModuleConfigService):
         try:
             logger.debug(f"保存工作流配置: {config_path}")
             
-            # 转换为配置数据
-            config_data = self.mapper.graph_to_config_data(config)
+            # 转换为配置字典
+            if hasattr(config, 'to_dict'):
+                config_dict = getattr(config, 'to_dict')()
+            elif hasattr(config, 'model_dump'):
+                config_dict = getattr(config, 'model_dump')()
+            else:
+                config_dict = getattr(config, '__dict__', {})
             
             # 保存配置数据
-            self.config_manager.save_config(config_data.data, config_path)
+            self.config_manager.save_config(config_dict, config_path)
             
             logger.info(f"工作流配置保存成功: {config_path}")
             
@@ -287,15 +291,15 @@ default_workflow_config_manager: Optional[WorkflowConfigManager] = None
 
 
 def get_workflow_config_manager(config_manager: IConfigManager) -> WorkflowConfigManager:
-    """获取工作流配置管理器实例
-    
-    Args:
-        config_manager: 统一配置管理器
-        
-    Returns:
-        WorkflowConfigManager: 工作流配置管理器实例
-    """
-    global default_workflow_config_manager
-    if default_workflow_config_manager is None:
-        default_workflow_config_manager = WorkflowConfigManager(config_manager)
-        return default_workflow_config_manager
+     """获取工作流配置管理器实例
+     
+     Args:
+         config_manager: 统一配置管理器
+         
+     Returns:
+         WorkflowConfigManager: 工作流配置管理器实例
+     """
+     global default_workflow_config_manager
+     if default_workflow_config_manager is None:
+         default_workflow_config_manager = WorkflowConfigManager(config_manager)
+     return default_workflow_config_manager

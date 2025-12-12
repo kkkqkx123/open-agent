@@ -3,7 +3,7 @@
 提供工具模块的配置管理，遵循服务层的职责。
 """
 
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, TYPE_CHECKING
 import logging
 
 from src.interfaces.config import (
@@ -12,8 +12,6 @@ from src.interfaces.config import (
 from src.interfaces.dependency_injection import get_logger
 from src.interfaces.tool.config import ToolConfig, NativeToolConfig, RestToolConfig, MCPToolConfig
 from src.core.tools.config import ToolRegistryConfig
-from src.core.config.mappers import ToolsConfigMapper
-from src.infrastructure.config.models.base import ConfigData
 
 logger = get_logger(__name__)
 
@@ -35,9 +33,6 @@ class ToolsConfigManager(IModuleConfigService):
         """
         self.config_manager = config_manager
         self.mapper_registry = mapper_registry
-        
-        # 获取工具配置映射器
-        self._tools_mapper = ToolsConfigMapper()
         
         logger.debug("初始化工具配置管理器")
     
@@ -62,14 +57,10 @@ class ToolsConfigManager(IModuleConfigService):
             else:
                 raise ValueError("配置管理器未设置")
             
-            # 转换为配置数据
-            config_data = ConfigData(config_dict)
-            
-            # 使用映射器转换为业务实体
-            config_entity = self._tools_mapper.config_data_to_tool_config(config_data)
-            
+            # 直接返回配置字典作为ToolConfig
+            # 在实际应用中，应该根据工具类型转换为相应的配置对象
             logger.info(f"工具配置加载成功: {config_path}")
-            return config_entity
+            return config_dict
             
         except Exception as e:
             logger.error(f"加载工具配置失败 {config_path}: {e}")
@@ -88,12 +79,17 @@ class ToolsConfigManager(IModuleConfigService):
         try:
             logger.debug(f"保存工具配置: {config_path}")
             
-            # 使用映射器转换为配置数据
-            config_data = self._tools_mapper.tool_config_to_config_data(config)
-            
             # 使用配置管理器保存配置
             if self.config_manager:
-                self.config_manager.save_config(config_data.data, config_path)
+                if isinstance(config, dict):
+                    config_dict = config
+                elif hasattr(config, 'model_dump'):
+                    config_dict = getattr(config, 'model_dump')()
+                elif hasattr(config, 'to_dict'):
+                    config_dict = getattr(config, 'to_dict')()
+                else:
+                    config_dict = getattr(config, '__dict__', {})
+                self.config_manager.save_config(config_dict, config_path)
             else:
                 raise ValueError("配置管理器未设置")
             

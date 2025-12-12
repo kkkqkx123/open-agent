@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional
 
 from src.interfaces.config import IConfigManager
-from src.infrastructure.config.models.state import StateConfigData
+from src.core.config.models.state_config import StateConfig
 from src.core.config.validation.impl.state_validator import StateConfigValidator
 from src.core.config.managers.base_config_manager import BaseConfigManager
 from src.interfaces.dependency_injection import get_logger
@@ -39,17 +39,17 @@ class StateConfigManager(BaseConfigManager):
         """获取配置模块名"""
         return "state"
     
-    def _create_config_data(self, config_dict: Dict[str, Any]) -> StateConfigData:
+    def _create_config_data(self, config_dict: Dict[str, Any]) -> StateConfig:
         """创建配置数据对象"""
-        return StateConfigData(config_dict)
+        return StateConfig.from_dict(config_dict)
     
     def _get_validator(self) -> StateConfigValidator:
         """获取配置验证器"""
         return self._validator
     
-    def _create_default_config(self) -> StateConfigData:
+    def _create_default_config(self) -> StateConfig:
         """创建默认配置"""
-        return StateConfigData()
+        return StateConfig()
     
     def get_config_value(self, key: str, default: Any = None) -> Any:
         """获取配置值
@@ -179,7 +179,7 @@ class StateConfigManager(BaseConfigManager):
             raise ValueError(f"配置更新验证失败: {validation_result.errors}")
         
         # 更新配置数据
-        self._config_data = StateConfigData(current_config)
+        self._config_data = StateConfig.from_dict(current_config)
         logger.info("配置已更新")
     
     def _deep_update(self, target: Dict[str, Any], source: Dict[str, Any]) -> None:

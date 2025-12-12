@@ -6,7 +6,7 @@
 from typing import Dict, Any, Optional, List
 
 from src.interfaces.config import IConfigManager
-from src.infrastructure.config.models.storage import StorageConfigData, StorageConfigCollectionData, StorageType
+from src.core.config.models.storage_config import StorageConfig, StorageConfigCollection, StorageType
 from src.core.config.validation.impl.storage_validator import StorageConfigValidator
 from src.core.config.managers.base_config_manager import BaseConfigManager
 from src.interfaces.dependency_injection import get_logger
@@ -39,48 +39,58 @@ class StorageConfigManager(BaseConfigManager):
         """获取配置模块名"""
         return "storage"
     
-    def _create_config_data(self, config_dict: Dict[str, Any]) -> StorageConfigCollectionData:
+    def _create_config_data(self, config_dict: Dict[str, Any]) -> StorageConfigCollection:
         """创建配置数据对象"""
-        return StorageConfigCollectionData(config_dict)
+        return StorageConfigCollection.from_dict(config_dict)
     
     def _get_validator(self) -> StorageConfigValidator:
         """获取配置验证器"""
         return self._validator
     
-    def _create_default_config(self) -> StorageConfigCollectionData:
+    def _create_default_config(self) -> StorageConfigCollection:
         """创建默认配置"""
-        collection = StorageConfigCollectionData()
+        collection = StorageConfigCollection()
         self._register_default_templates(collection)
         return collection
     
-    def _register_default_templates(self, collection: Optional[StorageConfigCollectionData] = None) -> None:
+    def _register_default_templates(self, collection: Optional[StorageConfigCollection] = None) -> None:
         """注册默认配置模板"""
         if collection is None:
             collection = self.get_config_collection()
         
         # 内存存储默认配置
-        memory_config = StorageConfigData.create_memory_config("memory_default")
+        memory_config = StorageConfig(
+            name="memory_default",
+            storage_type=StorageType.MEMORY,
+            is_default=True
+        )
         collection.add_config(memory_config)
         
         # SQLite存储默认配置
-        sqlite_config = StorageConfigData.create_sqlite_config("sqlite_default")
+        sqlite_config = StorageConfig(
+            name="sqlite_default",
+            storage_type=StorageType.SQLITE
+        )
         collection.add_config(sqlite_config)
         
         # 文件存储默认配置
-        file_config = StorageConfigData.create_file_config("file_default")
+        file_config = StorageConfig(
+            name="file_default",
+            storage_type=StorageType.FILE
+        )
         collection.add_config(file_config)
     
-    def get_config_collection(self) -> StorageConfigCollectionData:
+    def get_config_collection(self) -> StorageConfigCollection:
         """获取存储配置集合
         
         Returns:
             存储配置集合实例
         """
         config_data = self.get_config_data()
-        assert isinstance(config_data, StorageConfigCollectionData), "配置数据类型错误"
+        assert isinstance(config_data, StorageConfigCollection), "配置数据类型错误"
         return config_data
     
-    def register_config(self, config: StorageConfigData) -> bool:
+    def register_config(self, config: StorageConfig) -> bool:
         """注册存储配置
         
         Args:
@@ -103,11 +113,11 @@ class StorageConfigManager(BaseConfigManager):
             # 添加到配置集合
             self.get_config_collection().add_config(processed_config)
             
-            logger.info(f"已注册存储配置: {config.get_name()}")
+            logger.info(f"已注册存储配置: {config.name}")
             return True
             
         except Exception as e:
-            logger.error(f"注册配置失败 {config.get_name()}: {e}")
+            logger.error(f"注册配置失败 {config.name}: {e}")
             return False
     
     def unregister_config(self, name: str) -> bool:
@@ -121,7 +131,7 @@ class StorageConfigManager(BaseConfigManager):
         """
         return self.get_config_collection().remove_config(name)
     
-    def get_config(self, name: str) -> Optional[StorageConfigData]:
+    def get_config(self, name: str) -> Optional[StorageConfig]:
         """获取存储配置
         
         Args:
@@ -130,30 +140,18 @@ class StorageConfigManager(BaseConfigManager):
         Returns:
             存储配置或None
         """
-        config_dict = self.get_config_collection().get_config(name)
-        if config_dict is None:
-            return None
-        return StorageConfigData(config_dict)
+        return self.get_config_collection().get_config(name)
     
-    def get_default_config(self) -> Optional[StorageConfigData]:
+    def get_default_config(self) -> Optional[StorageConfig]:
         """获取默认存储配置
         
         Returns:
             默认存储配置或None
         """
         collection = self.get_config_collection()
-        # 获取默认配置名称
-        default_name = collection.get_default_config_name()
-        if default_name is None:
-            return None
-        
-        # 获取默认配置
-        config_dict = collection.get_config(default_name)
-        if config_dict is None:
-            return None
-        return StorageConfigData(config_dict)
+        return collection.get_default_config()
     
-    def list_configs(self, storage_type: Optional[StorageType] = None) -> List[StorageConfigData]:
+    def list_configs(self, storage_type: Optional[StorageType] = None) -> List[StorageConfig]:
         """列出存储配置
         
         Args:
@@ -162,10 +160,7 @@ class StorageConfigManager(BaseConfigManager):
         Returns:
             存储配置列表
         """
-        config_dicts = self.get_config_collection().list_configs(
-            storage_type.value if storage_type else None
-        )
-        return [StorageConfigData(config_dict) for config_dict in config_dicts]
+        return self.get_config_collection().list_configs(storage_type)
     
     def set_default_config(self, name: str) -> bool:
         """设置默认存储配置
@@ -182,7 +177,8 @@ class StorageConfigManager(BaseConfigManager):
             return False
         
         # 更新配置集合的默认配置
-        self.get_config_collection().set_default_config_name(name)
+        collection = self.get_config_collection()
+        collection.default_config = name
         logger.info(f"已设置默认配置: {name}")
         return True
     
@@ -210,22 +206,15 @@ class StorageConfigManager(BaseConfigManager):
                 return False
             
             # 创建新配置
-            storage_type = template_config.get_storage_type()
-            if storage_type == StorageType.MEMORY.value:
-                new_config = StorageConfigData.create_memory_config(new_name)
-            elif storage_type == StorageType.SQLITE.value:
-                new_config = StorageConfigData.create_sqlite_config(new_name)
-            elif storage_type == StorageType.FILE.value:
-                new_config = StorageConfigData.create_file_config(new_name)
-            else:
-                logger.error(f"不支持的存储类型: {storage_type}")
-                return False
+            new_config = StorageConfig(
+                name=new_name,
+                storage_type=template_config.storage_type,
+                config=template_config.config.copy() if template_config.config else {}
+            )
             
             # 应用覆盖配置
             if overrides:
-                config_data = new_config.to_dict()
-                config_data['config'].update(overrides)
-                new_config = StorageConfigData(config_data)
+                new_config.config.update(overrides)
             
             # 注册新配置
             return self.register_config(new_config)
@@ -244,18 +233,17 @@ class StorageConfigManager(BaseConfigManager):
             导出的配置字典
         """
         collection = self.get_config_collection()
-        configs = collection.get_configs()
         
         exported_configs = {}
-        for name, config_dict in configs.items():
+        for name, config in collection.configs.items():
             # 跳过默认配置模板（如果不需要包含）
             if not include_defaults and name.endswith("_default"):
                 continue
             
-            exported_configs[name] = config_dict
+            exported_configs[name] = config.to_dict()
         
         return {
-            "default_config": collection.get_default_config_name(),
+            "default_config": collection.default_config,
             "configs": exported_configs
         }
     
@@ -272,16 +260,17 @@ class StorageConfigManager(BaseConfigManager):
         try:
             if not merge:
                 # 清空现有配置
-                self._config_data = StorageConfigCollectionData()
+                self._config_data = StorageConfigCollection()
             
             # 导入默认配置
             if "default_config" in configs_data:
-                self.get_config_collection().set_default_config_name(configs_data["default_config"])
+                collection = self.get_config_collection()
+                collection.default_config = configs_data["default_config"]
             
             # 导入配置
             if "configs" in configs_data:
                 for name, config_data in configs_data["configs"].items():
-                    config = StorageConfigData(config_data)
+                    config = StorageConfig.from_dict(config_data)
                     self.register_config(config)
             
             logger.info("配置导入成功")
