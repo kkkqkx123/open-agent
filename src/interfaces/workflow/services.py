@@ -1,192 +1,26 @@
-"""Service layer interfaces for workflow management.
-
-This module defines the interfaces for workflow services in the service layer,
-providing contracts for workflow management, execution, and orchestration.
+"""
+工作流服务接口
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, AsyncGenerator, TYPE_CHECKING, Union
+from typing import Dict, Any, Optional
 
-if TYPE_CHECKING:
-    from .core import IWorkflow
-    from ..state.workflow import IWorkflowState
-
-
-class IWorkflowManager(ABC):
-    """Interface for workflow manager service."""
+class IWorkflowService(ABC):
+    """工作流服务接口"""
     
     @abstractmethod
-    def create_workflow(self, workflow_id: str, name: str, config: Dict[str, Any]) -> "IWorkflow":
-        """Create a new workflow."""
+    def execute_workflow(self, workflow_id: str, input_data: Dict[str, Any]) -> Dict[str, Any]:
+        """执行工作流"""
         pass
     
     @abstractmethod
-    def execute_workflow(
-        self, 
-        workflow_id: str, 
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> "IWorkflowState":
-        """Execute a workflow."""
+    def get_workflow_status(self, workflow_id: str) -> str:
+        """获取工作流状态"""
         pass
     
     @abstractmethod
-    def get_workflow_status(self, workflow_id: str) -> Dict[str, Any]:
-        """Get the status of a workflow."""
-        pass
-    
-    @abstractmethod
-    def list_workflows(self) -> List[Dict[str, Any]]:
-        """List all registered workflows."""
-        pass
-    
-    @abstractmethod
-    def delete_workflow(self, workflow_id: str) -> bool:
-        """Delete a workflow."""
+    def list_workflows(self) -> list:
+        """列出所有工作流"""
         pass
 
-
-class IWorkflowFactory(ABC):
-    """Interface for workflow factory service."""
-    
-    @abstractmethod
-    def create_from_config(self, config: Dict[str, Any]) -> "IWorkflow":
-        """Create a workflow from a configuration dictionary."""
-        pass
-    
-    @abstractmethod
-    def create_from_template(self, template_name: str, params: Dict[str, Any]) -> "IWorkflow":
-        """Create a workflow from a template."""
-        pass
-    
-    @abstractmethod
-    def create_workflow_type(self, workflow_type: str, **kwargs: Any) -> "IWorkflow":
-        """Create a workflow of a specific type."""
-        pass
-    
-    @abstractmethod
-    def register_template(self, name: str, template: Dict[str, Any]) -> None:
-        """Register a workflow template."""
-        pass
-    
-    @abstractmethod
-    def register_workflow_type(self, name: str, workflow_class: type) -> None:
-        """Register a workflow type."""
-        pass
-    
-    @abstractmethod
-    def list_templates(self) -> List[str]:
-        """List all registered templates."""
-        pass
-    
-    @abstractmethod
-    def list_workflow_types(self) -> List[str]:
-        """List all registered workflow types."""
-        pass
-
-
-class IWorkflowExecutor(ABC):
-    """Interface for workflow executor service."""
-    
-    @abstractmethod
-    def execute(
-        self,
-        workflow: "IWorkflow",
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> "IWorkflowState":
-        """Execute a workflow."""
-        pass
-    
-    @abstractmethod
-    async def execute_async(
-        self,
-        workflow: "IWorkflow",
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> "IWorkflowState":
-        """Execute a workflow asynchronously."""
-        pass
-    
-    @abstractmethod
-    def execute_stream(
-        self,
-        workflow: "IWorkflow",
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> AsyncGenerator[Dict[str, Any], None]:
-        """Execute a workflow with streaming results."""
-        pass
-    
-    @abstractmethod
-    def get_execution_count(self, workflow_id: str) -> int:
-        """Get the execution count for a workflow."""
-        pass
-
-
-class IWorkflowRegistryCoordinator(ABC):
-    """Interface for workflow registry coordinator service."""
-    
-    @abstractmethod
-    def register_workflow(self, workflow_id: str, workflow: "IWorkflow") -> None:
-        """Register a workflow."""
-        pass
-    
-    @abstractmethod
-    def get_workflow(self, workflow_id: str) -> Optional["IWorkflow"]:
-        """Get a workflow by ID."""
-        pass
-    
-    @abstractmethod
-    def create_workflow_coordinator(self, workflow_id: str) -> Any:
-        """Create a workflow instance coordinator."""
-        pass
-    
-    @abstractmethod
-    def execute_workflow(
-        self,
-        workflow_id: str,
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> "IWorkflowState":
-        """Execute a workflow."""
-        pass
-    
-    @abstractmethod
-    async def execute_workflow_async(
-        self,
-        workflow_id: str,
-        initial_state: Optional["IWorkflowState"] = None,
-        config: Optional[Dict[str, Any]] = None
-    ) -> "IWorkflowState":
-        """Execute a workflow asynchronously."""
-        pass
-    
-    @abstractmethod
-    def list_workflows(self) -> List[Dict[str, Any]]:
-        """List all registered workflows."""
-        pass
-    
-    @abstractmethod
-    def delete_workflow(self, workflow_id: str) -> bool:
-        """Delete a workflow."""
-        pass
-
-
-class IWorkflowBuilderService(ABC):
-    """Interface for workflow builder service."""
-    
-    @abstractmethod
-    def build_workflow(self, config: Dict[str, Any]) -> "IWorkflow":
-        """Build a workflow from configuration."""
-        pass
-    
-    @abstractmethod
-    def validate_config(self, config: Dict[str, Any]) -> List[str]:
-        """Validate a workflow configuration."""
-        pass
-    
-    @abstractmethod
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get the configuration schema."""
-        pass
+__all__ = ["IWorkflowService"]

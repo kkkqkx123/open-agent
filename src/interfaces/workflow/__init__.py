@@ -97,6 +97,10 @@ from .config import (
     EdgeType
 )
 
+from .services import (
+    IWorkflowService
+)
+
 __all__ = [
     # Core interfaces
     "IWorkflow",
@@ -176,4 +180,7 @@ __all__ = [
     "IGraphStateConfig",
     "IGraphConfig",
     "EdgeType",
+    
+    # Service interfaces
+    "IWorkflowService",
 ]

@@ -1,94 +1,31 @@
 """
-统一存储接口模块
-
-提供存储系统的统一接口定义，包括基础存储、监控、迁移、事务和异常处理。
-这是整个系统的存储抽象层，为所有模块提供统一的存储接口。
+存储接口
 """
 
-from .base import IStorage, IStorageFactory
-from .provider import IStorageProvider
-from .session_thread import ISessionStorage, IThreadStorage
-from .monitoring import IStorageMonitoring, IStorageMetrics, IStorageAlerting
-from .migration import IStorageMigration, ISchemaMigration, IDataTransformer, IMigrationPlanner
-from .transaction import IStorageTransaction, IDistributedTransaction, ITransactionRecovery, ITransactionManager, IConsistencyManager
-from .state import IStateStorageAdapter, IStorageAdapterFactory, IStorageMigration as IStateStorageMigration
-from .exceptions import (
-    StorageError,
-    StorageConnectionError,
-    StorageOperationError,
-    StorageValidationError,
-    StorageNotFoundError,
-    StorageTimeoutError,
-    StorageCapacityError,
-    StorageIntegrityError,
-    StorageConfigurationError,
-    StorageMigrationError,
-    StorageTransactionError,
-    StoragePermissionError,
-    StorageSerializationError,
-    StorageCompressionError,
-    StorageEncryptionError,
-    StorageIndexError,
-    StorageBackupError,
-    StorageLockError,
-    StorageQueryError,
-    StorageHealthError,
-    StorageConsistencyError,
-    StorageDistributedTransactionError
-)
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional
 
-__all__ = [
-    # 基础接口
-    "IStorage",
-    "IStorageFactory",
-    "IStorageProvider",
-    "ISessionStorage",
-    "IThreadStorage",
+class IStorageService(ABC):
+    """存储服务接口"""
     
-    # 监控接口
-    "IStorageMonitoring",
-    "IStorageMetrics", 
-    "IStorageAlerting",
+    @abstractmethod
+    def save(self, key: str, data: Any) -> None:
+        """保存数据"""
+        pass
     
-    # 迁移接口
-    "IStorageMigration",
-    "ISchemaMigration",
-    "IDataTransformer",
-    "IMigrationPlanner",
+    @abstractmethod
+    def load(self, key: str) -> Optional[Any]:
+        """加载数据"""
+        pass
     
-    # 事务接口
-    "IStorageTransaction",
-    "IDistributedTransaction",
-    "ITransactionRecovery",
-    "ITransactionManager",
-    "IConsistencyManager",
+    @abstractmethod
+    def delete(self, key: str) -> bool:
+        """删除数据"""
+        pass
     
-    # 状态存储接口
-    "IStateStorageAdapter",
-    "IStorageAdapterFactory",
-    "IStateStorageMigration",
-    
-    # 异常类型
-    "StorageError",
-    "StorageConnectionError",
-    "StorageOperationError",
-    "StorageValidationError",
-    "StorageNotFoundError",
-    "StorageTimeoutError",
-    "StorageCapacityError",
-    "StorageIntegrityError",
-    "StorageConfigurationError",
-    "StorageMigrationError",
-    "StorageTransactionError",
-    "StoragePermissionError",
-    "StorageSerializationError",
-    "StorageCompressionError",
-    "StorageEncryptionError",
-    "StorageIndexError",
-    "StorageBackupError",
-    "StorageLockError",
-    "StorageQueryError",
-    "StorageHealthError",
-    "StorageConsistencyError",
-    "StorageDistributedTransactionError"
-]
+    @abstractmethod
+    def exists(self, key: str) -> bool:
+        """检查数据是否存在"""
+        pass
+
+__all__ = ["IStorageService"]
