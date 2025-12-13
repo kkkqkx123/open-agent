@@ -13,7 +13,7 @@ from src.infrastructure.validation.result import ValidationResult
 from src.interfaces.common_domain import IValidationResult
 from src.interfaces.config.schema import ISchemaGenerator, IConfigSchema
 from src.interfaces.config.impl import IConfigImpl
-from .shared import CacheManager, DiscoveryManager, ValidationHelper
+from .shared import CacheManager, DiscoveryManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,6 @@ class BaseConfigImpl(IConfigImpl):
         # 整合的共享组件
         self.cache_manager = CacheManager()
         self.discovery_manager = DiscoveryManager(config_loader)
-        self.validation_helper = ValidationHelper()
         
         logger.debug(f"初始化{module_type}模块配置实现")
     
@@ -69,7 +68,10 @@ class BaseConfigImpl(IConfigImpl):
                 cached_config = self.cache_manager.get(cache_key)
                 if cached_config is not None:
                     logger.debug(f"从缓存加载{self.module_type}模块配置: {config_path}")
-                    return cached_config
+                    if isinstance(cached_config, dict):
+                        return cached_config
+                    else:
+                        logger.warning(f"缓存中的配置不是字典类型，重新加载: {cache_key}")
             
             # 2. 加载原始配置
             logger.debug(f"加载原始配置文件: {config_path}")
@@ -221,7 +223,7 @@ class BaseConfigImpl(IConfigImpl):
             # 清除模块相关的所有缓存
             self.cache_manager.clear()
     
-    def validate_config_structure(self, config: Dict[str, Any], required_keys: list[str]) -> ValidationResult:
+    def validate_config_structure(self, config: Dict[str, Any], required_keys: list[str]) -> IValidationResult:
         """验证配置结构
         
         Args:
@@ -231,7 +233,17 @@ class BaseConfigImpl(IConfigImpl):
         Returns:
             验证结果
         """
-        return self.validation_helper.validate_structure(config, required_keys)
+        # 使用基础设施层的验证功能
+        from src.infrastructure.config.validation.base_validator import GenericConfigValidator
+        validator = GenericConfigValidator()
+        result = validator.validate(config)
+        
+        # 验证必需字段
+        for key in required_keys:
+            if key not in config:
+                result.add_error(f"缺少必需的配置键: {key}")
+        
+        return result
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """获取缓存统计信息

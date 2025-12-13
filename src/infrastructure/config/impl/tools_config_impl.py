@@ -80,7 +80,10 @@ class ToolsConfigImpl(BaseConfigImpl):
                 cached_config = self.cache_manager.get(cache_key)
                 if cached_config is not None:
                     logger.debug(f"从缓存加载工具配置: {config_path}")
-                    return cached_config
+                    if isinstance(cached_config, dict):
+                        return cached_config
+                    else:
+                        logger.warning(f"缓存中的工具配置不是字典类型，重新加载: {cache_key}")
             
             logger.debug(f"加载工具配置: {config_path}")
             config = self.load_config(config_path, use_cache=False)
@@ -118,7 +121,10 @@ class ToolsConfigImpl(BaseConfigImpl):
                 cached_tools = self.cache_manager.get(cache_key)
                 if cached_tools is not None:
                     logger.debug(f"从缓存加载 {tool_type} 类型工具配置")
-                    return cached_tools
+                    if isinstance(cached_tools, list):
+                        return cached_tools
+                    else:
+                        logger.warning(f"缓存中的工具列表不是列表类型，重新加载: {cache_key}")
             
             # 使用发现管理器获取配置文件
             config_files = self.discovery_manager.discover_module_configs("tools", f"{tool_type}/*")
@@ -190,7 +196,10 @@ class ToolsConfigImpl(BaseConfigImpl):
                 cached_config = self.cache_manager.get(cache_key)
                 if cached_config is not None:
                     logger.debug("从缓存加载工具注册表配置")
-                    return cached_config
+                    if isinstance(cached_config, dict):
+                        return cached_config
+                    else:
+                        logger.warning(f"缓存中的注册表配置不是字典类型，重新加载: {cache_key}")
             
             config = self.load_config("tools/registry", use_cache=False)
             

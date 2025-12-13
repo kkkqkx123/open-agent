@@ -1,7 +1,7 @@
 """
 基础设施层配置处理器模块
 
-提供配置继承、环境变量、引用、验证、转换、发现和Provider管理等处理功能。
+提供配置继承、环境变量、引用、验证、转换和Provider管理等处理功能。
 """
 
 # 基础处理器
@@ -13,7 +13,6 @@ from .inheritance_processor import InheritanceProcessor
 from .reference_processor import ReferenceProcessor
 from .validation_processor_wrapper import ValidationProcessorWrapper
 from .transformation_processor import TransformationProcessor, TypeConverter
-from .discovery_processor import DiscoveryProcessor
 
 __all__ = [
     # 基础处理器
@@ -27,5 +26,4 @@ __all__ = [
     "ValidationProcessorWrapper",
     "TransformationProcessor",
     "TypeConverter",
-    "DiscoveryProcessor",
 ]
