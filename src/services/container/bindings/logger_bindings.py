@@ -3,32 +3,40 @@
 """
 
 from typing import Dict, Any
-from src.interfaces.logger import ILogger, ILoggerFactory
-from src.interfaces.container.core import ServiceLifetime
+from src.interfaces.logger import ILogger
+from src.interfaces.container.core import IDependencyContainer, ServiceLifetime
+from src.services.logger.logger_service import LoggerService
 
 class LoggerServiceBindings:
     """日志服务绑定"""
     
-    def register_services(self, container, config: Dict[str, Any]):
-        """注册日志服务"""
-        # 注册日志工厂
-        def logger_factory():
+    def register_services(self, container: IDependencyContainer, config: Dict[str, Any]):
+        """注册日志服务
+        
+        Args:
+            container: 依赖注入容器
+            config: 配置信息
+        """
+        # 注册基础设施层日志记录器
+        def infrastructure_logger_factory():
             from src.infrastructure.logger.factory.logger_factory import LoggerFactory
-            return LoggerFactory()
-        
-        container.register_factory(
-            ILoggerFactory,
-            logger_factory,
-            lifetime=ServiceLifetime.SINGLETON
-        )
-        
-        # 注册日志服务
-        def logger_service():
-            logger_factory_instance = container.get(ILoggerFactory)
-            return logger_factory_instance.create_logger("application")
+            factory = LoggerFactory()
+            return factory.get_logger("infrastructure", config=config.get("logger", {}))
         
         container.register_factory(
             ILogger,
-            logger_service,
+            infrastructure_logger_factory,
+            lifetime=ServiceLifetime.SINGLETON
+        )
+        
+        # 注册业务层日志服务
+        def logger_service_factory():
+            from src.services.logger.logger_service import LoggerService
+            infra_logger = container.get(ILogger)
+            return LoggerService("default", infra_logger, config.get("logger", {}))
+        
+        container.register_factory(
+            LoggerService,
+            logger_service_factory,
             lifetime=ServiceLifetime.SINGLETON
         )

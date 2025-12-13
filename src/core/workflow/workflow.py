@@ -21,16 +21,19 @@ class Workflow(IWorkflow):
     def __init__(
         self,
         graph: Graph,
-        compiled_graph: Optional[Any] = None
+        compiled_graph: Optional[Any] = None,
+        config: Optional[Any] = None
     ):
         """初始化工作流数据模型
         
         Args:
             graph: 工作流图实体
             compiled_graph: 编译后的图
+            config: 图配置
         """
         self._graph = graph
         self._compiled_graph = compiled_graph
+        self._config = config or graph  # 如果没有提供config，使用graph作为config
         self._created_at = datetime.now()
         self._metadata = {}  # 内部元数据存储
     
@@ -81,6 +84,11 @@ class Workflow(IWorkflow):
         return self._graph
     
     @property
+    def config(self) -> Any:
+        """工作流配置"""
+        return self._config
+    
+    @property
     def created_at(self) -> datetime:
         """创建时间"""
         return self._created_at
@@ -124,22 +132,22 @@ class Workflow(IWorkflow):
         """设置编译后的图"""
         self._compiled_graph = graph
     
-    def add_node(self, node: Any) -> None:
+    def add_node(self, node_config: Any) -> None:
         """添加节点
         
         Args:
-            node: 节点实体
+            node_config: 节点配置
         """
-        if hasattr(node, 'node_id'):
-            self._graph.add_node(node)
+        if hasattr(node_config, 'node_id'):
+            self._graph.add_node(node_config)
     
-    def add_edge(self, edge: Any) -> None:
+    def add_edge(self, edge_config: Any) -> None:
         """添加边
         
         Args:
-            edge: 边实体
+            edge_config: 边配置
         """
-        self._graph.edges.append(edge)
+        self._graph.edges.append(edge_config)
     
     def __repr__(self) -> str:
         """字符串表示"""

@@ -1,15 +1,13 @@
 """基础设施层图错误定义
 
-提供图执行过程中使用的错误类型。
+提供图执行过程中使用的错误类型、错误代码和错误消息创建函数。
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
-from warnings import warn
-
-from typing_extensions import deprecated
 
 from typing import TYPE_CHECKING
 
@@ -31,6 +29,8 @@ __all__ = (
     "CheckpointError",
     "DeliveryFailedError",
     "InvalidConfigurationError",
+    "GraphErrorCode",
+    "create_error_message",
 )
 
 
@@ -107,3 +107,70 @@ class InvalidConfigurationError(Exception):
 class EmptyChannelError(Exception):
     """当尝试获取尚未首次更新的通道的值时引发。"""
     pass
+
+
+class GraphErrorCode(Enum):
+    """图错误代码枚举"""
+    
+    # 图配置错误
+    INVALID_GRAPH_CONFIGURATION = "INVALID_GRAPH_CONFIGURATION"
+    INVALID_NODE_CONFIGURATION = "INVALID_NODE_CONFIGURATION"
+    INVALID_EDGE_CONFIGURATION = "INVALID_EDGE_CONFIGURATION"
+    
+    # 图执行错误
+    GRAPH_EXECUTION_ERROR = "GRAPH_EXECUTION_ERROR"
+    NODE_EXECUTION_ERROR = "NODE_EXECUTION_ERROR"
+    EDGE_EXECUTION_ERROR = "EDGE_EXECUTION_ERROR"
+    
+    # 通道错误
+    INVALID_CONCURRENT_GRAPH_UPDATE = "INVALID_CONCURRENT_GRAPH_UPDATE"
+    CHANNEL_UPDATE_ERROR = "CHANNEL_UPDATE_ERROR"
+    CHANNEL_ACCESS_ERROR = "CHANNEL_ACCESS_ERROR"
+    
+    # 检查点错误
+    CHECKPOINT_ERROR = "CHECKPOINT_ERROR"
+    CHECKPOINT_NOT_FOUND = "CHECKPOINT_NOT_FOUND"
+    CHECKPOINT_RESTORE_ERROR = "CHECKPOINT_RESTORE_ERROR"
+    
+    # 状态错误
+    STATE_TRANSITION_ERROR = "STATE_TRANSITION_ERROR"
+    STATE_VALIDATION_ERROR = "STATE_VALIDATION_ERROR"
+    STATE_CONFLICT_ERROR = "STATE_CONFLICT_ERROR"
+    
+    # 资源错误
+    RESOURCE_LIMIT_EXCEEDED = "RESOURCE_LIMIT_EXCEEDED"
+    MEMORY_LIMIT_EXCEEDED = "MEMORY_LIMIT_EXCEEDED"
+    TIME_LIMIT_EXCEEDED = "TIME_LIMIT_EXCEEDED"
+    
+    # 并发错误
+    CONCURRENCY_ERROR = "CONCURRENCY_ERROR"
+    DEADLOCK_DETECTED = "DEADLOCK_DETECTED"
+    RACE_CONDITION = "RACE_CONDITION"
+
+
+def create_error_message(message: str, error_code: GraphErrorCode | str, **kwargs: Any) -> str:
+    """创建格式化的错误消息
+    
+    Args:
+        message: 错误消息
+        error_code: 错误代码
+        **kwargs: 其他参数
+        
+    Returns:
+        格式化的错误消息
+    """
+    if isinstance(error_code, GraphErrorCode):
+        error_code_str = error_code.value
+    else:
+        error_code_str = str(error_code)
+    
+    # 构建详细的消息
+    details = []
+    for key, value in kwargs.items():
+        if value is not None:
+            details.append(f"{key}: {value}")
+    
+    if details:
+        return f"[{error_code_str}] {message} ({', '.join(details)})"
+    else:
+        return f"[{error_code_str}] {message}"

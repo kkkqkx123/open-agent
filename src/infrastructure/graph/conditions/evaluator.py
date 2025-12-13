@@ -83,13 +83,13 @@ class ConditionEvaluator:
         last_message = messages[-1]
         
         # 使用类型安全的接口方法
-        from ...interfaces.messages import IBaseMessage
+        from src.interfaces.messages import IBaseMessage
         if isinstance(last_message, IBaseMessage):
             return last_message.has_tool_calls()
         
         # 对于非接口消息，使用消息转换器转换为接口类型
         try:
-            from ...infrastructure.messages.converters import MessageConverter
+            from src.infrastructure.messages.converters import MessageConverter
             converter = MessageConverter()
             base_message = converter.to_base_message(last_message)
             return base_message.has_tool_calls()

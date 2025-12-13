@@ -10,7 +10,7 @@ from typing import Any, Generic
 
 from typing_extensions import Self
 
-from langgraph.errors import ErrorCode, InvalidUpdateError, create_error_message
+from ..types.errors import GraphErrorCode, create_error_message, InvalidUpdateError
 
 from ..types.errors import EmptyChannelError
 from .base import BaseChannel, Value
@@ -62,7 +62,7 @@ class LastValue(Generic[Value], BaseChannel[Value, Value, Value]):
         if len(values) != 1:
             msg = create_error_message(
                 message=f"At key '{self.key}': Can receive only one value per step. Use an Annotated key to handle multiple values.",
-                error_code=ErrorCode.INVALID_CONCURRENT_GRAPH_UPDATE,
+                error_code=GraphErrorCode.INVALID_CONCURRENT_GRAPH_UPDATE,
             )
             raise InvalidUpdateError(msg)
 

@@ -3,29 +3,19 @@
 只负责将配置编译为可执行的图，不包含加载、验证等逻辑。
 """
 
-from abc import ABC, abstractmethod
 from typing import Any, List, Optional, TYPE_CHECKING
 from src.interfaces.dependency_injection import get_logger
 
-from src.core.workflow.graph_entities import GraphConfig
 from src.core.workflow.workflow import Workflow
 from src.interfaces.workflow.element_builder import BuildContext
 from src.infrastructure.graph.builders.element_builder_factory import get_builder_factory
 from src.interfaces.workflow.core import IWorkflow
+from src.interfaces.workflow.builders import IWorkflowBuilder
 
 if TYPE_CHECKING:
     pass
 
 logger = get_logger(__name__)
-
-
-class IWorkflowBuilder(ABC):
-    """工作流构建器接口"""
-    
-    @abstractmethod
-    def build_graph(self, workflow: Workflow) -> Any:
-        """构建工作流图"""
-        pass
 
 
 class WorkflowBuilder(IWorkflowBuilder):
@@ -172,4 +162,65 @@ class WorkflowBuilder(IWorkflowBuilder):
             if not hasattr(edge, 'type'):
                 errors.append(f"边缺少类型定义: {edge}")
         
+        return errors
+    
+    def create_workflow(self, config: dict[str, Any]) -> IWorkflow:
+        """创建工作流
+        
+        Args:
+            config: 工作流配置字典
+            
+        Returns:
+            IWorkflow: 工作流实例
+        """
+        from src.core.workflow.graph_entities import Graph
+        
+        # 创建图实体
+        graph = Graph(
+            graph_id=config.get('workflow_id', 'default'),
+            name=config.get('name', 'Default Workflow'),
+            description=config.get('description'),
+            version=config.get('version', '1.0'),
+            entry_point=config.get('entry_point')
+        )
+        
+        # 创建工作流实例
+        workflow = Workflow(graph=graph, config=config)
+        
+        logger.info(f"创建工作流: {workflow.name}")
+        return workflow
+    
+    def validate_config(self, config: dict[str, Any]) -> List[str]:
+        """验证工作流配置
+        
+        Args:
+            config: 工作流配置字典
+            
+        Returns:
+            List[str]: 验证错误列表 (空列表表示有效)
+        """
+        errors = []
+        
+        # 检查必要字段
+        if not config.get('name'):
+            errors.append("工作流名称是必需的")
+        
+        if not config.get('workflow_id'):
+            errors.append("工作流ID是必需的")
+        
+        # 检查节点配置
+        nodes = config.get('nodes', {})
+        if not nodes:
+            errors.append("工作流必须包含至少一个节点")
+        
+        # 检查边配置
+        edges = config.get('edges', [])
+        if not edges:
+            errors.append("工作流必须包含至少一个边")
+        
+        # 检查入口点
+        if not config.get('entry_point'):
+            errors.append("工作流必须指定入口点")
+        
+        logger.debug(f"配置验证完成，错误数: {len(errors)}")
         return errors
